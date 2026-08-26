@@ -1,0 +1,27 @@
+# Agent runtime (contiene node_modules locales)
+.opencode/
+
+# Dependencias
+node_modules/
+
+# Next.js / build
+.next/
+out/
+dist/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Base de datos local
+*.sqlite
+*.sqlite3
+*.db
+
+# Sistema operativo
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
