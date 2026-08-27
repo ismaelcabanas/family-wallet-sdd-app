@@ -14,6 +14,7 @@ Webapp familiar para gestionar gastos e ingresos: 3 cuentas (2 personales + 1 co
 | Área | Decisión |
 |------|----------|
 | Arquitectura | Monolito Next.js (App Router), TypeScript estricto |
+| Arquitectura interna | Hexagonal + DDD táctico (constitución, principio VII): dominio y aplicación puros, UI/API/persistencia como adaptadores |
 | Persistencia | Drizzle ORM + SQLite (fichero en dev) / Turso libSQL (prod) |
 | Validación | Zod en fronteras (API, formularios) |
 | Tests | Vitest + Testing Library |
@@ -48,6 +49,10 @@ AGENTS.md                 # este archivo
 ```
 
 El scaffold de la aplicación Next.js se creará como primer trabajo de la feature `002-registro-movimientos`; hasta entonces no existe `package.json` ni código fuente.
+
+## Referencias
+
+- [CodelyTV/typescript-ddd-example](https://github.com/CodelyTV/typescript-ddd-example): referencia de estilo para hexagonal + DDD táctico (organización de capas y patrones). NO copiar su stack (MongoDB, RabbitMQ), CQRS ni EDA sin justificación en el plan (constitución, principio VII).
 
 ## Convenciones
 
