@@ -18,9 +18,11 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 
 | Feature hija | Agrupa historias | Contenido | Estado |
 |--------------|------------------|-----------|--------|
-| `002-registro-movimientos` | US1 + US5 + US6 | Registro de gastos e ingresos, cuentas, naturaleza propio/común, tags múltiples, catálogo de tags, uso sin login. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag) | Pendiente de crear |
-| `003-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Futura |
-| `004-analisis-agregado` | US3 + US4 | Resumen global, cuadre mensual y cuenta de resultados anual | Futura |
+| `002-registro-movimientos` | US1 (+US6 como restricción de uso) | Registro de gastos e ingresos con tags del catálogo precargado, cuentas preconfiguradas (2 personales + 1 común), listado por mes/cuenta, balance acumulado y uso sin login. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag) | En curso (spec en borrador) |
+| `003-gestion-movimientos` | FR-001/FR-008/FR-009 (refinamiento) | Edición y eliminación de movimientos con recálculo de balances, filtrado y búsqueda, gestión de cuentas y miembros (añadir, renombrar) | Futura |
+| `004-gestion-tags` | US5 | Catálogo de tags: crear, renombrar, fusionar y desactivar tags sin perder el histórico | Futura |
+| `005-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Futura |
+| `006-analisis-agregado` | US3 + US4 | Resumen global, cuadre mensual y cuenta de resultados anual | Futura |
 
 ### Alcance diferido (decisiones del usuario)
 
