@@ -9,6 +9,7 @@ Webapp familiar para gestionar gastos e ingresos: 3 cuentas (2 personales + 1 co
 3. **Antes de dar por terminado cualquier cambio de código**: ejecuta `npm run lint`, `npm run typecheck` y `npm run test` y verifica que están en verde.
 4. **Respetar estrictamente la dirección de dependencias**: Dominio → Aplicación → Adaptadores. El dominio NUNCA importa nada de Next.js, Drizzle, Zod o la UI.
 5. **Nunca hagas commit/push sin petición explícita del usuario.**
+6. **Mantenimiento de documentación**: si fijas o descubres una convención del proyecto que no está documentada, actualiza `AGENTS.md` (y `docs/` si aplica) en el mismo cambio. Las decisiones arquitectónicas nuevas se registran como ADR en `docs/architecture/adr/`.
 
 ## Stack (decisiones fijadas en constitución v1.1.1)
 

@@ -26,6 +26,13 @@ Sync Impact Report (v1.1.2, 2026-08-27)
 - Added sections: ninguno
 - Removed sections: ninguno
 - Follow-up TODOs: ninguno
+
+Sync Impact Report (v1.1.3, 2026-08-27)
+- Version change: 1.1.2 → 1.1.3 (PATCH: clarificación de Definition of Done)
+- Modified principles: ninguno
+- Added sections: ninguno (DoD del Flujo de Desarrollo ampliado: documentación actualizada en el mismo cambio; ADRs como registro de decisiones)
+- Removed sections: ninguno
+- Follow-up TODOs: ninguno
 -->
 
 # Family Wallet Constitution
@@ -71,7 +78,7 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 
 1. Cada feature hija sigue el ciclo Spec Kit completo; el directorio activo se resuelve desde `.specify/feature.json`.
 2. `/speckit.plan` MUST ejecutar el Constitution Check contra este documento antes de diseñar, y reevaluarlo tras el diseño; las desviaciones MUST justificarse en la tabla de Complexity Tracking del plan.
-3. Definition of Done de una feature: gates de CI en verde, tests de lógica de negocio en verde y escenarios del `quickstart.md` de la feature verificados manualmente.
+3. Definition of Done de una feature: gates de CI en verde, tests de lógica de negocio en verde, escenarios del `quickstart.md` de la feature verificados manualmente y **documentación asociada actualizada en el mismo cambio** (README, AGENTS.md, `docs/architecture/`; las decisiones arquitectónicas nuevas se registran como ADR en `docs/architecture/adr/`).
 4. Commits siguiendo Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`), en español el enunciado cuando aporte claridad.
 5. La feature se considera entregada cuando sustituye al Excel en la parte de su alcance y los criterios de éxito de su spec se cumplen.
 
@@ -82,4 +89,4 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 - Toda revisión de un plan o implementación MUST verificar el cumplimiento de esta constitución.
 - El documento de guía para agentes de IA en tareas de desarrollo es `AGENTS.md` (raíz del repositorio); ambos documentos MUST mantenerse consistentes.
 
-**Version**: 1.1.2 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27
+**Version**: 1.1.3 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27

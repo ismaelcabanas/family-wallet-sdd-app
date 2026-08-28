@@ -62,6 +62,7 @@ README.md                 # este archivo
 | `AGENTS.md` | Agentes de IA | Reglas operativas, flujo de trabajo y convenciones |
 | `.specify/memory/constitution.md` | Todos | Ley del proyecto: principios, stack y gates que todo plan valida |
 | `docs/architecture/overview.md` | Desarrolladores | Detalle de capas hexagonales, matriz de dependencias y patrones |
+| `docs/architecture/adr/` | Desarrolladores | Decisiones arquitectónicas registradas (ADRs) |
 | `specs/` | Todos | Especificaciones y artefactos por feature |
 
 ## Puesta en marcha
