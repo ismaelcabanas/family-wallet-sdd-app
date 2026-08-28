@@ -19,6 +19,13 @@ Sync Impact Report (v1.1.1, 2026-08-27)
 - Added sections: ninguno
 - Removed sections: ninguno
 - Follow-up TODOs: ninguno
+
+Sync Impact Report (v1.1.2, 2026-08-27)
+- Version change: 1.1.1 → 1.1.2 (PATCH: clarificación de ubicación de puertos)
+- Modified principles: VII (los puertos, incluidos los repositorios, se definen en la capa de aplicación, no en el dominio; sincronizado con AGENTS.md y docs/architecture/overview.md)
+- Added sections: ninguno
+- Removed sections: ninguno
+- Follow-up TODOs: ninguno
 -->
 
 # Family Wallet Constitution
@@ -44,7 +51,7 @@ La persistencia MUST usar SQLite vía Drizzle ORM: fichero local en desarrollo y
 La interfaz, el lenguaje de negocio, las specs y la documentación MUST estar en español. Los identificadores de código (variables, funciones, tipos, ficheros) MUST estar en inglés, con excepción de términos de dominio intraducibles que se documentan en el glosario del data-model de cada feature.
 
 ### VII. Arquitectura Hexagonal + DDD Táctico
-El código MUST organizarse en capas hexagonales — dominio, aplicación y adaptadores (UI, API, persistencia) — con el dominio aislado de Next.js, Drizzle y cualquier detalle de infraestructura; las dependencias apuntan siempre hacia el dominio. El dominio se modela con patrones tácticos de DDD: entidades, value objects (p. ej. `Money`, `MovementType`), servicios de dominio y repositorios definidos como puertos en el dominio e implementados como adaptadores. Existe un único contexto delimitado (Family Wallet); crear contextos adicionales MUST justificarse en el plan. En el frontend, la UI actúa como adaptador que consume el dominio y la capa de aplicación compartidos; PROHIBIDO duplicar lógica de negocio en componentes. La introducción de patrones adicionales (eventos de dominio, CQRS, sagas) MUST justificarse por un caso de uso real en el Complexity Tracking del plan.
+El código MUST organizarse en capas hexagonales — dominio, aplicación y adaptadores (UI, API, persistencia) — con el dominio aislado de Next.js, Drizzle y cualquier detalle de infraestructura; las dependencias apuntan siempre hacia el dominio. El dominio se modela con patrones tácticos de DDD: entidades, value objects (p. ej. `Money`, `MovementType`) y servicios de dominio. Los puertos (interfaces de entrada y salida, incluidos los repositorios) MUST definirse en la capa de aplicación e implementarse como adaptadores; el dominio no conoce los puertos. Existe un único contexto delimitado (Family Wallet); crear contextos adicionales MUST justificarse en el plan. En el frontend, la UI actúa como adaptador que consume el dominio y la capa de aplicación compartidos; PROHIBIDO duplicar lógica de negocio en componentes. La introducción de patrones adicionales (eventos de dominio, CQRS, sagas) MUST justificarse por un caso de uso real en el Complexity Tracking del plan.
 
 Referencia de estilo para la organización en capas y los patrones tácticos: [CodelyTV/typescript-ddd-example](https://github.com/CodelyTV/typescript-ddd-example). Se adopta como referencia de estilo, NO de stack: su CQRS, EDA e infraestructura (MongoDB, RabbitMQ) NO aplican por defecto y quedan sujetas a la justificación exigida en este principio.
 
@@ -75,4 +82,4 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 - Toda revisión de un plan o implementación MUST verificar el cumplimiento de esta constitución.
 - El documento de guía para agentes de IA en tareas de desarrollo es `AGENTS.md` (raíz del repositorio); ambos documentos MUST mantenerse consistentes.
 
-**Version**: 1.1.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27
+**Version**: 1.1.2 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27

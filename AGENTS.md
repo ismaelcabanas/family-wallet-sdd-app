@@ -33,8 +33,8 @@ El proyecto sigue una arquitectura **Hexagonal (Ports & Adapters)**. Para manten
 - **Aplicación (`src/application/`)**:
   - Contiene Casos de Uso y **Puertos** (Interfaces de Entrada/Salida).
   - Orquesta la lógica del dominio. Depende únicamente de la capa de `domain`.
-- **Adaptadores (`src/infrastructure/` o `src/adapters/`)**:
-  - **Entrada (Inbound)**: Controladores API (Next.js Route Handlers), Server Actions, Componentes UI (React).
+- **Adaptadores (`src/infrastructure/` y `src/app/`)**:
+  - **Entrada (Inbound)**: Route Handlers y páginas de Next.js en `src/app/` (único directorio que Next.js rutea; adaptadores finos que validan y delegan), Server Actions y componentes UI en `src/infrastructure/primary/`.
   - **Salida (Outbound)**: Repositorios Drizzle, clientes de base de datos, servicios externos.
   - Implementan los puertos definidos en la capa de aplicación.
 
