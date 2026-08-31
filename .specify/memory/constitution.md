@@ -33,6 +33,13 @@ Sync Impact Report (v1.1.3, 2026-08-27)
 - Added sections: ninguno (DoD del Flujo de Desarrollo ampliado: documentación actualizada en el mismo cambio; ADRs como registro de decisiones)
 - Removed sections: ninguno
 - Follow-up TODOs: ninguno
+
+Sync Impact Report (v1.2.0, 2026-08-31)
+- Version change: 1.1.3 → 1.2.0 (MINOR: nueva restricción de stack y extensión de principio)
+- Modified principles: III (Calidad Verificada ampliado: los flujos críticos de usuario MUST estar cubiertos por tests end-to-end con Playwright)
+- Added sections: Restricciones Tecnológicas → bullet de UI (Tailwind CSS + shadcn/ui); Testing ampliado con Playwright e2e
+- Removed sections: ninguno
+- Follow-up TODOs: ninguno (ADRs 0005 y 0006 registran ambas decisiones)
 -->
 
 # Family Wallet Constitution
@@ -46,7 +53,7 @@ Family Wallet es una aplicación familiar de uso individual. TODO el software MU
 Toda funcionalidad MUST nacer de una especificación escrita siguiendo el flujo Spec Kit (`/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement`). El roadmap maestro (`specs/001-family-wallet/spec.md`) define la visión; las features hijas (numeradas secuencialmente bajo `specs/`) desarrollan cada slice con ciclo completo e independiente. Está PROHIBIDO implementar código de funcionalidad sin spec, plan y tasks previos aprobados.
 
 ### III. Calidad Verificada
-Todo cambio de código MUST pasar los gates de calidad: lint, typecheck y tests en verde. La lógica de negocio (cálculo de cierres, totales, cuadres) MUST estar cubierta por tests automatizados; la corrección aritmética frente al Excel actual es un criterio de aceptación explícito. Un push que falle cualquier gate de CI MUST considerarse bloqueado.
+Todo cambio de código MUST pasar los gates de calidad: lint, typecheck y tests en verde. La lógica de negocio (cálculo de cierres, totales, cuadres) MUST estar cubierta por tests automatizados; la corrección aritmética frente al Excel actual es un criterio de aceptación explícito. Los flujos críticos de usuario (p. ej. registrar un movimiento) MUST estar cubiertos por tests end-to-end automatizados con Playwright, incluidos en CI. Un push que falle cualquier gate de CI MUST considerarse bloqueado.
 
 ### IV. TypeScript Estricto End-to-End
 Un único lenguaje: TypeScript en modo estricto en cliente y servidor, compartiendo tipos entre ambos. Los datos que crucen una frontera (API, formularios, ficheros) MUST validarse en tiempo de ejecución (Zod). Está PROHIBIDO usar `any` salvo justificación documentada en el propio código.
@@ -68,7 +75,8 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 - **Arquitectura interna**: hexagonal + DDD táctico (principio VII). El dominio y la capa de aplicación son módulos puros (sin imports de Next.js/React/Drizzle), compartidos entre servidor y UI; la UI consume la aplicación, no el SQL ni el HTTP directamente.
 - **Persistencia**: Drizzle ORM sobre SQLite (fichero en dev) y Turso/libSQL (producción). Migraciones versionadas con drizzle-kit.
 - **Validación**: Zod en todas las fronteras de datos.
-- **Testing**: Vitest para unitarios e integración; Testing Library para componentes.
+- **UI**: Tailwind CSS + shadcn/ui, con los componentes personalizados copiados y versionados en el repositorio; ninguna otra librería de componentes sin justificación en el plan.
+- **Testing**: Vitest para unitarios e integración; Testing Library para componentes; Playwright para los flujos críticos de usuario (end-to-end), también en CI.
 - **Calidad estática**: ESLint + Prettier.
 - **CI**: GitHub Actions ejecutando lint + typecheck + tests en cada push y pull request.
 - **Despliegue**: local para desarrollo (`npm run dev`) y Vercel (plan gratuito) + Turso para producción. Está PROHIBIDO asumir estado en el filesystem serverless: cualquier dato persistente vive en Turso.
@@ -89,4 +97,4 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 - Toda revisión de un plan o implementación MUST verificar el cumplimiento de esta constitución.
 - El documento de guía para agentes de IA en tareas de desarrollo es `AGENTS.md` (raíz del repositorio); ambos documentos MUST mantenerse consistentes.
 
-**Version**: 1.1.3 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27
+**Version**: 1.2.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-31

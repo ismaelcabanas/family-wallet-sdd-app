@@ -1,6 +1,6 @@
 # Visión General de la Arquitectura — Family Wallet
 
-Documento de referencia técnica para la arquitectura Hexagonal (Ports & Adapters) + DDD Táctico en un monolito Next.js (App Router) utilizando Drizzle ORM y TypeScript.
+Documento de referencia técnica para la arquitectura Hexagonal (Ports & Adapters) + DDD Táctico en un monolito Next.js (App Router) utilizando Drizzle ORM y TypeScript. La UI se construye con Tailwind CSS + shadcn/ui (ADR 0005).
 
 ---
 
@@ -115,5 +115,7 @@ Los Route Handlers, Server Actions y componentes actúan como adaptadores Inboun
   * Se prueba la lógica de negocio usando Mocks o In-Memory Stubs de los puertos (`InMemoryMovementRepository`).
 * **Pruebas de Integración (`infrastructure`)**:
   * Verifican que `DrizzleMovementRepository` funciona correctamente contra una BD SQLite en memoria.
-* **Pruebas E2E / Componentes (UI)**:
-  * Pruebas con Vitest + Testing Library para componentes y flujos de usuario.
+* **Pruebas de Componentes (UI)**:
+  * Pruebas con Vitest + Testing Library para componentes y flujos de usuario renderizados.
+* **Pruebas E2E (Playwright)**:
+  * Cubren los flujos críticos de usuario de extremo a extremo (p. ej. registrar un movimiento) contra la aplicación en ejecución, y se ejecutan también en CI.

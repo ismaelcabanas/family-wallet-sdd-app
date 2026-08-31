@@ -19,7 +19,8 @@ Webapp familiar para gestionar gastos e ingresos: 3 cuentas (2 personales + 1 co
 | Arquitectura interna | Hexagonal + DDD táctico: dominio y aplicación puros, UI/API/persistencia como adaptadores |
 | Persistencia | Drizzle ORM + SQLite (fichero en dev) / Turso libSQL (prod) |
 | Validación | Zod en fronteras (API, formularios) |
-| Tests | Vitest + Testing Library |
+| UI | Tailwind CSS + shadcn/ui (componentes copiados y versionados en el repo; sin otras librerías de componentes salvo justificación en el plan) |
+| Tests | Vitest + Testing Library; Playwright para e2e de flujos críticos |
 | Calidad | ESLint + Prettier |
 | CI | GitHub Actions: lint + typecheck + tests en cada push |
 | Despliegue | Local (`npm run dev`) y Vercel + Turso (plan gratuito, sin estado en serverless) |
