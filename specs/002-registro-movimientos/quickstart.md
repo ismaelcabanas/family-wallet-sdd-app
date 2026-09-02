@@ -14,6 +14,7 @@
 npm install            # dependencias
 npm run db:migrate     # aplica las migraciones versionadas (crea SQLite local)
 npm run db:seed        # precarga 2 miembros, 3 cuentas y 12 tags (idempotente)
+npm run db:seed        # (verificación) re-ejecutar no duplica ni falla
 npm run dev            # http://localhost:3000
 ```
 
@@ -67,9 +68,23 @@ npm run test:e2e       # Playwright: flujo crítico de registro (levanta build+s
 
 ## Verificación adicional recomendada
 
+> Nota: SC-001 ("registrar < 30 s") y SC-002 ("visible < 2 s") se verifican de forma **informal** durante los escenarios (cronómetro o impresión), sin condiciones de medición estrictas (decisión del revisor, modo PoC).
+
 - **Naturaleza por cuenta**: al cambiar entre cuenta personal y común, el formulario ajusta el default de naturaleza (personal editable / compartido fija).
 - **Selectores**: recarga la página con `/?account=2&month=2026-08` → la vista corresponde a esa cuenta y mes; URL sin parámetros → mes actual y primera cuenta.
+- **Aritmética exacta (FR-003)**: registra dos importes con acarreo de céntimos (p. ej. `10,29` y `0,01`) y comprueba que el balance suma exactamente `10,30 €` sin decimales fantasma.
 - **E2E crítico (ADR 0006)**: `npm run test:e2e` cubre el flujo completo de registro (E1–E3) contra la app compilada.
+
+## Puesta en marcha (producción Turso)
+
+Pipeline de despliegue (decisión del revisor: script local pre-deploy, sin secretos en CI):
+
+```bash
+npm run db:migrate -- --config=drizzle.prod.config.ts   # migraciones contra Turso
+npm run db:seed                                          # seed idempotente contra Turso
+```
+
+Ejecutar ambos desde local **antes de cada deploy** a Vercel; verificar después en la URL pública que selectores y catálogo de tags cargan (comprobación inicial).
 
 ## Criterio de cierre (Definition of Done)
 
