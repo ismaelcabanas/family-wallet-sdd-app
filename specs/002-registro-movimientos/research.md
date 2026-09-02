@@ -60,7 +60,7 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 **Decision**: `drizzle-orm` 0.44.x + `@libsql/client` como único driver (fichero en dev, Turso en prod). Migraciones SQL versionadas en `drizzle/` aplicadas por script explícito. Seed por script TypeScript idempotente.
 
-**3.1 Migraciones** — `drizzle-kit generate` + `drizzle-kit migrate`; migraciones commiteadas. Dev: `npm run db:migrate`. Prod (Turso): mismo comando con `drizzle.prod.config.ts` (url + authToken) ejecutado desde local o paso de CI pre-deploy.
+**3.1 Migraciones** — `drizzle-kit generate` + `drizzle-kit migrate`; migraciones commiteadas. Dev: `npm run db:migrate`. Prod (Turso): mismo comando con `drizzle.prod.config.ts` (url + authToken) ejecutado **desde local como paso pre-deploy** (decisión del propietario, 2026-09-02; sin secretos de Turso en CI; documentado en quickstart.md).
 - *Pitfall verificado*: el migrator de `drizzle-orm/libsql/migrator` lee las migraciones del filesystem en runtime → **prohibido** ejecutar `migrate()` en build/startup de Vercel (el output tracing no garantiza incluir `drizzle/` y penaliza cold starts). `push` solo para prototipado local, nunca contra prod.
 
 **3.2 Seed de datos preconfigurados** — script `scripts/seed.ts` (tsx) con INSERTs idempotentes vía `onConflictDoNothing()` sobre claves naturales estables (slug de tag, nombre de cuenta). Se ejecuta tras migrar (`npm run db:seed`), en dev y en prod. El dato semilla vive tipado en `src/infrastructure/db/seed-data.ts` (reutilizable por tests).
@@ -79,7 +79,7 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 **3.6 Balance (FR-008)** — **derivado on-the-fly** (`select sum(amount_cents) ... where account_id = ?`). Sin columna persistida. Se registrará como **ADR 0009**.
 - Cientos de movimientos/mes → agregación sub-milisegundo con el índice. Un balance persistido exigiría recalcular al editar/eliminar (feature 003), introduce riesgo de drift y serializa escrituras (Turso single-writer). Si el histórico creciera: snapshot mensual materializado sin tocar dominio.
 
-**3.7 Driver y versión** — `@libsql/client` único para ambos entornos (`file:./db.sqlite` dev; `libsql://...` + authToken prod; entry `/web` en Vercel). Fijar **drizzle-orm 0.44.x** (v1.0 en RC reorganiza APIs de índices: riesgo innecesario).
+**3.7 Driver y versión** — `@libsql/client` único para ambos entornos (`file:./db.sqlite` dev; `libsql://...` + authToken prod; entry `/web` en Vercel). Fijar **drizzle-orm 0.44.x** (v1.0 en RC reorganiza APIs de índices: riesgo innecesario). Criterio de actualización: migrar a v1 cuando sea estable, en un `chore:` dedicado, revisando los breaking changes de índices/collate señalados en §3.3.
 
 ---
 

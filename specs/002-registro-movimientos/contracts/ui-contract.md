@@ -15,6 +15,7 @@
 - `account`: parámetro **primario** (se elige primero). Si falta o es inválido → primera cuenta personal (orden estable del seed).
 - `month`: parámetro secundario. Si falta o es inválido → **mes actual** (obligatorio al abrir, FR-017).
 - Cambiar cualquiera de los dos actualiza la URL (`router.replace` + `useTransition`) y re-renderiza en servidor listado, balance y defaults del formulario con el nuevo contexto.
+- Cambio de mes natural con la sesión abierta: el selector mantiene el mes de la URL (mes de apertura); una recarga sin `month` retoma el mes actual.
 - La cuenta activa es la cuenta del movimiento a registrar: el formulario la muestra y **no es editable ahí** (FR-017). Este selector es la **única** forma de elegir la cuenta (fuente única de verdad).
 
 ## 2. Regiones de la pantalla
@@ -76,12 +77,22 @@ Registra el primero con el formulario superior.
 | Error inesperado | Mensaje `_form` bajo el formulario (ver contrato de la action §3) |
 | Idioma | Toda la UI en español (FR-012); etiquetas cortas y sin tecnicismos |
 
-## 4. Accesibilidad y mínimos de calidad
+## 4. Accesibilidad y responsive (guía PoC, sin nivel objetivo)
+
+> Decisión del revisor (2026-09-02): en modo PoC estas prácticas son **guía**, no requisito de conformidad; el nivel objetivo (WCAG 2.1 AA) se fijará antes del uso productivo con datos reales.
 
 - Labels asociados a cada input; errores de campo anunciados con `aria-describedby` / rol `alert`.
 - Navegable por teclado (tab order natural: selectores → formulario → listado).
 - Targets táctiles suficientes para uso móvil.
+- **Responsive mínimo (requisito)**: en pantallas estrechas (móvil), layout apilado en una columna con el orden selectores → balance → formulario → listado, y formulario/listado usables sin scroll horizontal. Sin breakpoints específicos.
 
 ## 5. Fuera de este contrato
 
 Edición/eliminación de movimientos, filtros, gestión de tags/cuentas/miembros, KPIs mensuales (features 003–006). El listado no incluye acciones por fila en esta feature.
+
+**Exclusiones aceptadas del modo PoC** (decisión del revisor, 2026-09-02):
+
+- BD no disponible al cargar la página: sin requisito específico (error boundary por defecto de Next.js); solo el guardado tiene tratamiento de error propio (`_form`).
+- Arranque sin datos (seed no ejecutado): sin estado propio; ejecutar `db:migrate` + `db:seed` es prerequisito documentado en [quickstart.md](../quickstart.md).
+- Doble registro desde dos pestañas: aceptado sin requisito (usuario único; el botón `pending` mitiga el doble click).
+- NFRs de rendimiento adicionales a SC-001/SC-002: excluidos en PoC; ambos SC se verifican informalmente.

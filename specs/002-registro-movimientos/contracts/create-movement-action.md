@@ -10,13 +10,13 @@
 
 | Campo | Tipo FormData | Obligatorio | Reglas de validación (Zod) |
 |---|---|---|---|
-| `date` | string `YYYY-MM-DD` | Sí | Fecha ISO de calendario válida. |
+| `date` | string `YYYY-MM-DD` | Sí | Fecha ISO de calendario **real** válida: rechaza 31 en meses de 30, 29 de febrero en no bisiestos, etc. (bisiestos aceptados). El rango mensual de las queries cubre febrero/bisiestos por construcción (`[mes-01, mesSiguiente-01)`). |
 | `concept` | string | Sí | No vacío tras trim. |
 | `description` | string | No | Trim; `null` si vacío. |
-| `amount` | string | Sí | Regex `^\d{1,9}([.,]\d{1,2})?$` (acepta "850", "850,00", "850.00"); parseo a céntimos por manipulación de string; resultado > 0. |
+| `amount` | string | Sí | Regex `^\d{1,9}([.,]\d{1,2})?$`. Acepta "850", "850,00", "850.00"; con un decimal se rellena a 2 ("850,5" → 850,50). **Rechaza** separadores de miles ("1.234,56") y más de 2 decimales ("850,005") como formato inválido. Parseo a céntimos por manipulación de string (pad a 2); resultado > 0. |
 | `accountId` | string (dígitos) | Sí | Entero positivo; la cuenta existe. |
 | `type` | `'expense' \| 'income'` | Sí | Enum. |
-| `nature` | `'personal' \| 'shared'` | Condicional | Obligatorio si `type = 'expense'`; ignorado/rechazado si `type = 'income'`. La UI lo envía preseleccionado (`'personal'` en cuentas personales; fijo `'shared'` en la común). |
+| `nature` | `'personal' \| 'shared'` | Condicional | Obligatorio si `type = 'expense'`. Prohibido si `type = 'income'`: la UI no lo envía para ingresos y, si llegara un valor, **se rechaza** con error de validación. La UI lo envía preseleccionado (`'personal'` en cuentas personales; fijo `'shared'` en la común). |
 | `tagIds` | múltiples strings (checkboxes) | No | 0..n; enteros; deduplicado; cada tag existe y está activa. |
 
 Notas:
@@ -59,6 +59,7 @@ type CreateMovementState =
 | `accountId` ausente/inválido | "Selecciona una cuenta." |
 | `type` ausente | "Selecciona el tipo de movimiento." |
 | `nature` ausente en gasto | "Selecciona la naturaleza del gasto (personal o compartido)." |
+| `nature` presente en un ingreso | "Los ingresos no llevan naturaleza." |
 | `tagIds` con id inexistente/inactiva | "Una de las etiquetas seleccionadas ya no está disponible." |
 | `_form` error inesperado | "No se ha podido guardar el movimiento. Inténtalo de nuevo." |
 
