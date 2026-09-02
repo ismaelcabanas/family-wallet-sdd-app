@@ -50,6 +50,7 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 - Q: ¿Qué valores por defecto debe tener el formulario al abrirse? → A: Fecha = hoy y naturaleza "personal" preseleccionada en gastos de cuentas personales. Además, la naturaleza pasa a denominarse "personal"/"compartido" (antes "propio"/"común" en el roadmap maestro).
 - Q: ¿Cómo selecciona el usuario el mes y la cuenta, y cuál es la vista por defecto? → A: La cuenta es el parámetro primario (se elige primero) y el mes el secundario; ambos con selector visible. Al abrir: mes actual; la cuenta activa queda como contexto y precarga el formulario de registro.
 - Q: ¿Qué se muestra en el listado cuando el mes/cuenta seleccionados no tienen movimientos? → A: Un estado vacío informativo ("Aún no hay movimientos en este mes") que invita a registrar el primer movimiento.
+- Q: ¿Cómo se protege el acceso a la aplicación desplegada en producción? → A: La aplicación opera en modo prueba de concepto: URL pública sin protección, aceptado de forma explícita porque los datos serán ficticios. Antes del uso productivo con datos reales se incorporará una feature de autenticación/autorización.
 
 ## Requirements *(mandatory)*
 
@@ -107,6 +108,8 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 - Los ingresos no requieren naturaleza personal/compartido; se asocian a la cuenta en la que se registran.
 - La distinción "Concepto" / "Descripción" del Excel se mantiene como dos campos independientes del movimiento.
 - Idioma de la interfaz: español; identificadores de código en inglés (términos de dominio intraducibles documentados en el glosario del data-model).
+- **Modo prueba de concepto (seguridad)**: la aplicación se despliega en una URL pública sin mecanismos de autenticación ni protección de acceso, aceptado explícitamente porque todos los datos registrados serán ficticios (sin datos financieros reales de la familia). Esta postura es válida únicamente mientras dure el modo PoC; el uso productivo con datos reales exige incorporar antes una feature de autenticación/autorización.
+- Al trabajar con datos ficticios, no se requieren copias de seguridad, exportación de datos ni medidas de protección de datos personales en esta feature; se revisarán junto con la feature de autenticación previa al uso productivo.
 
 ## Out of Scope
 
@@ -116,7 +119,7 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 - Gestión del catálogo de tags: crear, renombrar, fusionar, desactivar (feature 004; aquí solo se usa el catálogo precargado).
 - Cierre mensual con KPIs por cuenta (feature 005).
 - Resumen mensual global, comprobación de cuadre y cuenta de resultados anual (feature 006).
-- Registro de usuarios, inicio de sesión, acceso multiusuario y reglas de reparto de gastos compartidos.
+- Registro de usuarios, inicio de sesión, acceso multiusuario y reglas de reparto de gastos compartidos. La autenticación/autorización es un requisito previo no negociable para pasar del modo prueba de concepto al uso productivo con datos reales.
 - Transferencias entre cuentas y seguimiento del ahorro.
 - Importación del histórico desde Excel.
 - Presupuestos, metas de ahorro, proyecciones.
