@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Registro de Movimientos con Tags
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-08-28
+**Created**: 2026-09-02
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -32,7 +32,7 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
-- Revisión v2 (2026-08-28): alcance acotado por decisión del usuario a una única historia (US1 del roadmap maestro). Las 5 historias de la v1 se han redistribuido: gestión de movimientos → feature 003, catálogo de tags → feature 004; roadmap maestro actualizado en el mismo cambio.
-- Revisión v3 (2026-08-28): límite de tags fijado a 1-5 por movimiento (decisión del usuario) y consolidación: FR-002 sin referencia a tags (las cubre FR-004), FR-005 valida también la tag obligatoria, catálogo precargado completado con "vivienda" e "hipoteca" para dar soporte al escenario 1, y trazabilidad de FRs del maestro actualizada en la cabecera.
-- Validación en verde en 1 iteración por versión; sin marcadores [NEEDS CLARIFICATION].
-- Acotación verificada: cada FR (FR-001 a FR-008) es cubierto por los escenarios de aceptación de US1 o por un criterio de éxito medible; todo lo diferido está listado explícitamente en Assumptions.
+- Revisión v4 (2026-09-02): re-especificación a partir de los requisitos refinados del usuario. Cambios principales: (1) tags "0 o más" —revertida la desviación v3 de mínimo 1 / máximo 5, ahora alineada con FR-004 del roadmap maestro—; (2) nuevos escenarios de aceptación 5 (campos obligatorios ausentes con conservación de valores), 6 (movimiento de otro mes) y 7 (movimiento sin tags agrupado como "Sin clasificar"); (3) atribución por miembro desde el día uno sin login; (4) listado por mes y cuenta; (5) validación en fronteras con errores junto al campo; (6) ampliación a FR-001..FR-013 y sección Out of Scope explícita.
+- La inconsistencia del input (Escenario 1 usa tags "vivienda" e "hipoteca" fuera del catálogo listado) se resuelve con suposición documentada: el catálogo precargado se amplía con ambas tags (precedente del borrador anterior).
+- Validación en verde en 1 iteración; sin marcadores [NEEDS CLARIFICATION].
+- Acotación verificada: cada FR (FR-001 a FR-013) está cubierto por un escenario de aceptación, un edge case o un criterio de éxito medible; todo lo diferido está listado explícitamente en Assumptions y Out of Scope.
