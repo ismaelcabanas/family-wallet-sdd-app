@@ -17,7 +17,7 @@
 | `accountId` | string (dígitos) | Sí | Entero positivo; la cuenta existe. |
 | `type` | `'expense' \| 'income'` | Sí | Enum. |
 | `nature` | `'personal' \| 'shared'` | Condicional | Obligatorio si `type = 'expense'`. Prohibido si `type = 'income'`: la UI no lo envía para ingresos y, si llegara un valor, **se rechaza** con error de validación. La UI lo envía preseleccionado (`'personal'` en cuentas personales; fijo `'shared'` en la común). |
-| `tagIds` | múltiples strings (checkboxes) | No | 0..n; enteros; deduplicado; cada tag existe y está activa. |
+| `tagIds` | múltiples strings (checkboxes) | No | 0..n; enteros; deduplicado; cada tag existe y está activa. Si llega vacío, el caso de uso asigna la tag por defecto "Sin Clasificar" (FR-006). |
 
 Notas:
 - `amount` llega como **string** (input del formulario); jamás se parsea con `parseFloat` (FR-003).
@@ -65,7 +65,7 @@ type CreateMovementState =
 
 ## 4. Comportamiento (side effects)
 
-1. **Éxito**: persiste vía `CreateMovement` (use case + puerto `MovementRepository`, transacción `db.batch` con sus tags), `revalidatePath('/')` (listado + balances refrescados en el mismo roundtrip), devuelve `{ status: 'success' }`; la UI muestra toast, resetea el formulario y permanece en la pantalla (FR-015).
+1. **Éxito**: persiste vía `CreateMovement` (use case + puerto `MovementRepository`, transacción `db.batch` con sus tags; asigna la tag por defecto "Sin Clasificar" si no se seleccionó ninguna), `revalidatePath('/')` (listado + balances refrescados en el mismo roundtrip), devuelve `{ status: 'success' }`; la UI muestra toast, resetea el formulario y permanece en la pantalla (FR-015).
 2. **Fallo de validación**: **nada se persiste**; devuelve errores por campo + valores conservados.
 3. **Excepción de dominio** (p. ej. `InvalidMovementError`): mapeada a `errors` del campo correspondiente.
 4. La action NO hace redirect ni navegación.

@@ -8,7 +8,7 @@
 
 **Input**: User description: "Feature `002-registro-movimientos` del roadmap maestro (US1, prioridad P1): registrar gastos e ingresos con tags. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag), el scaffolding de la aplicación y la precarga de 3 cuentas (2 personales + 1 común) y del catálogo inicial de tags. Restricción US6: usuario único, sin login."
 
-**Fuente**: Roadmap maestro `specs/001-family-wallet/spec.md` (historia US1; requisitos FR-001 parcial —solo preconfiguración—, FR-002, FR-003, FR-004 —ahora alineado: 0 o más tags—, FR-010 y FR-011; entidades base Miembro, Cuenta, Movimiento, Tag).
+**Fuente**: Roadmap maestro `specs/001-family-wallet/spec.md` (historia US1; requisitos FR-001 parcial —solo preconfiguración—, FR-002, FR-003, FR-004 —refinado: mínimo una tag por movimiento, garantizado con la tag por defecto "Sin Clasificar" (FR-006)—, FR-010 y FR-011; entidades base Miembro, Cuenta, Movimiento, Tag).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -18,28 +18,27 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 
 **Why this priority**: Es el núcleo del sistema y un slice mínimamente independiente: sin registro de movimientos no existe ningún valor. Es el equivalente digital exacto de lo que hoy se hace en la hoja Excel cada mes.
 
-**Independent Test**: Se puede probar registrando movimientos de cada tipo (gasto personal, gasto compartido —incluido uno compartido pagado desde cuenta personal—, gasto sin tags e ingreso) y verificando que quedan guardados con sus campos, sus tags, el balance de la cuenta actualizado, que aparecen en el listado del mes y cuenta correspondientes y que siguen ahí en una sesión posterior.
+**Independent Test**: Se puede probar registrando movimientos de cada tipo (gasto personal, gasto compartido —incluido uno compartido pagado desde cuenta personal—, gasto sin tags seleccionadas —con asignación automática de "Sin Clasificar"— e ingreso) y verificando que quedan guardados con sus campos, sus tags, el balance de la cuenta actualizado, que aparecen en el listado del mes y cuenta correspondientes y que siguen ahí en una sesión posterior.
 
 **Acceptance Scenarios**:
 
 1. **Given** que estoy en la cuenta común, **When** registro un gasto de 850,00 € con concepto "Hipoteca" y las tags "vivienda" e "hipoteca", **Then** el movimiento aparece en el listado de ese mes y de la cuenta común con ambas tags visibles.
-2. **Given** que registro un gasto desde mi cuenta personal, **When** marco su naturaleza como "compartido" (por ejemplo, la compra semanal del supermercado), **Then** el gasto queda identificado como gasto compartido pagado desde cuenta personal y computa en los totales de gastos compartidos.
+2. **Given** que registro un gasto desde mi cuenta personal, **When** marco su naturaleza como "compartido" (por ejemplo, la compra semanal del supermercado), **Then** el gasto queda identificado como gasto compartido pagado desde cuenta personal (naturaleza "Compartido" visible en el listado de esa cuenta personal; los totales por naturaleza llegarán con los KPIs de la feature 005).
 3. **Given** que registro mi nómina como ingreso en mi cuenta personal, **When** la guardo, **Then** el ingreso se guarda correctamente y el balance acumulado de la cuenta queda actualizado.
 4. **Given** que intento guardar un movimiento sin importe, con un importe no válido o con un importe de cero o menos, **When** envío el formulario, **Then** el sistema muestra un mensaje de error claro junto al campo de importe y no guarda el movimiento.
 5. **Given** que envío el formulario de registro con uno o más campos obligatorios vacíos, **When** se procesa la solicitud, **Then** el registro se rechaza, cada campo ausente muestra su mensaje de error de validación correspondiente y los valores introducidos previamente permanecen en el formulario.
 6. **Given** que registro un movimiento fechado en un mes distinto al actual, **When** lo guardo, **Then** el movimiento se almacena y computa en el mes de su fecha.
-7. **Given** que registro un movimiento sin seleccionar ninguna tag, **When** lo guardo, **Then** el movimiento se almacena y se muestra agrupado como "Sin clasificar".
+7. **Given** que registro un movimiento sin seleccionar ninguna tag, **When** lo guardo, **Then** el movimiento se almacena con la tag "Sin Clasificar" asignada por defecto y se muestra con su chip.
 
 ### Edge Cases
 
-- ¿Qué ocurre cuando se registra un gasto con importe 0, negativo o no numérico? (Se rechaza con un mensaje claro junto al campo de importe; los abonos y devoluciones se registran como ingresos).
-- ¿Cómo se maneja un movimiento fechado en un mes distinto al actual? (Se permite; el movimiento computa en el mes de su fecha y aparece en el listado de ese mes).
-- ¿Qué ocurre si se guarda un movimiento sin ninguna tag? (Se permite; el movimiento queda agrupado como "Sin clasificar").
+- Importe 0, negativo o no numérico, campos obligatorios vacíos o fallo de validación general: cubiertos por los escenarios de aceptación 4 y 5 (FR-003, FR-011); los abonos y devoluciones se registran como ingresos.
+- Movimiento fechado en un mes distinto al actual: cubierto por el escenario de aceptación 6 (FR-004).
+- Movimiento sin ninguna tag seleccionada: cubierto por el escenario de aceptación 7 (FR-006; asignación automática de "Sin Clasificar").
 - ¿Qué naturaleza tiene un gasto registrado en la cuenta común? ("Compartido" por defecto; la elección personal/compartido aplica solo a los gastos de cuentas personales).
 - ¿Llevan naturaleza los ingresos? (No; la naturaleza personal/compartido existe únicamente para gastos).
 - ¿Qué tags pueden asignarse al registrar? (Solo las del catálogo precargado; el alta de nuevas tags queda diferida a la feature de gestión del catálogo).
 - ¿Qué ocurre si el catálogo contiene dos nombres de tag que solo difieren en capitalización ("Luz" vs "luz")? (Se consideran duplicados: los nombres de tag son únicos ignorando mayúsculas/minúsculas).
-- ¿Qué ocurre si el registro falla por validación? (Nada se guarda; los valores introducidos permanecen en el formulario y cada campo con error muestra su mensaje junto al campo).
 
 ## Clarifications
 
@@ -56,22 +55,22 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 
 ### Functional Requirements
 
-- **FR-001**: El sistema MUST disponer desde la primera ejecución de los 2 miembros y las 3 cuentas preconfiguradas del núcleo familiar (dos cuentas personales, una por miembro, y una cuenta común), identificadas con nombre y tipo (personal/común), disponibles para asociar movimientos.
+- **FR-001**: El sistema MUST disponer desde la primera ejecución de los 2 miembros y las 3 cuentas preconfiguradas del núcleo familiar (dos cuentas personales, una por miembro, y una cuenta común), con los miembros identificados por su nombre y las cuentas por nombre y tipo (personal/común), disponibles para asociar movimientos.
 - **FR-002**: El sistema MUST permitir registrar movimientos con: fecha, concepto, descripción (opcional), importe, cuenta y tipo de movimiento (gasto o ingreso). Fecha, concepto, importe, cuenta y tipo son obligatorios.
 - **FR-003**: El sistema MUST exigir un importe mayor que cero, en euros y con dos decimales, y MUST realizar los cálculos monetarios con aritmética exacta (sin errores de redondeo). Los abonos y devoluciones se registran como ingresos.
 - **FR-004**: El sistema MUST permitir fechar un movimiento en un mes distinto al actual; el movimiento computa en el mes de su fecha.
 - **FR-005**: El sistema MUST exigir que cada gasto tenga una naturaleza: "personal" o "compartido". Los gastos de la cuenta común se consideran "compartido" por defecto; en las cuentas personales el usuario elige la naturaleza (preseleccionada como "personal"). Los ingresos no llevan naturaleza.
-- **FR-006**: El sistema MUST permitir asignar a un movimiento 0 o más tags del catálogo precargado. Los movimientos sin tags se agrupan como "Sin clasificar".
+- **FR-006**: El sistema MUST permitir asignar a un movimiento una o más tags del catálogo precargado. Si el usuario no selecciona ninguna, el sistema MUST asignar automáticamente la tag "Sin Clasificar", de forma que todo movimiento queda clasificado desde su registro.
 - **FR-007**: El sistema MUST garantizar que los nombres de tag del catálogo son únicos ignorando mayúsculas/minúsculas ("Luz" y "luz" son duplicados).
-- **FR-008**: El sistema MUST mostrar el balance acumulado de cada cuenta, actualizado con cada movimiento registrado (los ingresos suman y los gastos restan).
+- **FR-008**: El sistema MUST mostrar el balance acumulado de la cuenta seleccionada —visible para cada cuenta al cambiar el selector—, actualizado con cada movimiento registrado (los ingresos suman y los gastos restan).
 - **FR-009**: El sistema MUST mostrar el listado de movimientos del mes seleccionado y de la cuenta seleccionada, con fecha, concepto, importe, tipo, naturaleza y tags visibles.
-- **FR-010**: El sistema MUST permitir su uso individual sin registro de usuario ni inicio de sesión; el usuario único registra movimientos en nombre de cualquier miembro (atribución por miembro disponible desde el día uno).
+- **FR-010**: El sistema MUST permitir su uso individual sin registro de usuario ni inicio de sesión; el usuario único registra movimientos en nombre de cualquier miembro (atribución por miembro disponible desde el día uno: se muestra vía el nombre de la cuenta en el selector, de la que el miembro se deriva en las cuentas personales).
 - **FR-011**: El sistema MUST validar los datos del movimiento en sus fronteras antes de guardarlo y, si falta un campo obligatorio o algún dato es inválido, mostrar el error junto al campo correspondiente sin guardar nada, conservando los valores introducidos en el formulario.
 - **FR-012**: La interfaz del sistema MUST estar en español.
-- **FR-013**: El sistema MUST persistir todos los datos (miembros, cuentas, movimientos, tags y balances) entre sesiones.
+- **FR-013**: El sistema MUST persistir todos los datos (miembros, cuentas, movimientos y tags) entre sesiones; el balance, derivado de los movimientos (ADR 0009), se mantiene entre sesiones mientras los movimientos persistan.
 - **FR-014**: El formulario de registro MUST estar siempre visible en la pantalla principal, junto al listado de movimientos del mes/cuenta, sin navegación adicional ni diálogos intermedios.
 - **FR-015**: Tras guardar un movimiento con éxito, el sistema MUST mostrar un mensaje de confirmación (toast), vaciar el formulario para dejarlo listo para el siguiente registro y permanecer en la misma pantalla, con el listado y el balance actualizados.
-- **FR-016**: El formulario MUST precargar la fecha con el día actual y preseleccionar la naturaleza "personal" en los gastos de cuentas personales; el usuario puede modificar ambos valores.
+- **FR-016**: El formulario MUST precargar la fecha con el día actual y preseleccionar la naturaleza "personal" en los gastos de cuentas personales (regla de naturaleza de FR-005); el usuario puede modificar ambos valores.
 - **FR-017**: La pantalla principal MUST disponer de un selector de cuenta (parámetro primario, elegido primero) y un selector de mes (parámetro secundario), visibles y vinculados al listado (FR-009) y al formulario. Al abrir la aplicación el mes seleccionado MUST ser el actual; la cuenta activa queda como contexto de trabajo y el formulario MUST precargarla como cuenta del movimiento.
 - **FR-018**: Cuando el mes/cuenta seleccionados no tienen movimientos, el listado MUST mostrar un estado vacío informativo en español ("Aún no hay movimientos en este mes") que invite a registrar el primer movimiento.
 
@@ -79,8 +78,8 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 
 - **Miembro**: Persona de la unidad familiar (inicialmente 2). Atributos: nombre. Relación: posee una cuenta personal.
 - **Cuenta**: Agrupación financiera sobre la que se registran movimientos. Atributos: nombre, tipo (personal o común), balance acumulado. Relación: una cuenta personal pertenece a un miembro; la cuenta común es compartida y no pertenece a un miembro concreto.
-- **Movimiento**: Registro unitario equivalente a una fila del Excel mensual. Atributos: tipo (gasto o ingreso), fecha, concepto, descripción (opcional), importe, naturaleza (personal/compartido, solo para gastos), tags (0 o más). Relación: pertenece a una cuenta y computa en el mes de su fecha; su miembro se deriva de la cuenta en las cuentas personales.
-- **Tag**: Etiqueta de clasificación que sustituye a la categoría única actual. Atributos: nombre (único sin distinguir capitalización), estado (activa/desactivada). Relación: puede aplicarse a muchos movimientos; un movimiento puede llevar 0 o más tags.
+- **Movimiento**: Registro unitario equivalente a una fila del Excel mensual. Atributos: tipo (gasto o ingreso), fecha, concepto, descripción (opcional), importe, naturaleza (personal/compartido, solo para gastos), tags (una o más; "Sin Clasificar" por defecto). Relación: pertenece a una cuenta y computa en el mes de su fecha; su miembro se deriva de la cuenta en las cuentas personales.
+- **Tag**: Etiqueta de clasificación que sustituye a la categoría única actual. Atributos: nombre (único sin distinguir capitalización), estado (activa/desactivada). Relación: puede aplicarse a muchos movimientos; un movimiento lleva una o más tags (valor por defecto "Sin Clasificar", FR-006).
 
 ## Success Criteria *(mandatory)*
 
@@ -95,8 +94,8 @@ Como miembro de la familia, quiero registrar un movimiento indicando: fecha, con
 ## Assumptions
 
 - Esta feature entrega también el scaffolding inicial de la aplicación (primer código del repositorio: proyecto, estructura de capas y pipeline de calidad); hasta ahora no existe `package.json` ni código fuente.
-- Catálogo de tags precargado: Hogar, Coche, Salud, Alimentación, Ocio, Viaje, Ropa, Regalos, Suscripciones online y Sin Clasificar, ampliado con "Vivienda" e "Hipoteca" para dar soporte al Escenario 1 (hipoteca de la casa); la gestión del catálogo (crear, renombrar, fusionar, desactivar) queda diferida a la feature de gestión del catálogo de tags. Todas las tags del catálogo están activas en esta feature.
-- El número de tags por movimiento es "0 o más" (alineado con FR-004 del roadmap maestro): se elimina el mínimo de 1 tag y el máximo de 5 fijados en el borrador anterior (v3). No se impone límite superior más allá del propio catálogo.
+- Catálogo de tags precargado: Hogar, Coche, Salud, Alimentación, Ocio, Viaje, Ropa, Regalos, Suscripciones online y Sin Clasificar, ampliado con "Vivienda" e "Hipoteca" para dar soporte al Escenario 1 (hipoteca de la casa); la tag "Sin Clasificar" actúa además como valor por defecto (FR-006); la gestión del catálogo (crear, renombrar, fusionar, desactivar) queda diferida a la feature de gestión del catálogo de tags. Todas las tags del catálogo están activas en esta feature.
+- Todo movimiento lleva una o más tags: si el usuario no selecciona ninguna, el sistema asigna por defecto la tag "Sin Clasificar" (FR-006). Se elimina el máximo de 5 tags del borrador anterior (v3); no se impone límite superior más allá del propio catálogo. Desviación deliberada del FR-004 del roadmap maestro ("0 o más tags"), registrada en esta asunción.
 - Atribución de miembro: cada cuenta personal pertenece a un miembro, por lo que el usuario único atribuye el movimiento a un miembro al elegir la cuenta; la cuenta común no atribuye a un miembro concreto.
 - El mecanismo concreto de validación en fronteras y de aritmética monetaria exacta (sin coma flotante directa) está fijado por la constitución del proyecto y se concreta en el plan; esta spec recoge el comportamiento observable (errores por campo, valores conservados, ausencia de errores de redondeo).
 - La edición y eliminación de movimientos queda diferida a la feature de gestión de movimientos; provisionalmente, ante un error de registro, se vuelve a registrar el movimiento correcto.

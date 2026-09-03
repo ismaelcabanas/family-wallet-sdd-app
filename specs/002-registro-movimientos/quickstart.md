@@ -60,7 +60,7 @@ npm run test:e2e       # Playwright: flujo crítico de registro (levanta build+s
 
 ### E7 — Movimiento sin tags (Escenario 7)
 1. Registra un gasto sin seleccionar ninguna tag.
-- ✅ Se guarda y aparece con el chip "Sin clasificar".
+- ✅ Se guarda con la tag "Sin Clasificar" asignada por defecto y aparece con su chip.
 
 ### E8 — Persistencia entre sesiones (SC-004)
 1. Con movimientos registrados, detén `npm run dev` y arranca de nuevo (`npm run dev`).
@@ -73,7 +73,7 @@ npm run test:e2e       # Playwright: flujo crítico de registro (levanta build+s
 - **Naturaleza por cuenta**: al cambiar entre cuenta personal y común, el formulario ajusta el default de naturaleza (personal editable / compartido fija).
 - **Selectores**: recarga la página con `/?account=2&month=2026-08` → la vista corresponde a esa cuenta y mes; URL sin parámetros → mes actual y primera cuenta.
 - **Aritmética exacta (FR-003)**: registra dos importes con acarreo de céntimos (p. ej. `10,29` y `0,01`) y comprueba que el balance suma exactamente `10,30 €` sin decimales fantasma.
-- **E2E crítico (ADR 0006)**: `npm run test:e2e` cubre el flujo completo de registro (E1–E3) contra la app compilada.
+- **E2E crítico (ADR 0006)**: `npm run test:e2e` cubre el flujo completo de registro (E1–E4) contra la app compilada.
 
 ## Puesta en marcha (producción Turso)
 
