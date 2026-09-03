@@ -73,20 +73,21 @@ El balance **no es un campo** de la entidad: es una query derivada (`AccountRepo
 | description | `string \| null` | Opcional. |
 | amount | `Money` | **> 0** siempre (los abonos/devoluciones se registran como ingresos, FR-003). El signo contable lo determina `type` en la query de balance. |
 | nature | `ExpenseNature \| null` | **Invariante**: obligatorio si `type = 'expense'`; prohibido (`null`) si `type = 'income'` (FR-005). |
-| tagIds | `TagId[]` | 0 o más; deduplicado; todas deben existir y estar activas (FR-006). |
+| tagIds | `TagId[]` | **1 o más**; deduplicado; todas deben existir y estar activas (FR-006). El mínimo se garantiza en la creación: sin selección explícita, el caso de uso asigna la tag por defecto "Sin Clasificar" (slug `sin-clasificar`). |
 | createdAt | `string` (ISO-8601 UTC) | Audit. |
 
 **Reglas de creación** (factory `Movement.create` / caso de uso `CreateMovement`):
 1. Naturaleza por defecto según cuenta: si `account.type = 'shared'` → `'shared'` (gasto de la común es compartido); si la cuenta es personal, el usuario elige (UI preselecciona `'personal'`, FR-016) — el dominio solo exige presencia para gastos.
 2. Si `type = 'income'`, `nature` se ignora/rechaza.
-3. Inmutable tras la creación (sin edición/eliminación hasta la feature 003).
+3. Tag por defecto: si `tagIds` llega vacío, `CreateMovement` asigna la tag "Sin Clasificar" (slug `sin-clasificar`) antes de crear el agregado; `Movement.create` exige mínimo 1 tag (FR-006).
+4. Inmutable tras la creación (sin edición/eliminación hasta la feature 003).
 
 ### 1.3 Relaciones (dominio)
 
 ```text
 Member 1───0..1 Account        (una cuenta personal por miembro; la común no tiene miembro)
 Account 1───n   Movement       (un movimiento pertenece a una cuenta)
-Movement n──n  Tag            (via tagIds; 0..* tags por movimiento)
+Movement n──n  Tag            (via tagIds; 1..* tags por movimiento, default "Sin Clasificar")
 ```
 
 El miembro de un movimiento **se deriva** de la cuenta en cuentas personales (asunción de la spec); no se persiste en el movimiento.
@@ -112,8 +113,8 @@ Esquema en `src/infrastructure/db/schema/`. Migración inicial generada con driz
 ```text
 members                          accounts
 ├── id: integer PK autoincrement ├── id: integer PK autoincrement
-└── name: text NOT NULL          ├── name: text NOT NULL
-                                 ├── type: text NOT NULL  ('personal'|'shared')
+├── name: text NOT NULL          ├── name: text NOT NULL
+└── UNIQUE(name)                 ├── type: text NOT NULL  ('personal'|'shared')
                                  ├── member_id: integer FK→members.id (NULL si común)
                                  └── UNIQUE(name)
 
@@ -154,7 +155,7 @@ movement_tags
 
 Seed idempotente (`onConflictDoNothing` sobre claves naturales), ejecutado con `npm run db:seed` tras migrar:
 
-**Miembros** (2): nombres reales de la pareja — *NEEDS CLARIFICATION → resuelto en implementación con placeholders editables*: valores iniciales "Miembro A" / "Miembro B" configurables en `seed-data.ts` antes del primer `db:seed`.
+**Miembros** (2): placeholders editables "Miembro A" / "Miembro B", configurables en `seed-data.ts` antes del primer `db:seed`.
 
 **Cuentas** (3):
 
@@ -176,7 +177,7 @@ Seed idempotente (`onConflictDoNothing` sobre claves naturales), ejecutado con `
 | Importe > 0, ≤ 2 decimales, formato es-ES ("850,00"/"850.00"/"850") | ✅ (regex + parse a céntimos por string) | ✅ `Money.fromCents` | `amount_cents > 0` (check lógico) |
 | Fecha ISO válida | ✅ | — | — |
 | Tipo y naturaleza en enums; naturaleza solo en gastos | ✅ | ✅ `Movement.create` | — |
-| Tags: 0..n, existen y activas | ✅ (ids enteros, dedup) | ✅ | FK + PK compuesta |
+| Tags: 0..n en la frontera (UI) / 1..n en el agregado tras el default; existen y activas | ✅ (ids enteros, dedup) | ✅ (mínimo 1 tras asignar default) | FK + PK compuesta |
 | Nombre de tag único case-insensitive | — (no aplica al registro) | ✅ `DuplicateTagNameError` | unique index `lower(name)` |
 | Cuenta existe; naturaleza por defecto según tipo de cuenta | ✅ (cuenta válida) | ✅ (default `'shared'` si cuenta común) | FK |
 
@@ -200,6 +201,6 @@ Términos de dominio intraducibles o con equivalencia fijada; **los identificado
 | Descripción | `description` | |
 | Importe | `amount` / `Money` | Internamente céntimos (`amountCents`) |
 | Balance (acumulado) | `balance` | Derivado, no persistido |
-| Sin clasificar | `unclassified` | Agrupación de movimientos sin tags |
+| Sin Clasificar | slug `sin-clasificar` | Tag por defecto asignada cuando no se selecciona ninguna (FR-006) |
 | Catálogo (de tags) | `tag catalog` | Seed precargado |
 | Mes (del listado) | `month` | `YYYY-MM` en URL/listado |

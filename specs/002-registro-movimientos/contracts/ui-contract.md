@@ -41,7 +41,7 @@
 | Cuenta | información **no editable** (badge/texto con nombre de la cuenta activa; viaja al servidor como campo oculto `accountId`) | **Cuenta activa** (contexto); para cambiarla se usa el selector 2.1 |
 | Tipo | gasto / ingreso (radio o toggle) | gasto |
 | Naturaleza | personal / compartido | Si cuenta personal: **personal** (FR-016); si cuenta común: **compartido**, deshabilitado (no editable) |
-| Tags | checkboxes del catálogo activo (12) | ninguno |
+| Tags | checkboxes del catálogo activo (12) | ninguno (sin selección → el sistema asigna la tag por defecto "Sin Clasificar", FR-006) |
 | Enviar | botón "Registrar" con estado `pending` | — |
 
 Comportamiento:
@@ -55,7 +55,7 @@ Comportamiento:
 - Columnas visibles por movimiento: **fecha, concepto, importe, tipo, naturaleza y tags** (descripción visible como secundaria si existe).
 - Importe con signo contable explícito: gasto `−85,00 €` / ingreso `+1.500,00 €` (formato es-ES).
 - Tipo: "Gasto" / "Ingreso". Naturaleza: "Personal" / "Compartido" (solo gastos).
-- Tags: chips con el nombre; **sin tags → chip "Sin clasificar"** (FR-006).
+- Tags: chips con el nombre; todo movimiento lleva al menos una tag: sin selección explícita, el sistema asigna la tag por defecto **"Sin Clasificar"** y su chip se muestra (FR-006).
 - Orden: fecha descendente (más reciente primero) dentro del mes.
 - Solo movimientos de la cuenta activa y del mes seleccionado (por fecha del movimiento, FR-004).
 
