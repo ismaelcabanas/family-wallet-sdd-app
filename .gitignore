@@ -19,6 +19,12 @@ dist/
 *.sqlite3
 *.db
 
+# Tests y reportes
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
 # Sistema operativo
 .DS_Store
 

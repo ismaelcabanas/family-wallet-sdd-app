@@ -61,16 +61,24 @@ El proyecto sigue desarrollo dirigido por especificaciones. Comandos (en este or
 ## Estructura del repositorio
 
 ```
-specs/                    # especificaciones por feature (NNN-secuenciales)
-  001-family-wallet/      # roadmap maestro (spec + checklists)
-.specify/                 # configuración Spec Kit, plantillas, scripts
-  memory/constitution.md  # constitución del proyecto (leer siempre)
+src/
+  domain/                  # núcleo puro: entidades, VOs, errores (sin deps externas)
+  application/             # casos de uso y puertos (interfaces in/out)
+  app/                     # adaptador inbound fino (page.tsx, layout.tsx, globals.css)
+  infrastructure/
+    db/                    # adaptador outbound: schema Drizzle, migraciones, repositorios, seed
+    primary/               # adaptador inbound: Server Actions (actions/) y UI (ui/, shadcn en ui/components/ui/)
+e2e/                       # Playwright (flujo crítico)
+scripts/seed.ts            # seed idempotente (tsx)
+drizzle/                   # migraciones SQL versionadas (committed)
+specs/                     # especificaciones por feature (NNN-secuenciales)
+  001-family-wallet/       # roadmap maestro (spec + checklists)
+.specify/                  # configuración Spec Kit, plantillas, scripts
+  memory/constitution.md   # constitución del proyecto (leer siempre)
 docs/
-  architecture/           # (Progresivo) documentación detallada de capas y ADRs
-AGENTS.md                 # este archivo
+  architecture/            # overview, ADRs y diagramas (C4, secuencia, dominio)
+AGENTS.md                  # este archivo
 ```
-
-El scaffold de la aplicación Next.js se creará como primer trabajo de la feature `002-registro-movimientos`; hasta entonces no existe `package.json` ni código fuente.
 
 ## Referencias
 
@@ -80,5 +88,19 @@ El scaffold de la aplicación Next.js se creará como primer trabajo de la featu
 
 - **Idioma**: UI, specs y documentación en español; identificadores de código en inglés (excepto términos de dominio intraducibles, documentados en el glosario del data-model).
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
-- **Moneda**: EUR con 2 decimales; los cálculos monetarios evitan aritmética de coma flotante directa.
+- **Moneda**: EUR con 2 decimales como céntimos enteros (VO `Money`, ADR 0007); los cálculos monetarios evitan aritmética de coma flotante directa. El formateo `Intl es-ES` vive solo en `src/infrastructure/primary/ui/format.ts`.
+- **Tests**: co-localizados junto a su SUT (`*.test.ts(x)`); Vitest con `test.projects` (`node` para dominio/aplicación/infra/actions, `ui` jsdom para componentes). Las Server Actions se mockean con `vi.mock`; los repositorios se prueban contra libsql `:memory:` con las migraciones de `drizzle/`.
+- **E2E**: Playwright contra `build + start` con BD aislada determinista (`e2e.sqlite`, recreada por `pretest:e2e`); specs en serie dentro de cada fichero porque comparten estado de BD.
+- **BD**: `db.sqlite` en dev; la URL se puede sobreescribir con `DATABASE_URL` (así funcionan los e2e). Migraciones solo por script (`npm run db:migrate`), nunca en runtime serverless; en producción (Turso) se ejecutan desde local como paso pre-deploy con `drizzle.prod.config.ts` y `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`.
+- **Seed**: idempotente (`onConflictDoNothing` sobre claves naturales); datos editables en `src/infrastructure/db/seed-data.ts`.
 - **Comentarios**: no se añaden comentarios salvo petición explícita; el código se explica por sí mismo y la intención vive en specs/plan.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
