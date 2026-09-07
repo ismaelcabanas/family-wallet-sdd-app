@@ -113,7 +113,7 @@
 - [X] T043 [P] Crear diagrama de secuencia en mermaid del flujo crítico "registrar movimiento" en `docs/architecture/diagrams/registro-movimiento-sequence.md`: movement-form (useActionState) → Server Action createMovement (Zod, parse céntimos) → CreateMovement (aplicación) → MovementRepository (puerto) → DrizzleMovementRepository (db.batch) → Turso → revalidatePath('/') → render en servidor de listado/balance (ADR 0008), incluyendo el camino de error de validación (nada se persiste, valores conservados)
 - [X] T044 [P] Crear diagrama de clases UML en mermaid del modelo de dominio en `docs/architecture/diagrams/domain-model.md`: agregado `Movement` (raíz), VOs `Money`/`MovementType`/`ExpenseNature`, relaciones Member 1──0..1 Account 1──n Movement n──n Tag e invariantes clave (naturaleza solo en gastos, balance derivado), enlazado desde `docs/architecture/overview.md` y el glosario de data-model.md
 - [X] T045 Ejecutar la verificación manual completa de `specs/002-registro-movimientos/quickstart.md` (E1–E8 + comprobación inicial + verificación adicional) sobre `npm run dev` con BD migrada y sembrada
-- [ ] T046 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
+- [X] T046 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
 
 ---
 
