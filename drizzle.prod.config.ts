@@ -8,7 +8,7 @@ if (!url) {
 }
 
 export default defineConfig({
-  dialect: "sqlite",
+  dialect: "turso",
   schema: "./src/infrastructure/db/schema",
   out: "./drizzle",
   dbCredentials: {
