@@ -87,6 +87,7 @@ AGENTS.md                  # este archivo
 ## Convenciones
 
 - **Idioma**: UI, specs y documentación en español; identificadores de código en inglés (excepto términos de dominio intraducibles, documentados en el glosario del data-model).
+- **Ramas**: las features se desarrollan en ramas `feature/NNN-<short-name>` (p. ej. `feature/005-cierre-mensual`), creadas por la extensión git de Spec Kit (`branch_template` en `.specify/extensions/git/git-config.yml`) con el número de la spec a la que corresponden; se integran en `main` tras completar el ciclo.
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
 - **Moneda**: EUR con 2 decimales como céntimos enteros (VO `Money`, ADR 0007); los cálculos monetarios evitan aritmética de coma flotante directa. El formateo `Intl es-ES` vive solo en `src/infrastructure/primary/ui/format.ts`.
 - **Tests**: co-localizados junto a su SUT (`*.test.ts(x)`); Vitest con `test.projects` (`node` para dominio/aplicación/infra/actions, `ui` jsdom para componentes). Las Server Actions se mockean con `vi.mock`; los repositorios se prueban contra libsql `:memory:` con las migraciones de `drizzle/`.
