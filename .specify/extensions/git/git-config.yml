@@ -8,7 +8,7 @@ branch_numbering: sequential
 # Supported tokens: {author}, {app}, {number}, {slug}
 # {slug} must not appear before {number}; final path segment must start with {number}-.
 # Example for monorepos: "{author}/{app}/{number}-{slug}"
-branch_template: ""
+branch_template: "feature/{number}-{slug}"
 
 # Optional shorthand namespace. Leave empty to use branch_template/default behavior.
 # Example: "features/{app}" expands to "features/{app}/{number}-{slug}"
