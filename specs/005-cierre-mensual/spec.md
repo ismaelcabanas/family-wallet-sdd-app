@@ -34,7 +34,7 @@ Como miembro de la familia, quiero ver, para el mes y la cuenta seleccionados, u
 - Mes sin movimientos: cubierto por el escenario de aceptación 3 (totales a cero, desglose vacío).
 - Gasto con varias tags en el desglose: cubierto por el escenario de aceptación 5 (computa en cada tag; el total de gastos no se duplica).
 - ¿Computan los ingresos en el desglose por tag? (No: el desglose es de gastos; los ingresos solo aparecen como total de ingresos del mes).
-- ¿Qué ocurre con un mes futuro seleccionado en el selector? (Se comporta como mes sin movimientos: todos los KPIs a cero).
+- ¿Qué ocurre con un mes futuro seleccionado en el selector? (Si está vacío, se comporta como mes sin movimientos: todos los KPIs a cero; si ya tiene movimientos registrados por adelantado, el cierre los muestra con normalidad).
 - ¿Se incluyen las tags desactivadas en el desglose? (Sí, si un movimiento histórico las lleva: el desglose refleja las tags reales de los movimientos del mes; en esta feature todas las tags del catálogo están activas).
 - ¿Dónde queda la tag "Sin Clasificar"? (Como una tag más del desglose: todo movimiento lleva al menos una tag —FR-006 de 002—, por lo que todo gasto computa en el desglose).
 - Aritmética monetaria: cálculos en céntimos enteros sin coma flotante (ADR 0007); el cuadre de los KPIs contra el cálculo manual debe ser exacto, sin desviaciones de redondeo.
@@ -53,7 +53,7 @@ Como miembro de la familia, quiero ver, para el mes y la cuenta seleccionados, u
 
 - **FR-001**: El sistema MUST mostrar, para el mes y la cuenta seleccionados en los selectores existentes de la pantalla principal, un panel de cierre mensual con los KPIs: total de ingresos del mes, total de gastos del mes, desglose de gastos por naturaleza (compartidos y personales) y saldo del mes (ingresos − gastos).
 - **FR-002**: El sistema MUST calcular el total de ingresos del mes como la suma de los importes de los movimientos de tipo ingreso de esa cuenta fechados en el mes, y el total de gastos como la suma de los de tipo gasto.
-- **FR-003**: El sistema MUST desglosar los gastos del mes por naturaleza según el campo naturaleza de cada gasto ("personal"/"compartido"), con independencia de la cuenta en la que se registraron (los gastos compartidos pagados desde cuentas personales computan como compartidos). Los ingresos no se desglosan por naturaleza.
+- **FR-003**: El sistema MUST desglosar los gastos del mes de la cuenta seleccionada por naturaleza según el campo naturaleza de cada gasto ("personal"/"compartido"): la naturaleza la marca el gasto, no el tipo de cuenta que lo paga (un gasto compartido pagado desde una cuenta personal computa como compartido en el cierre de esa cuenta personal). Los ingresos no se desglosan por naturaleza y el cierre nunca agrega movimientos de otras cuentas (el resumen global llega con la feature 006).
 - **FR-004**: El sistema MUST calcular el saldo del mes como ingresos del mes menos gastos del mes, y mostrarlo con signo (positivo, negativo o cero).
 - **FR-005**: El cierre mensual MUST limitarse al mes seleccionado: no muestra balance acumulado (ni a cierre de mes ni multimes); el balance acumulado llega con la cuenta de resultados anual (feature 006). El único balance visible en la pantalla sigue siendo el de la cabecera (histórico completo, FR-008 de 002), sin cambios.
 - **FR-006**: El sistema MUST mostrar el desglose de gastos del mes por tag: cada tag con el importe total de los gastos del mes que la llevan —solo el importe, sin porcentajes ni recuentos—, ordenado de mayor a menor importe. Un gasto con varias tags computa en cada una de ellas; el total de gastos del mes (FR-002) no se ve afectado por la multi-etiquetación.
@@ -61,7 +61,7 @@ Como miembro de la familia, quiero ver, para el mes y la cuenta seleccionados, u
 - **FR-008**: El cierre mensual MUST actualizarse al cambiar la cuenta o el mes en los selectores, en la misma pantalla y sin navegación adicional.
 - **FR-009**: El cierre MUST ser una vista derivada de los movimientos: no se persisten totales ni se crean nuevas tablas; los KPIs se recalculan a partir de los movimientos existentes en cada consulta (extensión del principio "balance derivado, no persistido" del ADR 0009 a todo el cierre).
 - **FR-010**: La interfaz del cierre MUST estar en español, con las etiquetas de KPIs equivalentes a las del Excel de Balance: Ingresos, Gastos, Gastos compartidos, Gastos personales, Saldo del mes y Desglose por tag.
-- **FR-011**: El sistema MUST presentar el cierre de un mes con hasta 300 movimientos en menos de 3 segundos (consulta agregada eficiente, sin cargar todos los movimientos de la historia de la cuenta).
+- **FR-011**: El sistema MUST presentar el cierre de un mes con hasta 300 movimientos en menos de 3 segundos, con cálculo eficiente sobre los movimientos del mes seleccionado, sin cargar la historia completa de la cuenta.
 
 ### Key Entities *(include if feature involves data)*
 

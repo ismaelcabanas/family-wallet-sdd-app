@@ -66,7 +66,7 @@ npm run test:e2e       # Playwright: registro (002) + cierre mensual (005)
 
 1. Registra un gasto fechado el **mes que viene** en la cuenta activa (mes actual en el selector).
 
-- ✅ El cierre del mes actual no cambia en ningún KPI (el movimiento computa en su mes); navega al mes siguiente y verifica que aparece ahí.
+- ✅ El cierre del mes actual no cambia en ningún KPI (el movimiento computa en su mes); navega al mes siguiente y verifica que el movimiento aparece ahí y que su cierre lo refleja.
 
 ### E6 — Ingreso con tags no computa en el desglose (edge case)
 
@@ -76,11 +76,12 @@ npm run test:e2e       # Playwright: registro (002) + cierre mensual (005)
 
 ## Verificación adicional recomendada
 
-> SC-002 ("cierre < 3 s con 300 movimientos") se verifica de forma **informal** durante E1 (impresión de respuesta), sin condiciones de medición estrictas (modo PoC, mismo criterio que 002).
+> SC-002 ("cierre < 3 s con 300 movimientos") se verifica de forma **informal** durante E1 (impresión de respuesta), sin condiciones de medición estrictas (modo PoC, mismo criterio que 002). La medición es la presentación de la pantalla completa (listado + panel), no del panel aislado.
 
 - **Saldo negativo (FR-004)**: registra gastos mayores que los ingresos de un mes y verifica `−51,20 €` (signo U+2212, guion menos) en Saldo del mes.
-- **Orden determinista**: dos tags con el mismo importe aparecen ordenadas alfabéticamente.
+- **Orden determinista**: dos tags con el mismo importe aparecen ordenadas alfabéticamente (comparación localizada `es`).
 - **Mes futuro (edge case)**: selecciona un mes futuro sin movimientos → mismo comportamiento que E3.
+- **Tag por defecto en el desglose**: registra un gasto sin seleccionar tags y comprueba que la fila "Sin Clasificar" aparece en el desglose con su importe.
 - **E2E (ADR 0006/0010)**: `npm run test:e2e` cubre `cierre-mensual.spec.ts` (KPIs exactos de E1/E2 contra la app compilada).
 
 ## Puesta en marcha (producción Turso)

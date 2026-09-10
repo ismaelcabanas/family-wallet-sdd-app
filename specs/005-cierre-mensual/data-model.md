@@ -36,7 +36,7 @@ MonthlyClosure.fromMovements(inputs: ClosureMovementInput[]): MonthlyClosure
 | sharedExpenseTotal | `Money` | Σ de gastos con nature = `'shared'` — **con independencia de la cuenta** de la que se pagaron (FR-003). |
 | personalExpenseTotal | `Money` | Σ de gastos con nature = `'personal'`. |
 | monthBalance | `Money` | `incomeTotal − expenseTotal`; puede ser negativo (`Money.fromCentsOrZero`). |
-| tagBreakdown | `ReadonlyArray<TagBreakdownEntry>` | Un gasto suma **una vez por cada tag que lleva**; solo gastos (FR-006); orden importe desc, desempate nombre asc. |
+| tagBreakdown | `ReadonlyArray<TagBreakdownEntry>` | Un gasto suma **una vez por cada tag que lleva**; solo gastos (FR-006); orden importe desc, desempate nombre asc con comparación localizada en español (`localeCompare(…, 'es')`). |
 
 `TagBreakdownEntry` (dominio): `{ tagId: number; tagName: string; amount: Money }`.
 
@@ -71,7 +71,7 @@ Ninguna: `MonthlyClosure` es inmutable y se recalcula en cada consulta (FR-009, 
 
 ## 2. Vista de Persistencia (Drizzle, SQLite/Turso)
 
-**Sin cambios** ([data-model de 002 §2](../002-registro-movimientos/data-model.md)): no hay DDL, ni migraciones, ni nuevos métodos de repositorio. El cierre se alimenta de la query existente `MovementRepository.listByMonthAndAccount(accountId, month)` (rango semicerrado sargable sobre índice `(account_id, date)`, tags incluidas vía `LEFT JOIN`).
+**Sin cambios** ([data-model de 002 §2](../002-registro-movimientos/data-model.md)): no hay DDL, ni migraciones, ni nuevos métodos de repositorio. El cierre obtiene el mes con la query existente `MovementRepository.listByMonthAndAccount(accountId, month)` (rango semicerrado sargable sobre índice `(account_id, date)`, tags incluidas vía `LEFT JOIN`), invocada por `GetMonthlyClosure` de forma independiente al listado.
 
 ---
 
@@ -87,7 +87,7 @@ Ninguna: `MonthlyClosure` es inmutable y se recalcula en cada consulta (FR-009, 
 | Desglose solo de gastos; ingresos fuera | — | — | ✅ | — |
 | Orden desglose (importe desc, nombre asc) | — | — | ✅ | — |
 | Formato es-ES y signo del saldo | — | — | — | — (adaptador UI `format.ts`) |
-| Mapeo `MovementDTO[]` → `ClosureMovementInput[]` → `MonthlyClosureDTO` | — | ✅ `GetMonthlyClosure` | — | — |
+| Mapeo `MovementDTO[]` → `ClosureMovementInput[]` → `MonthlyClosureDTO` (con lectura propia del mes vía puerto) | — | ✅ `GetMonthlyClosure` | — | — |
 
 La UI **nunca** calcula: recibe `MonthlyClosureDTO` y formatea (constitución VII).
 
