@@ -8,13 +8,14 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 ## 1. Dónde vive el cálculo del cierre (FR-002..FR-006, FR-009)
 
-**Decision**: VO de dominio puro **`MonthlyClosure`** (`src/domain/movement/MonthlyClosure.ts`) con factory `MonthlyClosure.fromMovements(inputs)`; el caso de uso **`GetMonthlyClosure`** (`src/application/movement/GetMonthlyClosure.ts`) recibe los `MovementDTO` del mes **ya cargados por `ListMovements`** en la misma página, los mapea al input del dominio y devuelve un `MonthlyClosureDTO`. La decisión se registrará como **ADR 0010**.
+**Decision**: VO de dominio puro **`MonthlyClosure`** (`src/domain/movement/MonthlyClosure.ts`) con factory `MonthlyClosure.fromMovements(inputs)`; el caso de uso **`GetMonthlyClosure`** (`src/application/movement/GetMonthlyClosure.ts`) depende del puerto `MovementRepository` y **obtiene por sí mismo** los movimientos del mes (`execute(accountId, month)` → `listByMonthAndAccount`), los mapea al input del dominio y devuelve un `MonthlyClosureDTO`. La decisión se registrará como **ADR 0010**.
 
 **Rationale**:
 - Los KPIs son lógica de negocio (constitución III: totales/cierres MUST estar cubiertos por tests; VII: el dominio se modela con VOs y servicios de dominio). Agregar importes, separar por naturaleza y la regla "multi-etiquetado computa una vez por tag pero no duplica totales" son reglas de negocio, no de presentación.
-- La pantalla ya carga los movimientos del mes para el listado (`MovementRepository.listByMonthAndAccount`): el cierre es una **segunda vista sobre los mismos datos**. Calcularlo en memoria evita una segunda query idéntica y un método de puerto nuevo; FR-011 (<3 s / 300 movimientos) queda cubierto con margen enorme (agregación en memoria de 300 items ≈ microsegundos).
+- **Caso de uso autocontenido**: obtiene sus datos vía el puerto existente, con la misma forma que `ListMovements`/`ListAccounts`; sin acoplamiento a cómo la página carga el listado (una futura paginación o filtrado del listado en 003 no le afecta).
+- **Coste asumido y deliberado**: una segunda lectura del mes por render de página (query indexada sub-milisegundo, en una página que ya ejecuta 4). La micro-optimización de reutilizar el array cargado por el listado se rechaza: acopla dos casos de uso por un ahorro irrelevante (rediseño a partir del challenge del revisor, 2026-09-10).
+- FR-011 (<3 s / 300 movimientos) queda cubierto con margen enorme (agregación en memoria sub-milisegundo tanto en el umbral contractual de 300 como en el extremo superior del Technical Context, ~500/mes).
 - Aritmética con el VO `Money` existente (`add`, `fromCentsOrZero` para saldos que pueden ser negativos): cero coma flotante (ADR 0007).
-- El caso de uso toma `MovementDTO[]` (no re-fetcha): `page.tsx` ejecuta `ListMovements` una vez y alimenta listado y cierre con el mismo array — sin doble lectura ni riesgo de divergencia entre listado y KPIs.
 
 **Reglas de implementación**:
 - Input del dominio: registro puro `{ type, nature, amountCents, tags: { id, name }[] }` — el VO no conoce DTOs de aplicación (principio VII invertido: aplicación depende de dominio, nunca al revés).
@@ -26,7 +27,8 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 | Opción | Contras |
 |---|---|
-| Agregación SQL dedicada (nuevo método de puerto `getMonthlySummary` + GROUP BY en `DrizzleMovementRepository`) | Duplica la lectura del mes que ya hace el listado (misma query dos veces por pantalla); nuevo contrato de puerto + implementación + tests de integración para datos que ya están en memoria; la naturaleza y las tags requieren joins idénticos a los del listado. Solo ganaría si el cierre se pintara sin listado. |
+| Agregación SQL dedicada (nuevo método de puerto `getMonthlySummary` + GROUP BY en `DrizzleMovementRepository`) | Nuevo contrato de puerto + implementación + tests de integración para datos que se agregan trivialmente en memoria; la naturaleza y las tags requieren joins idénticos a los del listado. Solo ganaría si el cierre se pintara sin listado. |
+| Pasar al caso de uso los DTOs ya cargados por el listado (sin segunda query) | Aceptada en el primer borrador y **revertida tras challenge del revisor (2026-09-10)**: acopla el cierre a la forma de carga del listado (paginación/filtros de 003 exigirían reimplementarlo); la query ahorrada es sub-milisegundo. |
 | Calcular en el caso de uso (aplicación) sin VO de dominio | Deja lógica de negocio (regla multi-tag, cuadre naturaleza) fuera del dominio, inconsistente con `Money`/`Movement.create`; menos reutilizable para la feature 006 (resumen global reutilizará el VO). |
 | Calcular en la página o el componente | Prohibido (constitución VII: PROHIBIDO duplicar lógica de negocio en componentes); in testeable con RTL sin montar todo. |
 | Materializar totales (tabla `monthly_closures` o columnas calculadas) | Viola FR-009 y ADR 0009: drift garantizado al editar/eliminar (feature 003); escrituras extra en Turso single-writer. |
@@ -66,10 +68,10 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 **Decision**: tres niveles + e2e, todos con patrones ya fijados por 002:
 
-1. **Dominio** (`MonthlyClosure.test.ts`, proyecto node): happy path con mezcla de tipos/naturalezas, multi-tag (computa por tag sin duplicar total), ingreso sin naturaleza, mes vacío → ceros, saldo negativo, orden y desempate del desglose, invariante `shared + personal = expenseTotal`.
-2. **Aplicación** (`GetMonthlyClosure.test.ts`, proyecto node): mapeo DTO→dominio→DTO, resultados idénticos a los del VO, sin dependencias de BD (entrada: arrays de DTOs).
+1. **Dominio** (`MonthlyClosure.test.ts`, proyecto node): happy path con mezcla de tipos/naturalezas, multi-tag conforme al invariante 2 del data-model (cada gasto computa íntegro en cada una de sus tags; la Σ del desglose puede exceder `expenseTotal`; el total de gastos no se duplica), ingreso sin naturaleza, mes vacío → ceros, saldo negativo, orden y desempate del desglose, invariante `shared + personal = expenseTotal`.
+2. **Aplicación** (`GetMonthlyClosure.test.ts`, proyecto node): con doble en memoria del puerto — validación de mes, llamada al repositorio con `(accountId, month)`, mapeo DTO→dominio→DTO y resultados idénticos a los del VO.
 3. **UI** (`monthly-closure-panel.test.tsx`, proyecto ui jsdom + RTL): KPIs y desglose renderizados con formato es-ES (usando los helpers), estado vacío ("Sin gastos este mes."), orden del desglose.
-4. **E2E** (`e2e/cierre-mensual.spec.ts`): fichero nuevo, specs **en serie** dentro del fichero (estado compartido de `e2e.sqlite`, convención de 002); registra vía UI los movimientos del escenario 1 de la spec (ingreso 1.920,00 + hipoteca 850,00 con Vivienda+Hipoteca + luz 120,50 con Hogar en la cuenta común) y verifica los KPIs exactos del panel; luego cambia a una cuenta personal con gastos de ambas naturalezas; verifica mes vacío → ceros.
+4. **E2E** (`e2e/cierre-mensual.spec.ts`): fichero nuevo, specs **en serie** dentro del fichero (estado compartido de `e2e.sqlite`, convención de 002); registra vía UI los movimientos del escenario 1 de la spec (ingreso 1.920,00 + hipoteca 850,00 con Vivienda+Hipoteca + luz 120,50 con Hogar en la cuenta común) y verifica los KPIs exactos del panel; luego cambia a una cuenta personal con gastos de ambas naturalezas; verifica mes vacío → ceros. El cambio de mes y el movimiento fechado en otro mes quedan en verificación manual (quickstart E4/E5) — decisión del revisor, 2026-09-10.
 
 **Rationale**: el e2e protege el flujo completo registro→cierre (la acción de esta feature) sin repetir la casuística de validación del formulario (ya cubierta por `e2e/registro-movimientos.spec.ts`). No se añade e2e de rendimiento (SC-002 se verifica informalmente como SC-001/002 en 002 — modo PoC).
 
@@ -81,7 +83,7 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 | Tema | Decisión | ADR |
 |---|---|---|
-| Ubicación del cálculo | VO de dominio `MonthlyClosure` + caso de uso sobre DTOs del mes ya cargados | **0010** |
+| Ubicación del cálculo | VO de dominio `MonthlyClosure` + caso de uso con lectura propia del mes vía puerto | **0010** |
 | Persistencia | Ninguna: vista derivada recalculada por consulta (extensión ADR 0009) | 0009 → 0010 |
 | Panel UI | Componente servidor entre formulario y listado; solo formatea | — |
 | Formato | Totales sin signo; saldo del mes con signo contable U+2212 / `+` / sin signo si 0 | — |

@@ -43,11 +43,14 @@ Región nueva de la pantalla principal de 002 ([ui-contract de 002](../002-regis
 |---|---|
 | KPI Ingresos | label "Ingresos"; importe `Intl es-ES` EUR sin signo: `1.920,00 €` |
 | KPI Gastos | label "Gastos"; importe sin signo: `970,50 €` |
-| KPI Saldo del mes | label "Saldo del mes"; `+949,50 €` positivo / `−51,20 €` negativo (U+2212) / `0,00 €` cero sin signo — helper nuevo `formatSignedCents` |
+| KPI Saldo del mes | label "Saldo del mes"; `+949,50 €` positivo / `−51,20 €` negativo (U+2212) / `0,00 €` cero sin signo — helper nuevo `formatSignedCents`; un mes exactamente compensado muestra siempre `0,00 €` (nunca `+0,00 €` ni `−0,00 €`) |
 | Naturaleza | labels "Gastos compartidos" / "Gastos personales"; importes sin signo |
 | Desglose | título "Desglose por tag"; filas `nombre  importe` sin signo |
-| Orden del desglose | importe descendente; empate → nombre ascendente (alfabético) |
-| Mes sin gastos | KPIs a `0,00 €` / saldo `0,00 €`; desglose muestra "Sin gastos este mes." |
+| Filas del desglose | Sin límite de filas ni scroll: crecen con las tags usadas en el mes (acotado por el catálogo, 12 en el seed) |
+| Nota del desglose | Nota permanente bajo el desglose: "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos." (decisión del revisor, 2026-09-10) |
+| Orden del desglose | importe descendente; empate → nombre ascendente con comparación localizada en español (`localeCompare(…, 'es')`); los tests fijan el orden esperado con datos de ejemplo |
+| Mes sin movimientos | todos los KPIs a `0,00 €` y saldo `0,00 €`; desglose muestra "Sin gastos este mes." |
+| Mes con ingresos pero sin gastos | Ingresos y Saldo del mes según los ingresos (> 0); Gastos y naturaleza a `0,00 €`; desglose muestra "Sin gastos este mes." |
 | Mes sin movimientos (KPIs a cero + listado vacío) | El panel se muestra igualmente con ceros y "Sin gastos este mes." (NO se oculta; el estado vacío "Aún no hay movimientos" del contrato 002 §2.5 sigue siendo exclusivo del listado) |
 | Idioma | Todo en español (FR-010) |
 
@@ -55,6 +58,7 @@ Región nueva de la pantalla principal de 002 ([ui-contract de 002](../002-regis
 
 - Panel como `<section>` con `aria-labelledby` apuntando al título.
 - El grid de KPIs y las filas del desglose se apilan en una columna en móvil; sin scroll horizontal.
+- El orden responsive de 002 §4 se extiende intercalando este panel entre el formulario y el listado, también en móvil.
 - Números como texto (mismo patrón que el resto de la pantalla).
 
 ## 5. Fuera de este contrato

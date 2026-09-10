@@ -10,7 +10,7 @@ Segunda feature entregable del roadmap: panel de cierre mensual con los KPIs del
 
 Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 - **Cálculo en el dominio**: VO `MonthlyClosure` con factory pura `fromMovements` que agrega con `Money` (ADR 0007); la regla "multi-etiquetado no duplica totales, computa una vez por tag" vive en el dominio, cubierta por tests.
-- **Sin query nueva**: el caso de uso `GetMonthlyClosure` calcula sobre los `MovementDTO` del mes ya cargados por `ListMovements` (misma pantalla); nada de agregación SQL dedicada ni persistencia de totales (extensión del ADR 0009 → ADR 0010).
+- **Caso de uso autocontenido**: `GetMonthlyClosure` depende del puerto `MovementRepository` y obtiene los movimientos del mes por sí mismo (`execute(accountId, month)`); sin acoplamiento al listado, sin agregación SQL dedicada y sin persistencia de totales (extensión del ADR 0009 → ADR 0010).
 - **UI**: componente servidor `monthly-closure-panel.tsx` entre el formulario y el listado; la UI solo formatea con los helpers es-ES existentes más `formatSignedCents` (saldo con signo contable `+`/`−`/sin signo si es 0).
 - **Testing**: tests unitarios del VO y del caso de uso (dobles), test de componente jsdom/RTL, e2e Playwright que registra movimientos y verifica KPIs exactos.
 
@@ -76,10 +76,10 @@ specs/005-cierre-mensual/
 │   ├── application/                     # Casos de uso + puertos (depende solo de domain)
 │   │   └── movement/
 │   │       ├── dto.ts                   # AMPLIADO: MonthlyClosureDTO, TagBreakdownEntryDTO
-│   │       ├── GetMonthlyClosure.ts     # NUEVO: calcula el cierre sobre MovementDTO[] del mes
+│   │       ├── GetMonthlyClosure.ts     # NUEVO: cierre del mes vía puerto MovementRepository + VO
 │   │       └── GetMonthlyClosure.test.ts# NUEVO
 │   ├── app/
-│   │   └── page.tsx                     # AMPLIADO: integra el panel (4ª lectura junto a las existentes)
+│   │   └── page.tsx                     # AMPLIADO: integra el panel (lectura propia vía GetMonthlyClosure)
 │   └── infrastructure/
 │       └── primary/
 │           └── ui/
@@ -104,7 +104,7 @@ specs/005-cierre-mensual/
 | (ninguna) | — | — |
 
 **Decisiones de diseño que requieren ADR en la fase de implementación** (recogido aquí para que `/speckit.tasks` lo incluya):
-- **ADR 0010 — Cierre mensual calculado como servicio de dominio sobre los movimientos del mes ya cargados**: el caso de uso agrega los `MovementDTO` del mes (ya cargados para el listado) mediante el VO `MonthlyClosure`; se rechazan la agregación SQL dedicada (nuevo método de puerto + repositorio para datos que ya están en memoria) y cualquier persistencia de totales (deriva de ADR 0009: recalculado siempre, sin drift).
+- **ADR 0010 — Cierre mensual calculado como servicio de dominio con lectura propia del mes**: el caso de uso obtiene los movimientos vía el puerto existente (`listByMonthAndAccount`) y agrega con el VO `MonthlyClosure`; se rechazan la agregación SQL dedicada, la persistencia de totales y pasar al caso de uso los DTOs cargados por el listado (acoplamiento a la forma de carga; revertido tras challenge del revisor).
 
 ## Constitution Check (post-diseño, Phase 1)
 
