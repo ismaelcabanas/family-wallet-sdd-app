@@ -113,7 +113,7 @@ Re-evaluación tras generar [research.md](./research.md), [data-model.md](./data
 | # | Principio | Estado post-diseño | Notas |
 |---|-----------|--------------------|-------|
 | I | Simplicidad Primero | ✅ PASS | 3 ficheros nuevos de código + 3 ampliaciones puntuales; sin puertos/deps nuevos (alternativas rechazadas en research.md §1–§2). |
-| II | Spec-Driven Development | ✅ PASS | Cada FR-001..FR-011 traza a un artefacto: FR-001/008/010 → ui-contract; FR-002/003/004/006 → VO `MonthlyClosure` (data-model §1.1bis); FR-005 → ui-contract §1 (ausencia de balance acumulado); FR-007 → data-model §2; FR-009 → ADR 0010; FR-011 → research.md §1. |
+| II | Spec-Driven Development | ✅ PASS | Cada FR-001..FR-011 traza a un artefacto: FR-001/008/010 → ui-contract; FR-002/003/004/006 → VO `MonthlyClosure` (data-model §1.1); FR-005 → ui-contract §1 (ausencia de balance acumulado); FR-007 → data-model §3 (aritmética/formato; §1.1); FR-009 → ADR 0010; FR-011 → research.md §1. |
 | III | Calidad Verificada | ✅ PASS | quickstart.md define la verificación manual de los 6 escenarios de aceptación; tests por capa + e2e con KPIs exactos en CI. |
 | IV | TypeScript Estricto + Zod | ✅ PASS | Sin nuevas fronteras de datos; VO y DTOs tipados; sin `any`. |
 | V | SQLite con Drizzle | ✅ PASS | Cero cambios de esquema/migraciones (FR-009 verificado: no hay DDL en el plan). |

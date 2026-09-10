@@ -61,7 +61,7 @@ Tag ──se proyecta en──▶ MonthlyClosure.tagBreakdown    (por importe, n
 
 ### 1.4 Errores de dominio
 
-Ninguno nuevo: la factory `fromMovements` es total sobre inputs bien formados (los movimientos ya validaron al crearse). El caso de uso no introduce excepciones propias (mes inválido sigue siendo error del llamante, ya validado por `ListMovements`/`page.tsx`).
+Ninguno nuevo: la factory `fromMovements` es total sobre inputs bien formados (los movimientos ya validaron al crearse). El caso de uso `GetMonthlyClosure` valida el formato del mes (`YYYY-MM`) antes de consultar el puerto —misma regla que `ListMovements`— y no introduce excepciones de dominio propias.
 
 ### 1.5 Transiciones de estado
 
@@ -87,6 +87,7 @@ Ninguna: `MonthlyClosure` es inmutable y se recalcula en cada consulta (FR-009, 
 | Desglose solo de gastos; ingresos fuera | — | — | ✅ | — |
 | Orden desglose (importe desc, nombre asc) | — | — | ✅ | — |
 | Formato es-ES y signo del saldo | — | — | — | — (adaptador UI `format.ts`) |
+| Validación del formato de mes (`YYYY-MM`) en el caso de uso | — | ✅ `GetMonthlyClosure` (misma regla que `ListMovements`) | — | — |
 | Mapeo `MovementDTO[]` → `ClosureMovementInput[]` → `MonthlyClosureDTO` (con lectura propia del mes vía puerto) | — | ✅ `GetMonthlyClosure` | — | — |
 
 La UI **nunca** calcula: recibe `MonthlyClosureDTO` y formatea (constitución VII).
