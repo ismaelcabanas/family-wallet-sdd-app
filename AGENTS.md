@@ -8,7 +8,7 @@ Webapp familiar para gestionar gastos e ingresos: 3 cuentas (2 personales + 1 co
 2. **Nada de código de funcionalidad sin spec → plan → tasks aprobados** (flujo Spec Kit). Los fixes triviales (typos, lint) están exentos.
 3. **Antes de dar por terminado cualquier cambio de código**: ejecuta `npm run lint`, `npm run typecheck` y `npm run test` y verifica que están en verde.
 4. **Respetar estrictamente la dirección de dependencias**: Dominio → Aplicación → Adaptadores. El dominio NUNCA importa nada de Next.js, Drizzle, Zod o la UI.
-5. **Nunca hagas commit/push sin petición explícita del usuario.**
+5. **Nunca hagas commit/push sin petición explícita del usuario** (excepción: los hooks de auto-commit de Spec Kit habilitados por el propietario; ver «Flujo de trabajo Spec Kit»).
 6. **Mantenimiento de documentación**: si fijas o descubres una convención del proyecto que no está documentada, actualiza `AGENTS.md` (y `docs/` si aplica) en el mismo cambio. Las decisiones arquitectónicas nuevas se registran como ADR en `docs/architecture/adr/`.
 
 ## Stack (decisiones fijadas en constitución v1.1.1)
@@ -55,6 +55,7 @@ El proyecto sigue desarrollo dirigido por especificaciones. Comandos (en este or
 ```
 
 - El directorio de feature activo se resuelve desde `.specify/feature.json`.
+- **Auto-commits por fase**: los hooks de la extensión git (`before_*`/`after_*` → `speckit.git.commit` en `.specify/extensions.yml`) están habilitados como automáticos; commitean los artefactos de cada fase con mensaje Conventional Commit generado al efecto (`commit_style: conventional` en `.specify/extensions/git/git-config.yml`).
 - `specs/001-family-wallet/` es el **roadmap maestro**: NO se implementa directamente; las features hijas (`002-...`, `003-...`) desarrollan sus historias.
 - Cada `/speckit.plan` valida contra la constitución y justifica desviaciones en Complexity Tracking.
 
