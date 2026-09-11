@@ -5,6 +5,7 @@ import {
   currentMonth,
   formatAmountCents,
   formatSignedAmountCents,
+  formatSignedCents,
   monthLabel,
   todayIsoDate,
 } from "./format";
@@ -34,6 +35,21 @@ describe("formatSignedAmountCents", () => {
   it("marca los ingresos con signo más", () => {
     const formatted = formatSignedAmountCents(1_000_000_00, "income");
     expect(formatted).toMatch(/^\+1\.000\.000,00[\s\u00A0\u202F]€$/);
+  });
+});
+
+describe("formatSignedCents", () => {
+  it("marca el saldo positivo con signo más", () => {
+    expect(formatSignedCents(94_950)).toMatch(/^\+949,50[\s\u00A0\u202F]€$/);
+  });
+
+  it("marca el saldo negativo con signo menos contable", () => {
+    expect(formatSignedCents(-5_120)).toMatch(/^\u221251,20[\s\u00A0\u202F]€$/);
+  });
+
+  it("muestra el cero exactamente compensado sin signo", () => {
+    expect(formatSignedCents(0)).toMatch(/^0,00[\s\u00A0\u202F]€$/);
+    expect(formatSignedCents(0)).not.toMatch(/^[+\u2212]/);
   });
 });
 

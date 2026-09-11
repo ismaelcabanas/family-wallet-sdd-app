@@ -1,4 +1,5 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
+import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
@@ -12,6 +13,7 @@ import { AccountMonthSelector } from "@/infrastructure/primary/ui/account-month-
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
 import { EmptyState } from "@/infrastructure/primary/ui/empty-state";
 import { currentMonth } from "@/infrastructure/primary/ui/format";
+import { MonthlyClosurePanel } from "@/infrastructure/primary/ui/monthly-closure-panel";
 import { MovementForm } from "@/infrastructure/primary/ui/movement-form";
 import { MovementList } from "@/infrastructure/primary/ui/movement-list";
 
@@ -49,10 +51,11 @@ export default async function Home({
   const parsedMonth = monthParamSchema.safeParse(firstParam(params.month));
   const month = parsedMonth.success ? parsedMonth.data : currentMonth();
 
-  const [movements, balanceCents, tags] = await Promise.all([
+  const [movements, balanceCents, tags, closure] = await Promise.all([
     new ListMovements(movementRepository).execute(activeAccount.id, month),
     accountRepository.getBalance(AccountId(activeAccount.id)),
     new ListActiveTags(tagRepository).execute(),
+    new GetMonthlyClosure(movementRepository).execute(activeAccount.id, month),
   ]);
 
   return (
@@ -73,6 +76,8 @@ export default async function Home({
         accountType={activeAccount.type}
         tags={tags}
       />
+
+      <MonthlyClosurePanel closure={closure} month={month} />
 
       {movements.length === 0 ? <EmptyState /> : <MovementList movements={movements} />}
     </main>

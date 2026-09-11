@@ -7,6 +7,12 @@ export function formatSignedAmountCents(amountCents: number, type: "expense" | "
   return `${sign}${formatAmountCents(Math.abs(amountCents))}`;
 }
 
+export function formatSignedCents(cents: number): string {
+  if (cents > 0) return `+${formatAmountCents(cents)}`;
+  if (cents < 0) return `\u2212${formatAmountCents(Math.abs(cents))}`;
+  return formatAmountCents(0);
+}
+
 export function todayIsoDate(now: Date = new Date()): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
