@@ -24,6 +24,7 @@ src/
 │   ├── movement/                <-- Raíz del agregado principal
 │   │   ├── Movement.ts          <-- Factory create/rehydrate, inmutable
 │   │   ├── Money.ts             <-- VO céntimos enteros (ADR 0007)
+│   │   ├── MonthlyClosure.ts    <-- VO cierre mensual calculado (ADR 0010)
 │   │   ├── MovementId.ts · MovementType.ts · ExpenseNature.ts
 │   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError (con field)
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
@@ -35,7 +36,8 @@ src/
 │   ├── movement/
 │   │   ├── CreateMovement.ts    <-- Caso de uso (reglas FR-005/FR-006) + DEFAULT_TAG_SLUG
 │   │   ├── ListMovements.ts     <-- Query mes+cuenta
-│   │   ├── dto.ts               <-- CreateMovementDTO, MovementDTO, AccountDTO, TagDTO
+│   │   ├── GetMonthlyClosure.ts <-- Query cierre del mes vía puerto + VO (ADR 0010)
+│   │   ├── dto.ts               <-- CreateMovementDTO, MovementDTO, AccountDTO, TagDTO, MonthlyClosureDTO
 │   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz)
 │   ├── account/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance, ADR 0009)
@@ -67,6 +69,7 @@ src/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── movement-form.tsx · account-month-selector.tsx
             ├── movement-list.tsx · account-balance.tsx · empty-state.tsx
+            ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007)
 ```
 
