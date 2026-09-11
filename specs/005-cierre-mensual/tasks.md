@@ -69,7 +69,7 @@
 
 - [X] T011 [P] Registrar el ADR en `docs/architecture/adr/0010-cierre-mensual-servicio-dominio.md`: cierre calculado como servicio de dominio con lectura propia del mes vía puerto existente; se rechazan la agregación SQL dedicada, la persistencia de totales y pasar al caso de uso los DTOs cargados por el listado (plan.md §Complexity Tracking, research.md §1)
 - [X] T012 [P] Actualizar la documentación de arquitectura en el mismo cambio: `docs/architecture/overview.md` (nueva región de la pantalla principal, caso de uso `GetMonthlyClosure` y VO `MonthlyClosure`) y `docs/architecture/diagrams/c4.md` (panel en la vista de componentes) si procede
-- [ ] T013 Ejecutar la verificación manual completa de `specs/005-cierre-mensual/quickstart.md` (E1–E6 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada
+- [X] T013 Ejecutar la verificación manual completa de `specs/005-cierre-mensual/quickstart.md` (E1–E6 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada
 - [ ] T014 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
 
 ---
