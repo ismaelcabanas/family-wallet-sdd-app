@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+function movementList(page: Page) {
+  return page.getByRole("region", { name: "Movimientos del mes" });
+}
+
 async function selectAccount(page: Page, accountName: string): Promise<void> {
   await page.getByRole("combobox", { name: "Cuenta activa" }).click();
   await page.getByRole("option", { name: accountName }).click();
@@ -56,7 +60,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
-    const movementItem = page.getByRole("listitem").filter({ hasText: "Hipoteca" }).first();
+    const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Hipoteca" }).first();
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("−850,00");
     await expect(movementItem).toContainText("Gasto");
@@ -81,7 +85,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
-    const movementItem = page.getByRole("listitem").filter({ hasText: "Compra semanal" }).first();
+    const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Compra semanal" }).first();
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("Compartido");
     await expect(movementItem).toContainText("Alimentación");
@@ -95,7 +99,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
-    const movementItem = page.getByRole("listitem").filter({ hasText: "Nómina" }).first();
+    const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Nómina" }).first();
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("Ingreso");
     await expect(movementItem).toContainText("+1500,00");
@@ -117,7 +121,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
     await registerMovement(page, { concept: "Nómina encadenada", amount: "1500,00" });
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
-    const movementItem = page
+    const movementItem = movementList(page)
       .getByRole("listitem")
       .filter({ hasText: "Nómina encadenada" })
       .first();
@@ -137,6 +141,6 @@ test.describe("registro de movimientos (flujo crítico)", () => {
       await expect(page.getByText("Movimiento guardado")).toHaveCount(0);
     }
 
-    await expect(page.getByRole("listitem").filter({ hasText: "Inválido" })).toHaveCount(0);
+    await expect(movementList(page).getByRole("listitem").filter({ hasText: "Inválido" })).toHaveCount(0);
   });
 });
