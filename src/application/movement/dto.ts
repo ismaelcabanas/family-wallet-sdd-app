@@ -42,3 +42,18 @@ export interface TagDTO {
   name: string;
   slug: string;
 }
+
+export interface TagBreakdownEntryDTO {
+  tagId: number;
+  tagName: string;
+  amountCents: number;
+}
+
+export interface MonthlyClosureDTO {
+  incomeTotalCents: number;
+  expenseTotalCents: number;
+  sharedExpenseCents: number;
+  personalExpenseCents: number;
+  monthBalanceCents: number;
+  tagBreakdown: TagBreakdownEntryDTO[];
+}

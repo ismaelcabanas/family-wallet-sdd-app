@@ -41,7 +41,7 @@ npm run test:e2e       # Playwright: registro (002) + cierre mensual (005)
    - Gasto "Luz" de `120,50`, tag **Hogar**.
 3. Observa el panel de cierre.
 
-- ✅ Ingresos `1.920,00 €`; Gastos `970,50 €` (no `1.820,50 €`: el gasto multi-tag NO duplica el total — escenario 5); Saldo del mes `+949,50 €`; Gastos compartidos `970,50 €`; Gastos personales `0,00 €`; Desglose por tag: **Vivienda `850,00 €`**, **Hipoteca `850,00 €`** (el gasto computa en cada una), **Hogar `120,50 €`**, en ese orden (importe descendente).
+- ✅ Ingresos `1.920,00 €`; Gastos `970,50 €` (no `1.820,50 €`: el gasto multi-tag NO duplica el total — escenario 5); Saldo del mes `+949,50 €`; Gastos compartidos `970,50 €`; Gastos personales `0,00 €`; Desglose por tag: **Hipoteca `850,00 €`** y **Vivienda `850,00 €`** (el gasto computa en cada una; empate resuelto alfabéticamente) y **Hogar `120,50 €`**, ordenados por importe descendente.
 
 ### E2 — Gastos de ambas naturalezas desde cuenta personal (Escenario 2)
 

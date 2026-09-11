@@ -26,8 +26,8 @@ Región nueva de la pantalla principal de 002 ([ui-contract de 002](../002-regis
 │ 970,50 €                  0,00 €            │
 │                                             │
 │ Desglose por tag                            │
-│ Vivienda                  850,00 €          │  ← filas: nombre + importe
-│ Hipoteca                  850,00 €          │
+│ Hipoteca                  850,00 €          │  ← filas: nombre + importe
+│ Vivienda                  850,00 €          │     (empate resuelto alfabéticamente)
 │ Hogar                     120,50 €          │
 └─────────────────────────────────────────────┘
 ```
