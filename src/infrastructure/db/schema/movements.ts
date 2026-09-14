@@ -16,6 +16,7 @@ export const movements = sqliteTable(
     amountCents: integer("amount_cents").notNull(),
     nature: text("nature"),
     createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at"),
   },
   (table) => [index("idx_movements_account_date").on(table.accountId, table.date)],
 );

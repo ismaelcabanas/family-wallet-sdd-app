@@ -6,7 +6,11 @@ import { MovementId } from "@/domain/movement/MovementId";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
-import { mapJoinedRowsToMovementDTOs, mapMovementToRow } from "./mappers/movement.mapper";
+import {
+  mapJoinedRowsToMovementDTOs,
+  mapMovementToRow,
+  mapRowToMovement,
+} from "./mappers/movement.mapper";
 import { movementTags } from "./schema/movement-tags";
 import { movements } from "./schema/movements";
 import { tags } from "./schema/tags";
@@ -67,5 +71,80 @@ export class DrizzleMovementRepository implements MovementRepository {
       .orderBy(desc(movements.date), desc(movements.id));
 
     return mapJoinedRowsToMovementDTOs(rows);
+  }
+
+  async findById(id: MovementId): Promise<Movement | null> {
+    const rows = await this.db
+      .select({
+        id: movements.id,
+        accountId: movements.accountId,
+        type: movements.type,
+        date: movements.date,
+        concept: movements.concept,
+        description: movements.description,
+        amountCents: movements.amountCents,
+        nature: movements.nature,
+        createdAt: movements.createdAt,
+        tagId: tags.id,
+        tagName: tags.name,
+        tagSlug: tags.slug,
+      })
+      .from(movements)
+      .leftJoin(movementTags, eq(movementTags.movementId, movements.id))
+      .leftJoin(tags, eq(tags.id, movementTags.tagId))
+      .where(eq(movements.id, id as number));
+
+    if (rows.length === 0) return null;
+
+    const row = rows[0];
+    const tagIds = rows
+      .map((joined) => joined.tagId)
+      .filter((tagId): tagId is number => tagId !== null);
+
+    return mapRowToMovement(
+      {
+        id: row.id,
+        accountId: row.accountId,
+        type: row.type,
+        date: row.date,
+        concept: row.concept,
+        description: row.description,
+        amountCents: row.amountCents,
+        nature: row.nature,
+        createdAt: row.createdAt,
+        updatedAt: null,
+      },
+      tagIds,
+    );
+  }
+
+  async update(movement: Movement): Promise<void> {
+    const movementId = movement.id;
+    if (movementId === null) {
+      throw new RangeError("update requiere un movimiento con id (usar create para nuevos)");
+    }
+
+    const { createdAt: _ignoredCreatedAt, ...row } = mapMovementToRow(movement);
+    void _ignoredCreatedAt;
+
+    await this.db.batch([
+      this.db
+        .update(movements)
+        .set({ ...row, updatedAt: new Date().toISOString() })
+        .where(eq(movements.id, movementId as number)),
+      this.db.delete(movementTags).where(eq(movementTags.movementId, movementId as number)),
+      this.db
+        .insert(movementTags)
+        .values(
+          movement.tagIds.map((tagId) => ({
+            movementId: movementId as number,
+            tagId: tagId as number,
+          })),
+        ),
+    ]);
+  }
+
+  async delete(id: MovementId): Promise<void> {
+    await this.db.delete(movements).where(eq(movements.id, id as number));
   }
 }

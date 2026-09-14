@@ -23,3 +23,9 @@ export class InvalidMovementError extends DomainError {
     super(message);
   }
 }
+
+export class MovementNotFoundError extends DomainError {
+  constructor(message = "El movimiento ya no existe.") {
+    super(message);
+  }
+}

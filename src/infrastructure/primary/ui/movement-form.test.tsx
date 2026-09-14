@@ -19,7 +19,7 @@ vi.mock("sonner", async (importOriginal) => {
   };
 });
 
-import { MovementForm } from "./movement-form";
+import { MovementForm, MovementFormFields } from "./movement-form";
 import { todayIsoDate } from "./format";
 import type { CreateMovementState } from "../actions/create-movement.action";
 
@@ -182,5 +182,168 @@ describe("MovementForm", () => {
         screen.getByText("No se ha podido guardar el movimiento. Inténtalo de nuevo."),
       ).toBeInTheDocument();
     });
+  });
+});
+
+describe("MovementFormFields (modo edición)", () => {
+  const accounts = [
+    { id: 1, name: "Cuenta de Miembro A", type: "personal" as const, memberName: "Miembro A" },
+    { id: 3, name: "Cuenta común", type: "shared" as const, memberName: null },
+  ];
+
+  const initialValues = {
+    date: "2026-09-14",
+    concept: "Mercadona",
+    description: "Compra semanal",
+    amountCents: 7_850,
+    accountId: 1,
+    type: "expense" as const,
+    nature: "personal" as const,
+    tagIds: [2, 3],
+  };
+
+  function renderEditFields(
+    overrides: Partial<Parameters<typeof MovementFormFields>[0]> = {},
+  ) {
+    return render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        submitLabel="Guardar cambios"
+        tags={tags}
+        accounts={accounts}
+        initialValues={initialValues}
+        {...overrides}
+      />,
+    );
+  }
+
+  it("prellena los campos desde initialValues (importe con formato de entrada)", () => {
+    renderEditFields();
+
+    expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-14");
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("78,50");
+    expect(screen.getByLabelText("Concepto")).toHaveValue("Mercadona");
+    expect(screen.getByLabelText("Descripción (opcional)")).toHaveValue("Compra semanal");
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
+    expect(screen.getByLabelText("Vivienda")).toBeChecked();
+    expect(screen.getByLabelText("Hipoteca")).toBeChecked();
+    expect(screen.getByLabelText("Sin Clasificar")).not.toBeChecked();
+  });
+
+  it("Cuenta es un Select con todas las cuentas de la página", async () => {
+    const user = userEvent.setup();
+    renderEditFields();
+
+    const accountTrigger = screen.getByRole("combobox", { name: "Cuenta" });
+    expect(accountTrigger).toHaveTextContent("Cuenta de Miembro A");
+
+    await user.click(accountTrigger);
+    expect(screen.getByRole("option", { name: "Cuenta de Miembro A" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Cuenta común" })).toBeInTheDocument();
+  });
+
+  it("al elegir la cuenta común la naturaleza queda fija en Compartido", async () => {
+    const user = userEvent.setup();
+    renderEditFields();
+
+    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
+    await user.click(screen.getByRole("option", { name: "Cuenta común" }));
+
+    const personal = screen.getByRole("radio", { name: /Personal/ });
+    const shared = screen.getByRole("radio", { name: /Compartido \(fijo/ });
+    expect(personal).toBeDisabled();
+    expect(shared).toBeDisabled();
+    expect(shared).toBeChecked();
+  });
+
+  it("al volver a una cuenta personal se conserva la elección explícita de naturaleza", async () => {
+    const user = userEvent.setup();
+    renderEditFields();
+
+    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
+    await user.click(screen.getByRole("option", { name: "Cuenta común" }));
+    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
+    await user.click(screen.getByRole("option", { name: "Cuenta de Miembro A" }));
+
+    expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /^Compartido$/ })).toBeEnabled();
+  });
+
+  it("al cambiar el tipo a ingreso el bloque de naturaleza no se muestra", async () => {
+    const user = userEvent.setup();
+    renderEditFields();
+
+    await user.click(screen.getByRole("radio", { name: "Ingreso" }));
+
+    expect(screen.queryByRole("radio", { name: "Personal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Compartido" })).not.toBeInTheDocument();
+  });
+
+  it("envía el formulario con los campos precargados vía la action proporcionada", async () => {
+    const user = userEvent.setup();
+    renderEditFields();
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(actionMock).toHaveBeenCalledTimes(1);
+    const formData = actionMock.mock.calls[0][0] as FormData;
+    expect(formData.get("date")).toBe("2026-09-14");
+    expect(formData.get("concept")).toBe("Mercadona");
+    expect(formData.get("amount")).toBe("78,50");
+    expect(formData.get("accountId")).toBe("1");
+    expect(formData.get("type")).toBe("expense");
+    expect(formData.get("nature")).toBe("personal");
+    expect(formData.getAll("tagIds")).toEqual(["2", "3"]);
+  });
+
+  it("muestra los errores en línea con los mensajes compartidos del alta (FR-002)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderEditFields();
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+    actionMock.mockResolvedValueOnce({
+      status: "error",
+      errors: { amount: ["El importe es obligatorio."] },
+      values: {
+        date: "2026-09-14",
+        concept: "Mercadona",
+        description: "",
+        amount: "",
+        accountId: "1",
+        type: "expense",
+        nature: "personal",
+        tagIds: ["2"],
+      },
+    });
+
+    rerender(
+      <MovementFormFields
+        state={{
+          status: "error",
+          errors: { amount: ["El importe es obligatorio."] },
+          values: {
+            date: "2026-09-14",
+            concept: "Mercadona",
+            description: "",
+            amount: "",
+            accountId: "1",
+            type: "expense",
+            nature: "personal",
+            tagIds: ["2"],
+          },
+        }}
+        formAction={actionMock}
+        isPending={false}
+        submitLabel="Guardar cambios"
+        tags={tags}
+        accounts={accounts}
+        initialValues={initialValues}
+      />,
+    );
+
+    expect(screen.getByText("El importe es obligatorio.")).toBeInTheDocument();
   });
 });

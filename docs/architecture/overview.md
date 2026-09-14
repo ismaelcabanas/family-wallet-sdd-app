@@ -22,11 +22,11 @@ src/
 │   │   ├── AccountId.ts · AccountType.ts
 │   │   └── AccountErrors.ts
 │   ├── movement/                <-- Raíz del agregado principal
-│   │   ├── Movement.ts          <-- Factory create/rehydrate, inmutable
+│   │   ├── Movement.ts          <-- Factory create/recreate/rehydrate, inmutable (ADR 0011)
 │   │   ├── Money.ts             <-- VO céntimos enteros (ADR 0007)
 │   │   ├── MonthlyClosure.ts    <-- VO cierre mensual calculado (ADR 0010)
 │   │   ├── MovementId.ts · MovementType.ts · ExpenseNature.ts
-│   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError (con field)
+│   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError, MovementNotFoundError
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
 │   └── tag/
 │       ├── Tag.ts · TagId.ts · TagStatus.ts
@@ -34,10 +34,13 @@ src/
 │
 ├── application/                 <-- ORQUESTACIÓN: Casos de Uso y PUERTOS (depende solo de domain)
 │   ├── movement/
-│   │   ├── CreateMovement.ts    <-- Caso de uso (reglas FR-005/FR-006) + DEFAULT_TAG_SLUG
+│   │   ├── CreateMovement.ts    <-- Caso de uso (reglas FR-005/FR-006)
+│   │   ├── UpdateMovement.ts    <-- findById -> recreate (preserva id/createdAt) -> update (ADR 0011)
+│   │   ├── DeleteMovement.ts    <-- findById -> delete físico (ADR 0011)
+│   │   ├── movement-inputs.ts   <-- Resolutores de naturaleza/tags compartidos por alta y edición
 │   │   ├── ListMovements.ts     <-- Query mes+cuenta
 │   │   ├── GetMonthlyClosure.ts <-- Query cierre del mes vía puerto + VO (ADR 0010)
-│   │   ├── dto.ts               <-- CreateMovementDTO, MovementDTO, AccountDTO, TagDTO, MonthlyClosureDTO
+│   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO, TagDTO, MonthlyClosureDTO
 │   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz)
 │   ├── account/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance, ADR 0009)
@@ -57,18 +60,23 @@ src/
     │   ├── schema/              <-- members, accounts, tags, movements, movement_tags
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
-    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags)
+    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type)
     │   ├── DrizzleTagRepository.ts · DrizzleMemberRepository.ts
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 12 tags)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
         ├── actions/
-        │   └── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008)
+        │   ├── movement-form.schema.ts    <-- Schema Zod del formulario compartido alta/edición (FR-002)
+        │   ├── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008)
+        │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido" (FR-007), la UI solo lo muestra
+        │   └── delete-movement.action.ts  <-- 'use server': schema mínimo movementId
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
-            ├── movement-form.tsx · account-month-selector.tsx
-            ├── movement-list.tsx · account-balance.tsx · empty-state.tsx
+            ├── movement-form.tsx (MovementFormFields con modo edición: cuenta Select, naturaleza dinámica)
+            ├── movement-list.tsx (client: acciones de fila + diálogos únicos de edición/borrado)
+            ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
+            ├── account-month-selector.tsx · account-balance.tsx · empty-state.tsx
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007)
 ```
@@ -101,7 +109,7 @@ src/
 
 * **Puertos de Salida (Interfaces)**:
   Ejemplo en `src/application/movement/MovementRepository.ts`:
-  - Interfaz `MovementRepository` con `create(movement)` y `listByMonthAndAccount(accountId, month)`.
+  - Interfaz `MovementRepository` con `create(movement)`, `listByMonthAndAccount(accountId, month)`, `findById(id)`, `update(movement)` y `delete(id)` (ADR 0011).
   - Los puertos hablan el idioma del dominio (entidades/VOs) o DTOs simples (`dto.ts`), nunca tipos de Drizzle.
 * **Caso de Uso (Servicio de Aplicación)**:
   Recibe los puertos inyectados por constructor y orquesta la lógica (p. ej. `CreateMovement` aplica las reglas de naturaleza FR-005 y de tag por defecto FR-006).

@@ -23,6 +23,14 @@ class InMemoryMovementRepository implements MovementRepository {
   async listByMonthAndAccount(): Promise<MovementDTO[]> {
     return [];
   }
+
+  async findById(): Promise<Movement | null> {
+    return null;
+  }
+
+  async update(): Promise<void> {}
+
+  async delete(): Promise<void> {}
 }
 
 describe("CreateMovement", () => {

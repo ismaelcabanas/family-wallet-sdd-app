@@ -40,6 +40,7 @@ classDiagram
         +tagIds: TagId[] congelada
         +createdAt: String ISO-8601 UTC
         +create(input)$ Movement
+        +recreate(id, input, createdAt)$ Movement
         +rehydrate(persistence)$ Movement
     }
 
@@ -83,6 +84,7 @@ classDiagram
     class InvalidMovementError {
         +field: MovementField
     }
+    class MovementNotFoundError
     class DuplicateTagNameError
     class InactiveTagError
 

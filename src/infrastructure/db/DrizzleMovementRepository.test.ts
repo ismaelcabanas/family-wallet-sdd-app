@@ -1,6 +1,7 @@
 import { AccountId } from "@/domain/account/AccountId";
 import { TagId } from "@/domain/tag/TagId";
 import { Movement } from "@/domain/movement/Movement";
+import { MovementId } from "@/domain/movement/MovementId";
 import { Money } from "@/domain/movement/Money";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -119,5 +120,91 @@ describe("DrizzleMovementRepository", () => {
 
     expect(currentMonth).toHaveLength(0);
     expect(previousMonth.map((movement) => movement.concept)).toEqual(["Movimiento de otro mes"]);
+  });
+
+  describe("findById", () => {
+    it("rehidrata el movimiento con sus tags", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      const movementId = await repository.create(buildMovement());
+
+      const found = await repository.findById(movementId);
+
+      expect(found).not.toBeNull();
+      expect(found?.id).toBe(movementId);
+      expect(found?.concept).toBe("Hipoteca");
+      expect(found?.nature).toBe("shared");
+      expect([...(found?.tagIds ?? [])]).toEqual([TagId(2), TagId(3)]);
+      expect(found?.createdAt).toBeTypeOf("string");
+    });
+
+    it("devuelve null si no existe el movimiento", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+
+      expect(await repository.findById(MovementId(999))).toBeNull();
+    });
+  });
+
+  describe("update", () => {
+    it("sustituye la fila y el conjunto de tags, cambia cuenta y fecha y pone updated_at", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      const movementId = await repository.create(buildMovement());
+      const [originalRow] = await testDb.db.select().from(movements);
+
+      const recreated = Movement.recreate(
+        movementId,
+        {
+          accountId: AccountId(1),
+          type: "income",
+          date: "2026-08-05",
+          concept: "Nómina",
+          description: null,
+          amount: Money.fromCents(150_000),
+          nature: null,
+          tagIds: [TagId(2)],
+        },
+        originalRow.createdAt,
+      );
+
+      await repository.update(recreated);
+
+      const [updatedRow] = await testDb.db.select().from(movements);
+      expect(updatedRow.id).toBe(originalRow.id);
+      expect(updatedRow.createdAt).toBe(originalRow.createdAt);
+      expect(updatedRow.accountId).toBe(1);
+      expect(updatedRow.type).toBe("income");
+      expect(updatedRow.date).toBe("2026-08-05");
+      expect(updatedRow.concept).toBe("Nómina");
+      expect(updatedRow.amountCents).toBe(150_000);
+      expect(updatedRow.updatedAt).not.toBeNull();
+
+      const storedTags = await testDb.db.select().from(movementTags);
+      expect(storedTags).toEqual([{ movementId, tagId: 2 }]);
+    });
+
+    it("updated_at es null mientras el movimiento no se edita", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement());
+
+      const [row] = await testDb.db.select().from(movements);
+      expect(row.updatedAt).toBeNull();
+    });
+  });
+
+  describe("delete", () => {
+    it("borra la fila y sus movement_tags sin tocar el catálogo tags", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      const movementId = await repository.create(buildMovement());
+
+      await repository.delete(movementId);
+
+      const remainingMovements = await testDb.db.select().from(movements);
+      expect(remainingMovements).toHaveLength(0);
+
+      const remainingMovementTags = await testDb.db.select().from(movementTags);
+      expect(remainingMovementTags).toHaveLength(0);
+
+      const catalogTags = await testDb.db.select().from(tags);
+      expect(catalogTags.map((tag) => tag.id)).toEqual([2, 3]);
+    });
   });
 });

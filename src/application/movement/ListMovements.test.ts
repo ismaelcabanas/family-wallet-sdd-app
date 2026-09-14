@@ -22,6 +22,9 @@ describe("ListMovements", () => {
     const repository = {
       create: vi.fn(),
       listByMonthAndAccount: vi.fn().mockResolvedValue(movements),
+      findById: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+      delete: vi.fn(),
     };
     const useCase = new ListMovements(repository);
 
@@ -32,7 +35,13 @@ describe("ListMovements", () => {
   });
 
   it("rechaza un mes con formato inválido", async () => {
-    const repository = { create: vi.fn(), listByMonthAndAccount: vi.fn() };
+    const repository = {
+      create: vi.fn(),
+      listByMonthAndAccount: vi.fn(),
+      findById: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+      delete: vi.fn(),
+    };
     const useCase = new ListMovements(repository);
 
     await expect(useCase.execute(1, "2026-13")).rejects.toThrowError(/mes/i);
