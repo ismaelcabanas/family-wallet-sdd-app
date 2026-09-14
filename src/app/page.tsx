@@ -79,7 +79,17 @@ export default async function Home({
 
       <MonthlyClosurePanel closure={closure} month={month} />
 
-      {movements.length === 0 ? <EmptyState /> : <MovementList movements={movements} />}
+      {movements.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <MovementList
+          movements={movements}
+          accounts={accounts}
+          tags={tags}
+          currentAccountId={activeAccount.id}
+          currentMonth={month}
+        />
+      )}
     </main>
   );
 }

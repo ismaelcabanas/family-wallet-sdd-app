@@ -12,6 +12,18 @@ export interface CreateMovementDTO {
   tagIds: number[];
 }
 
+export interface UpdateMovementDTO {
+  movementId: number;
+  accountId: number;
+  type: MovementType;
+  date: string;
+  concept: string;
+  description: string | null;
+  amountCents: number;
+  nature: ExpenseNature | null;
+  tagIds: number[];
+}
+
 export interface MovementTagDTO {
   id: number;
   name: string;

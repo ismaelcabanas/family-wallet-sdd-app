@@ -1,0 +1,1 @@
+ALTER TABLE `movements` ADD `updated_at` text;

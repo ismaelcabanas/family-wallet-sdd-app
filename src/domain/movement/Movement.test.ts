@@ -4,7 +4,8 @@ import { AccountId } from "../account/AccountId";
 import { TagId } from "../tag/TagId";
 import { InvalidMoneyError, InvalidMovementError } from "./MovementErrors";
 import { Money } from "./Money";
-import { Movement } from "./Movement";
+import { Movement, type MovementInput } from "./Movement";
+import { MovementId } from "./MovementId";
 
 const validBase = {
   accountId: AccountId(1),
@@ -120,5 +121,60 @@ describe("Movement.create", () => {
 
   it("el importe inválido se rechaza en el VO Money antes de crear el movimiento", () => {
     expect(() => Money.fromCents(0)).toThrowError(InvalidMoneyError);
+  });
+});
+
+describe("Movement.recreate", () => {
+  const originalCreatedAt = "2026-08-01T10:00:00.000Z";
+
+  function recreate(overrides: Partial<MovementInput> = {}) {
+    return Movement.recreate(
+      MovementId(7),
+      { ...validBase, ...overrides },
+      originalCreatedAt,
+    );
+  }
+
+  it("reconstruye un movimiento válido preservando id y createdAt", () => {
+    const movement = recreate();
+    expect(movement.id).toBe(7);
+    expect(movement.createdAt).toBe(originalCreatedAt);
+    expect(movement.concept).toBe("Mercadona");
+    expect(movement.nature).toBe("personal");
+  });
+
+  it("aplica trim del concepto y normaliza la descripción vacía a null", () => {
+    const movement = recreate({ concept: "  Mercadona  ", description: "   " });
+    expect(movement.concept).toBe("Mercadona");
+    expect(movement.description).toBeNull();
+  });
+
+  it.each([
+    ["concepto vacío", { concept: "   " }],
+    ["fecha no real", { date: "2026-02-30" }],
+    ["importe no positivo", { amount: { amountCents: 0 } as unknown as Money }],
+    ["gasto sin naturaleza", { nature: null }],
+    ["ingreso con naturaleza", { type: "income" as const, nature: "personal" as const }],
+    ["cero tags", { tagIds: [] }],
+  ])("revalida la invariante de %s igual que create", (_case, overrides) => {
+    expect(() => recreate(overrides as Partial<typeof validBase>)).toThrowError(
+      InvalidMovementError,
+    );
+  });
+
+  it("permite cambiar el movimiento de cuenta y de mes (FR-005)", () => {
+    const movement = recreate({
+      accountId: AccountId(3),
+      date: "2026-08-15",
+    });
+    expect(movement.accountId).toBe(3);
+    expect(movement.date).toBe("2026-08-15");
+    expect(movement.id).toBe(7);
+    expect(movement.createdAt).toBe(originalCreatedAt);
+  });
+
+  it("deduplica tags repetidas", () => {
+    const movement = recreate({ tagIds: [TagId(1), TagId(2), TagId(1)] });
+    expect(movement.tagIds.map((tagId) => tagId as number)).toEqual([1, 2]);
   });
 });

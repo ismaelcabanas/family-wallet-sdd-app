@@ -26,11 +26,17 @@ export interface MovementWithTagsRow extends MovementRow {
   tags: Array<Pick<TagRow, "id" | "name" | "slug">>;
 }
 
-export function mapJoinedRowsToMovementDTOs(
-  rows: Array<
-    MovementRow & { tagId: number | null; tagName: string | null; tagSlug: string | null }
-  >,
-): MovementDTO[] {
+export interface MovementJoinedRow
+  extends Pick<
+    MovementRow,
+    "id" | "accountId" | "type" | "date" | "concept" | "description" | "amountCents" | "nature"
+  > {
+  tagId: number | null;
+  tagName: string | null;
+  tagSlug: string | null;
+}
+
+export function mapJoinedRowsToMovementDTOs(rows: MovementJoinedRow[]): MovementDTO[] {
   const movementsById = new Map<number, MovementDTO>();
 
   for (const row of rows) {

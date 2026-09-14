@@ -41,6 +41,59 @@ export interface MovementPersistence {
   createdAt: string;
 }
 
+type ValidatedMovementState = [
+  accountId: AccountId,
+  type: MovementType,
+  date: string,
+  concept: string,
+  description: string | null,
+  amount: Money,
+  nature: ExpenseNature | null,
+  tagIds: TagId[],
+];
+
+function buildValidatedState(input: MovementInput): ValidatedMovementState {
+  const concept = input.concept.trim();
+  if (concept === "") {
+    throw new InvalidMovementError("concept", "El concepto es obligatorio.");
+  }
+
+  if (!isRealCalendarDate(input.date)) {
+    throw new InvalidMovementError("date", "Indica una fecha válida.");
+  }
+
+  if (input.amount.amountCents <= 0) {
+    throw new InvalidMovementError("amount", "El importe debe ser mayor que cero.");
+  }
+
+  if (input.type === "expense") {
+    if (input.nature === null) {
+      throw new InvalidMovementError(
+        "nature",
+        "Selecciona la naturaleza del gasto (personal o compartido).",
+      );
+    }
+  } else if (input.nature !== null) {
+    throw new InvalidMovementError("nature", "Los ingresos no llevan naturaleza.");
+  }
+
+  const uniqueTagIds = [...new Set(input.tagIds)];
+  if (uniqueTagIds.length === 0) {
+    throw new InvalidMovementError("tagIds", "Selecciona al menos una etiqueta.");
+  }
+
+  return [
+    input.accountId,
+    input.type,
+    input.date,
+    concept,
+    input.description?.trim() === "" ? null : (input.description?.trim() ?? null),
+    input.amount,
+    input.nature,
+    uniqueTagIds,
+  ];
+}
+
 export class Movement {
   readonly id: MovementId | null;
   readonly accountId: AccountId;
@@ -79,47 +132,15 @@ export class Movement {
   }
 
   static create(input: MovementInput): Movement {
-    const concept = input.concept.trim();
-    if (concept === "") {
-      throw new InvalidMovementError("concept", "El concepto es obligatorio.");
-    }
-
-    if (!isRealCalendarDate(input.date)) {
-      throw new InvalidMovementError("date", "Indica una fecha válida.");
-    }
-
-    if (input.amount.amountCents <= 0) {
-      throw new InvalidMovementError("amount", "El importe debe ser mayor que cero.");
-    }
-
-    if (input.type === "expense") {
-      if (input.nature === null) {
-        throw new InvalidMovementError(
-          "nature",
-          "Selecciona la naturaleza del gasto (personal o compartido).",
-        );
-      }
-    } else if (input.nature !== null) {
-      throw new InvalidMovementError("nature", "Los ingresos no llevan naturaleza.");
-    }
-
-    const uniqueTagIds = [...new Set(input.tagIds)];
-    if (uniqueTagIds.length === 0) {
-      throw new InvalidMovementError("tagIds", "Selecciona al menos una etiqueta.");
-    }
-
     return new Movement(
       null,
-      input.accountId,
-      input.type,
-      input.date,
-      concept,
-      input.description?.trim() === "" ? null : (input.description?.trim() ?? null),
-      input.amount,
-      input.nature,
-      uniqueTagIds,
+      ...buildValidatedState(input),
       new Date().toISOString(),
     );
+  }
+
+  static recreate(id: MovementId, input: MovementInput, createdAt: string): Movement {
+    return new Movement(id, ...buildValidatedState(input), createdAt);
   }
 
   static rehydrate(persistence: MovementPersistence): Movement {

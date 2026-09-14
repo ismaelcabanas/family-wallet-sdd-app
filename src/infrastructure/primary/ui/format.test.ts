@@ -4,9 +4,12 @@ import {
   buildMonthWindow,
   currentMonth,
   formatAmountCents,
+  formatCentsForInput,
+  formatDate,
   formatSignedAmountCents,
   formatSignedCents,
   monthLabel,
+  monthYearLabel,
   todayIsoDate,
 } from "./format";
 
@@ -53,6 +56,32 @@ describe("formatSignedCents", () => {
   });
 });
 
+describe("formatCentsForInput", () => {
+  it("convierte céntimos a texto de entrada con coma decimal y dos decimales", () => {
+    expect(formatCentsForInput(7_850)).toBe("78,50");
+    expect(formatCentsForInput(85_000)).toBe("850,00");
+  });
+
+  it("no usa separador de miles aunque el importe lo requiera", () => {
+    expect(formatCentsForInput(15_000_000)).toBe("150000,00");
+  });
+
+  it("rellena un decimal incompleto a dos dígitos", () => {
+    expect(formatCentsForInput(1_205)).toBe("12,05");
+  });
+});
+
+describe("formatDate", () => {
+  it("muestra la fecha larga en español", () => {
+    expect(formatDate("2026-09-14")).toBe("14 de septiembre de 2026");
+  });
+
+  it("cruza meses y años distintos correctamente", () => {
+    expect(formatDate("2026-01-01")).toBe("1 de enero de 2026");
+    expect(formatDate("2024-12-31")).toBe("31 de diciembre de 2024");
+  });
+});
+
 describe("fechas y meses", () => {
   it("todayIsoDate devuelve la fecha local en ISO", () => {
     expect(todayIsoDate(new Date(2026, 8, 3))).toBe("2026-09-03");
@@ -66,6 +95,11 @@ describe("fechas y meses", () => {
   it("monthLabel muestra el nombre del mes en español capitalizado", () => {
     expect(monthLabel("2026-09")).toBe("Septiembre de 2026");
     expect(monthLabel("2026-01")).toBe("Enero de 2026");
+  });
+
+  it("monthYearLabel muestra el mes y el año sin preposición (avisos de movimiento movido)", () => {
+    expect(monthYearLabel("2026-08")).toBe("Agosto 2026");
+    expect(monthYearLabel("2026-12")).toBe("Diciembre 2026");
   });
 
   it("buildMonthWindow genera una ventana navegable alrededor del mes central", () => {

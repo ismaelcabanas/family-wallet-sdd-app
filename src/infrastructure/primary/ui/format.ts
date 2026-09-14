@@ -13,6 +13,23 @@ export function formatSignedCents(cents: number): string {
   return formatAmountCents(0);
 }
 
+export function formatCentsForInput(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const absolute = Math.abs(Math.trunc(cents));
+  const integerPart = Math.floor(absolute / 100);
+  const decimalPart = String(absolute % 100).padStart(2, "0");
+  return `${sign}${integerPart},${decimalPart}`;
+}
+
+export function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
 export function todayIsoDate(now: Date = new Date()): string {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -33,6 +50,14 @@ export function monthLabel(month: string): string {
     year: "numeric",
   }).format(new Date(year, monthNumber - 1, 1));
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+export function monthYearLabel(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const label = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(
+    new Date(year, monthNumber - 1, 1),
+  );
+  return `${label.charAt(0).toUpperCase() + label.slice(1)} ${year}`;
 }
 
 export function buildMonthWindow(center: string, radius = 24): string[] {

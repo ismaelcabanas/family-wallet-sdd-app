@@ -1,5 +1,11 @@
-import type { MovementDTO } from "@/application/movement/dto";
+"use client";
 
+import { useState } from "react";
+
+import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
+
+import { DeleteMovementDialog } from "./delete-movement-dialog";
+import { EditMovementDialog } from "./edit-movement-dialog";
 import { formatSignedAmountCents } from "./format";
 
 function natureLabel(movement: MovementDTO): string {
@@ -7,7 +13,24 @@ function natureLabel(movement: MovementDTO): string {
   return movement.nature === "shared" ? "Compartido" : "Personal";
 }
 
-export function MovementList({ movements }: { movements: MovementDTO[] }) {
+interface MovementListProps {
+  movements: MovementDTO[];
+  accounts: AccountDTO[];
+  tags: TagDTO[];
+  currentAccountId: number;
+  currentMonth: string;
+}
+
+export function MovementList({
+  movements,
+  accounts,
+  tags,
+  currentAccountId,
+  currentMonth,
+}: MovementListProps) {
+  const [editing, setEditing] = useState<MovementDTO | null>(null);
+  const [deleting, setDeleting] = useState<MovementDTO | null>(null);
+
   return (
     <section aria-labelledby="movement-list-title">
       <h2 id="movement-list-title" className="mb-2 text-lg font-semibold">
@@ -48,9 +71,44 @@ export function MovementList({ movements }: { movements: MovementDTO[] }) {
             >
               {formatSignedAmountCents(movement.amountCents, movement.type)}
             </span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label={`Editar ${movement.concept}`}
+                title={`Editar ${movement.concept}`}
+                onClick={() => setEditing(movement)}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                ✏️
+              </button>
+              <button
+                type="button"
+                aria-label={`Eliminar ${movement.concept}`}
+                title={`Eliminar ${movement.concept}`}
+                onClick={() => setDeleting(movement)}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                🗑️
+              </button>
+            </div>
           </li>
         ))}
       </ul>
+
+      {editing ? (
+        <EditMovementDialog
+          movement={editing}
+          accounts={accounts}
+          tags={tags}
+          currentAccountId={currentAccountId}
+          currentMonth={currentMonth}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
+
+      {deleting ? (
+        <DeleteMovementDialog movement={deleting} onClose={() => setDeleting(null)} />
+      ) : null}
     </section>
   );
 }
