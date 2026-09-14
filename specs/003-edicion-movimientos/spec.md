@@ -84,6 +84,7 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 - Reutilización íntegra del dominio y la aplicación de 002 (`Money`, `Movement`, tipos, repositorios); se prevé añadir casos de uso de actualización/eliminación y su puerto. Único cambio de esquema: columna `updated_at` en `movements` (auditoría técnica, clarificación 2026-09-14).
 - Sin filtrado ni búsqueda de movimientos (`007-filtrado-busqueda`), sin gestión de cuentas y miembros (`008-gestion-cuentas-miembros`), sin gestión del catálogo de tags (`004-gestion-tags`).
 - Uso individual sin login (US6 del maestro): no se modelan conflictos de escritura concurrente más allá del error "movimiento no encontrado".
+- Todas las tags del catálogo están activas en esta feature (igual que en 002/005); la interacción de la edición con tags inactivas llega con `004-gestion-tags`.
 - Moneda única EUR con dos decimales; formato español Intl es-ES reutilizando los helpers de la UI (002).
 
 ## Out of Scope
