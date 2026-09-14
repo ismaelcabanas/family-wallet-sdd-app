@@ -18,11 +18,15 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 
 | Feature hija | Agrupa historias | Contenido | Estado |
 |--------------|------------------|-----------|--------|
-| `002-registro-movimientos` | US1 (+US6 como restricción de uso) | Registro de gastos e ingresos con tags del catálogo precargado, cuentas preconfiguradas (2 personales + 1 común), listado por mes/cuenta, balance acumulado y uso sin login. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag) | En curso (spec en borrador) |
-| `003-gestion-movimientos` | FR-001/FR-008/FR-009 (refinamiento) | Edición y eliminación de movimientos con recálculo de balances, filtrado y búsqueda, gestión de cuentas y miembros (añadir, renombrar) | Futura |
+| `002-registro-movimientos` | US1 (+US6 como restricción de uso) | Registro de gastos e ingresos con tags del catálogo precargado, cuentas preconfiguradas (2 personales + 1 común), listado por mes/cuenta, balance acumulado y uso sin login. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag) | Completada |
+| `003-edicion-movimientos` | FR-008 (refinamiento) | Edición y eliminación de movimientos desde el listado; balances, listado y cierres son vistas derivadas y se actualizan automáticamente | En curso (spec en borrador) |
 | `004-gestion-tags` | US5 | Catálogo de tags: crear, renombrar, fusionar y desactivar tags sin perder el histórico | Futura |
-| `005-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Futura |
+| `005-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Completada |
 | `006-analisis-agregado` | US3 + US4 | Resumen global, cuadre mensual y cuenta de resultados anual | Futura |
+| `007-filtrado-busqueda` | FR-009 (refinamiento) | Filtrado y búsqueda de movimientos por mes, cuenta, tipo, naturaleza, tag y miembro | Futura |
+| `008-gestion-cuentas-miembros` | FR-001 (refinamiento) | Gestión de cuentas y miembros: añadir y renombrar | Futura |
+
+> **Nota (2026-09-14)**: la feature `003-gestion-movimientos` original (FR-001/FR-008/FR-009) se dividió por tamaño y cohesión en tres features: `003-edicion-movimientos` (FR-008), `007-filtrado-busqueda` (FR-009) y `008-gestion-cuentas-miembros` (FR-001). Los números 004 y 006 estaban ya reservados en este roadmap.
 
 ### Alcance diferido (decisiones del usuario)
 
