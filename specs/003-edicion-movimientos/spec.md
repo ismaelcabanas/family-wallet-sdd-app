@@ -48,6 +48,7 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 
 - Q: ¿Qué debe mostrar el diálogo de confirmación de borrado de un movimiento? → A: Los datos del movimiento (concepto, importe y fecha), no un mensaje genérico: evita borrar el movimiento equivocado en un listado denso.
 - Q: Tras guardar una edición que mueve el movimiento a otro mes o cuenta (fuera de la vista actual), ¿qué debe hacer la pantalla? → A: Permanecer en el mes/cuenta de los selectores actuales y mostrar un aviso de éxito que indique que el movimiento se movió a otro mes/cuenta.
+- Q: ¿Se registra alguna marca de auditoría al actualizar un movimiento? → A: Sí, técnica y solo en persistencia: columna `updated_at` (TEXT ISO 8601 UTC, NULL = nunca editado) que pone el repositorio en cada UPDATE; no sube al dominio ni a los DTOs y no constituye historial de cambios (sigue fuera de alcance).
 
 ## Requirements *(mandatory)*
 
@@ -78,9 +79,9 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 ## Assumptions
 
 - Edición y eliminación se disparan desde el listado de la pantalla principal (la misma de 002/005); el patrón de interacción concreto (botones por fila, diálogo de edición, diálogo de confirmación) se decide en el plan.
-- Eliminación física, no lógica: no hay requisito de auditoría, papelera ni "deshacer" (YAGNI, principio I de la constitución).
+- Eliminación física, no lógica: no hay requisito de auditoría, papelera ni "deshacer" (YAGNI, principio I de la constitución). Única marca de auditoría: `updated_at` en BD (clarificación 2026-09-14), sin historial de valores previos.
 - El flujo crítico editar/eliminar se cubre con e2e de Playwright (constitución III), como ya ocurre con registrar y consultar el cierre.
-- Reutilización íntegra del dominio y la aplicación de 002 (`Money`, `Movement`, tipos, repositorios); se prevé añadir casos de uso de actualización/eliminación y su puerto, sin cambios de esquema ni migraciones (UPDATE/DELETE sobre tablas existentes).
+- Reutilización íntegra del dominio y la aplicación de 002 (`Money`, `Movement`, tipos, repositorios); se prevé añadir casos de uso de actualización/eliminación y su puerto. Único cambio de esquema: columna `updated_at` en `movements` (auditoría técnica, clarificación 2026-09-14).
 - Sin filtrado ni búsqueda de movimientos (`007-filtrado-busqueda`), sin gestión de cuentas y miembros (`008-gestion-cuentas-miembros`), sin gestión del catálogo de tags (`004-gestion-tags`).
 - Uso individual sin login (US6 del maestro): no se modelan conflictos de escritura concurrente más allá del error "movimiento no encontrado".
 - Moneda única EUR con dos decimales; formato español Intl es-ES reutilizando los helpers de la UI (002).

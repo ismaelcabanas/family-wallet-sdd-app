@@ -38,14 +38,17 @@ delete(id: MovementId): Promise<void>
 - **`findById`**: misma query join (movimientos + tags) que `listByMonthAndAccount` filtrada por `id`; un mapper nuevo en `movement.mapper.ts` reconstruye el `Movement` rehydrated. Lo consumen `UpdateMovement` (existencia + `createdAt` original) y `DeleteMovement` (existencia).
 - **`update`**: `db.batch([ UPDATE movements … WHERE id, DELETE movement_tags WHERE movementId, INSERT movement_tags (nuevo conjunto) ])` — sustitución atómica de las tags del movimiento.
 - **`delete`**: un único `DELETE FROM movements WHERE id`; las filas de `movement_tags` desaparecen por la FK `onDelete cascade` ya versionada en el esquema de 002 (FR-003: el catálogo de tags queda intacto).
+- **Auditoría técnica `updated_at`** (clarificación 2026-09-14): columna TEXT ISO 8601 UTC nullable en `movements` (NULL = nunca editado) que pone el repositorio en cada UPDATE. Fuera del dominio y de los DTOs; no sustituye un historial de cambios (sigue fuera de alcance). Es el **único DDL** de la feature: un `ALTER TABLE ADD COLUMN` migrado por Drizzle.
 
-**Rationale**: la existencia explícita (`findById` → `MovementNotFoundError`) cubre el edge case "ya no existe" con un error de dominio claro en lugar de un UPDATE/DELETE silencioso sobre cero filas; el batch de Drizzle da atomicidad a "fila + tags" sin transacciones manuales nuevas; el cascade evita un DELETE explícito redundante.
+**Rationale**: la existencia explícita (`findById` → `MovementNotFoundError`) cubre el edge case "ya no existe" con un error de dominio claro en lugar de un UPDATE/DELETE silencioso sobre cero filas; el batch de Drizzle da atomicidad a "fila + tags" sin transacciones manuales nuevas; el cascade evita un DELETE explícito redundante; y `updated_at` da una marca de depuración/auditoría barata sin contaminar el modelo (decisión explícita del propietario).
 
 **Alternatives considered**:
 
 | Opción | Contras |
 |---|---|
-| Borrado lógico ( columna `deleted_at` o estado) | Requisito de auditoría inexistente (uso individual, YAGNI); contaminaría TODAS las queries existentes del listado, balance y cierre con un filtro `deleted_at IS NULL`. |
+| Sin `updated_at` | Cero coste, pero sin rastro de si una fila fue editada; cualquier necesidad futura exigiría migración retroactiva sobre datos ya modificados (decisión del propietario: añadirlo, 2026-09-14). |
+| Tabla de auditoría con valores previos (trigger o historial) | Requisito de auditoría real inexistente (uso individual); complejidad de escritura y lectura para cero consumo actual. |
+| Borrado lógico (columna `deleted_at` o estado) | Requisito de auditoría inexistente (uso individual, YAGNI); contaminaría TODAS las queries existentes del listado, balance y cierre con un filtro `deleted_at IS NULL`. |
 | `update` con diff de tags (borrar solo las quitadas) | Complejidad sin beneficio: el conjunto es ≤ 12 filas del catálogo; el replace es más simple y determinista. |
 | No comprobar existencia antes de update/delete | Éxito silencioso con 0 filas afectadas; el edge case "movimiento no encontrado" de la spec quedaría sin error claro (FR-007). |
 
@@ -105,7 +108,8 @@ delete(id: MovementId): Promise<void>
 | Tema | Decisión | ADR |
 |---|---|---|
 | Estrategia de edición | `Movement.recreate`: reconstrucción con validación completa, preserva `id`/`createdAt` | **0011** |
-| Puerto/repositorio | `findById`/`update` (batch fila + replace de tags)/`delete` físico con cascade FK | 0011 |
+| Puerto/repositorio | `findById`/`update` (batch fila + replace de tags, pone `updated_at`)/`delete` físico con cascade FK | 0011 |
+| Auditoría técnica | `updated_at` TEXT ISO en BD, fuera de dominio/DTOs; única migración de la feature | 0011 |
 | Borrado | Físico; sin borrado lógico ni papelera (YAGNI) | 0011 |
 | Validación compartida | `movement-inputs.ts` (aplicación) + `movement-form.schema.ts` (frontera) | — |
 | UI | `MovementFormFields` con modo edición + diálogos shadcn (dialog, alert-dialog) | 0005 (deps Radix) |

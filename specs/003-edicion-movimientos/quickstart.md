@@ -12,7 +12,7 @@
 
 ```bash
 npm install            # novedades: @radix-ui/react-dialog y @radix-ui/react-alert-dialog (peers shadcn)
-npm run db:migrate     # aplica las migraciones (sin cambios nuevos en 003)
+npm run db:migrate     # aplica las migraciones (novedad en 003: updated_at en movements)
 npm run db:seed        # precarga cuentas y tags (idempotente)
 npm run dev            # http://localhost:3000
 ```
@@ -88,7 +88,7 @@ npm run test:e2e       # Playwright: registro (002) + cierre (005) + edición/el
 
 ## Puesta en marcha (producción Turso)
 
-Sin cambios respecto a [quickstart de 002](../002-registro-movimientos/quickstart.md): no hay migraciones nuevas; edición y eliminación operan sobre las tablas existentes.
+Un cambio respecto a [quickstart de 002](../002-registro-movimientos/quickstart.md): hay **una migración nueva** (`updated_at`); ejecútala contra Turso como paso pre-deploy (`drizzle.prod.config.ts` con `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN`) antes del despliegue.
 
 ## Criterio de cierre (Definition of Done)
 
