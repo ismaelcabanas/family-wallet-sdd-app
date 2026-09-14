@@ -12,13 +12,13 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Editar un movimiento existente (Priority: P1)
+### User Story 1 - Editar y eliminar movimientos (Priority: P1)
 
-Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya registrado —fecha, concepto, descripción, importe, cuenta, tipo, naturaleza y tags— reutilizando el mismo formulario y las mismas validaciones que al registrarlo, para subsanar errores de registro sin borrar y volver a crear el movimiento.
+Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya registrado —fecha, concepto, descripción, importe, cuenta, tipo, naturaleza y tags— reutilizando el mismo formulario y las mismas validaciones que al registrarlo, y eliminar con una confirmación previa los movimientos que no deberían existir (duplicados, pruebas), para mantener el histórico correcto y que los totales y cierres vuelvan a estar siempre bien sin pasos manuales.
 
-**Why this priority**: Es la fricción más habitual tras el registro (002): un error de importe, tag o cuenta obliga hoy a convivir con el error o recrear el movimiento. La edición reutiliza la validación y el formulario existentes, por lo que entrega valor con riesgo mínimo.
+**Why this priority**: Es la fricción más habitual tras el registro (002): un error de importe, tag o cuenta obliga hoy a convivir con el error o recrear el movimiento. La edición reutiliza la validación y el formulario existentes y la eliminación comparte el mismo recorrido UI sobre el listado, por lo que entregan valor con riesgo mínimo en un único slice.
 
-**Independent Test**: Se puede probar editando cada campo de un movimiento (incluidos cuenta, mes y tipo) y verificando que el listado, el balance de cabecera y el cierre mensual (005) reflejan el estado correcto tras el cambio, sin pasos manuales.
+**Independent Test**: Se puede probar editando cada campo de un movimiento (incluidos cuenta, mes y tipo) y eliminando otro, verificando que el listado, el balance de cabecera y el cierre mensual (005) reflejan el estado correcto tras cada cambio, sin pasos manuales.
 
 **Acceptance Scenarios**:
 
@@ -28,20 +28,9 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 4. **Given** un gasto con naturaleza "personal", **When** cambio su tipo a ingreso y guardo, **Then** la edición exige dejar la naturaleza vacía (prohibida en ingresos, invariante de 002) y el movimiento pasa a computar como ingreso en el cierre del mes.
 5. **Given** un ingreso, **When** cambio su tipo a gasto y guardo, **Then** la edición exige elegir naturaleza "personal" o "compartido" antes de guardar (invariante de 002).
 6. **Given** la edición de un movimiento, **When** intento guardar con importe 0 o negativo, concepto vacío, sin ninguna tag o fecha inválida, **Then** el sistema muestra los mismos mensajes de error que el alta (002) y no guarda los cambios.
-
-### User Story 2 - Eliminar un movimiento (Priority: P2)
-
-Como miembro de la familia, quiero eliminar un movimiento registrado que no debería existir (un duplicado, una prueba), con una confirmación previa que evite borrados accidentales, para mantener el histórico limpio y que los totales vuelvan a ser correctos.
-
-**Why this priority**: Complementa a la edición: cubre el caso en que corregir no tiene sentido (registro duplicado o erróneo sin valor). Depende del mismo recorrido UI sobre el listado, pero es menos frecuente que editar.
-
-**Independent Test**: Se puede probar eliminando un movimiento de un mes con más registros y verificando que desaparece del listado y que balance de cabecera y cierre mensual quedan recalculados sin él.
-
-**Acceptance Scenarios**:
-
-1. **Given** un mes con tres movimientos, **When** elimino uno confirmando la acción, **Then** el listado pasa a mostrar dos, y el balance de cabecera y el cierre mensual se recalculan sin el movimiento eliminado.
-2. **Given** el diálogo de confirmación de borrado, **When** cancelo, **Then** no se elimina nada y el listado permanece intacto.
-3. **Given** un movimiento con varias tags, **When** lo elimino, **Then** desaparecen sus asociaciones con tags pero el catálogo de tags permanece intacto (las tags siguen existiendo y usándose por otros movimientos).
+7. **Given** un mes con tres movimientos, **When** elimino uno confirmando la acción, **Then** el listado pasa a mostrar dos, y el balance de cabecera y el cierre mensual se recalculan sin el movimiento eliminado.
+8. **Given** el diálogo de confirmación de borrado, **When** cancelo, **Then** no se elimina nada y el listado permanece intacto.
+9. **Given** un movimiento con varias tags, **When** lo elimino, **Then** desaparecen sus asociaciones con tags pero el catálogo de tags permanece intacto (las tags siguen existiendo y usándose por otros movimientos).
 
 ### Edge Cases
 
@@ -51,7 +40,7 @@ Como miembro de la familia, quiero eliminar un movimiento registrado que no debe
 - ¿Qué pasa si el movimiento ya no existe al guardar la edición o la eliminación (p. ej. borrado en otra pestaña)? El sistema muestra un error claro y no corrompe el estado; no se modelan conflictos de edición concurrente más allá de esto (uso individual).
 - Movimiento editado hacia un mes futuro: permitido; se comporta como cualquier registro fechado por adelantado (edge case ya aceptado en 005).
 - Aritmética monetaria: los importes se manejan en céntimos enteros sin coma flotante (ADR 0007); una edición de importe nunca introduce desviaciones de redondeo.
-- Validaciones de frontera: Zod valida en la Server Action de edición igual que en el alta (constitución IV).
+- Validaciones de frontera: Zod valida en las Server Actions de edición y eliminación igual que en el alta (constitución IV).
 
 ## Requirements *(mandatory)*
 
@@ -64,7 +53,7 @@ Como miembro de la familia, quiero eliminar un movimiento registrado que no debe
 - **FR-005**: Al editar un movimiento cambiándolo de cuenta y/o de mes, el movimiento MUST computar en adelante exclusivamente en la cuenta y el mes de su nueva fecha, sin residuos en la cuenta/mes de origen.
 - **FR-006**: El formulario de edición MUST ser el mismo formulario del alta (002) precargado con los datos del movimiento, en la misma pantalla principal y sin navegación a una ruta nueva; la interacción de apertura (botón por fila, diálogo) se decide en el plan.
 - **FR-007**: La UI MUST estar en español, dar feedback de éxito/error tras guardar o eliminar (incluido el caso "movimiento no encontrado"), y revalidar la pantalla para actualizar listado, balance y cierre en la misma visualización.
-- **FR-008**: Los datos que crucen la frontera (Server Action de edición y de eliminación) MUST validarse con Zod en tiempo de ejecución (constitución IV), incluyendo el identificador del movimiento.
+- **FR-008**: Los datos que crucen la frontera (Server Actions de edición y de eliminación) MUST validarse con Zod en tiempo de ejecución (constitución IV), incluyendo el identificador del movimiento.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -76,7 +65,7 @@ Como miembro de la familia, quiero eliminar un movimiento registrado que no debe
 
 - **SC-001**: Tras editar cualquier campo de un movimiento, listado, balance de cabecera y cierre mensual muestran valores coherentes al 100% con el nuevo conjunto de movimientos, verificado contra cálculo manual (extensión de SC-002 del maestro).
 - **SC-002**: Tras eliminar un movimiento, el total de movimientos del mes/cuenta disminuye en uno y balance y cierre quedan recalculados sin pasos manuales.
-- **SC-003**: Una corrección completa de un movimiento se completa en menos de 30 segundos (equivalente a SC-001 del maestro para el registro).
+- **SC-003**: Una corrección completa de un movimiento (edición o eliminación) se completa en menos de 30 segundos (equivalente a SC-001 del maestro para el registro).
 - **SC-004**: Los casos de error de edición (importe 0/negativo, concepto vacío, cero tags, naturaleza inconsistente con el tipo) se rechazan con los mismos mensajes que el alta, sin guardados parciales.
 
 ## Assumptions
