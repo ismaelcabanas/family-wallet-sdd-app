@@ -2,7 +2,7 @@
 
 **Feature**: `003-edicion-movimientos` | **Fecha**: 2026-09-14
 
-Feature de escritura sobre el modelo existente: **sin cambios de esquema ni migraciones** (UPDATE/DELETE sobre las tablas de 002). Se amplía la entidad `Movement` con una factory de reconstrucción, el puerto `MovementRepository` con tres métodos, y se añade un error de dominio. Las entidades de 002 (Miembro, Cuenta, Movimiento, Tag) y su vista de persistencia ([data-model de 002](../002-registro-movimientos/data-model.md)) siguen siendo la fuente de verdad.
+Feature de escritura sobre el modelo existente: **un único cambio de esquema** — la columna de auditoría técnica `updated_at` en `movements` (clarificación 2026-09-14) — y ninguna migración más. Se amplía la entidad `Movement` con una factory de reconstrucción, el puerto `MovementRepository` con tres métodos, y se añade un error de dominio. Las entidades de 002 (Miembro, Cuenta, Movimiento, Tag) y su vista de persistencia ([data-model de 002](../002-registro-movimientos/data-model.md)) siguen siendo la fuente de verdad.
 
 ---
 
@@ -47,12 +47,20 @@ Ninguna nueva con estado persistido: la "transición" es un reemplazo atómico d
 
 ## 2. Vista de Persistencia (Drizzle, SQLite/Turso)
 
-**Sin DDL ni migraciones.** Comportamiento de los tres métodos nuevos de `DrizzleMovementRepository`:
+**Único DDL de la feature** (migración versionada en `drizzle/`):
+
+```text
+ALTER TABLE movements ADD COLUMN updated_at TEXT;   -- NULL = nunca editado
+```
+
+`updated_at` es TEXT ISO 8601 UTC, mismo formato que `created_at` (SQLite no tiene tipo DATE nativo; convención TEXT ISO de 002). La pone **el repositorio** en cada UPDATE (`new Date().toISOString()`); **no sube al dominio ni a los DTOs** (`Movement.rehydrate` la ignora) y no es historial de valores previos.
+
+Comportamiento de los tres métodos nuevos de `DrizzleMovementRepository`:
 
 | Método | SQL (efecto) | Notas |
 |---|---|---|
 | `findById(id)` | SELECT de la fila + LEFT JOIN `movement_tags`/`tags` filtrado por `id` | Devuelve `Movement` rehydrated (con `TagId[]`) o `null`; mismo shape de join que `listByMonthAndAccount` |
-| `update(movement)` | `db.batch([ UPDATE movements SET … WHERE id = movement.id, DELETE FROM movement_tags WHERE movement_id, INSERT INTO movement_tags (nuevo conjunto) ])` | Atómico: la fila y sus tags cambian juntos o nada; `id` y `createdAt` de la fila no se tocan |
+| `update(movement)` | `db.batch([ UPDATE movements SET …, updated_at = now WHERE id = movement.id, DELETE FROM movement_tags WHERE movement_id, INSERT INTO movement_tags (nuevo conjunto) ])` | Atómico: la fila y sus tags cambian juntos o nada; `id` y `createdAt` de la fila no se tocan |
 | `delete(id)` | `DELETE FROM movements WHERE id = id` | Las asociaciones en `movement_tags` desaparecen por la FK `onDelete cascade` (esquema de 002); la tabla `tags` no se toca (FR-003) |
 
 El repositorio sigue asignando ids con `max(id)+1` solo en `create` (sin cambios); edición y eliminación nunca reasignan identidad.
