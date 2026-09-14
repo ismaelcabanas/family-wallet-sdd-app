@@ -82,9 +82,13 @@ npm run test:e2e       # Playwright: registro (002) + cierre (005) + edición/el
 
 ## Verificación adicional recomendada
 
+> SC-003 ("corrección completa < 30 s") se verifica de forma **informal** durante E1/E6 (impresión de duración de la interacción completa), sin condiciones de medición estrictas — mismo régimen PoC que SC-001 de 002 y SC-002 de 005.
+
+- **Mes que queda vacío**: elimina (o edita hacia otro mes) el último movimiento del mes activo y verifica que el listado muestra el estado vacío de 002 ("Aún no hay movimientos"), sin error.
+- **Edición hacia un mes futuro (edge case)**: edita la fecha de un movimiento a un día del mes siguiente y verifica que desaparece del listado actual con el aviso de movimiento movido, y que aparece y computa en el mes futuro.
 - **Cuenta común en edición (§2.1 del contrato)**: edita un gasto hacia la cuenta común → naturaleza fija "Compartido"; al volver a una cuenta personal los radios se habilitan.
 - **Descripción opcional**: edición borrando la descripción → se persiste como vacía (null).
-- **E2E (ADR 0006/0011)**: `npm run test:e2e` cubre `edicion-movimientos.spec.ts` (editar importe/fecha/cuenta y eliminar contra la app compilada).
+- **E2E (ADR 0006/0011)**: `npm run test:e2e` cubre `edicion-movimientos.spec.ts` (edición del caso más frecuente —importe— y eliminación contra la app compilada; el resto de escenarios queda en verificación manual, decisión del revisor 2026-09-14).
 
 ## Puesta en marcha (producción Turso)
 
