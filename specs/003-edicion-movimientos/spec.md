@@ -23,13 +23,13 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 **Acceptance Scenarios**:
 
 1. **Given** un gasto de 85,00 € con concepto "Mercadona" y tag Alimentación, **When** edito su importe a 78,50 € y guardo, **Then** el listado muestra 78,50 €, el balance de cabecera de la cuenta y el cierre mensual de 005 se recalculan con el nuevo importe sin pasos manuales.
-2. **Given** un movimiento del mes de septiembre, **When** edito su fecha a un día de agosto y guardo, **Then** el movimiento desaparece del listado de septiembre, aparece en el de agosto y computa en el cierre de agosto (y no en el de septiembre).
-3. **Given** un movimiento de una cuenta personal, **When** cambio su cuenta a la cuenta común y guardo, **Then** computa en adelante en los listados, balance y cierre de la cuenta común, y deja de computar en los de la cuenta de origen.
+2. **Given** un movimiento del mes de septiembre, **When** edito su fecha a un día de agosto y guardo, **Then** el movimiento desaparece del listado de septiembre, aparece en el de agosto y computa en el cierre de agosto (y no en el de septiembre); la pantalla permanece en septiembre y el aviso de éxito indica que el movimiento se movió a otro mes.
+3. **Given** un movimiento de una cuenta personal, **When** cambio su cuenta a la cuenta común y guardo, **Then** computa en adelante en los listados, balance y cierre de la cuenta común, y deja de computar en los de la cuenta de origen; la pantalla permanece en la cuenta de origen y el aviso de éxito indica que el movimiento se movió a otra cuenta.
 4. **Given** un gasto con naturaleza "personal", **When** cambio su tipo a ingreso y guardo, **Then** la edición exige dejar la naturaleza vacía (prohibida en ingresos, invariante de 002) y el movimiento pasa a computar como ingreso en el cierre del mes.
 5. **Given** un ingreso, **When** cambio su tipo a gasto y guardo, **Then** la edición exige elegir naturaleza "personal" o "compartido" antes de guardar (invariante de 002).
 6. **Given** la edición de un movimiento, **When** intento guardar con importe 0 o negativo, concepto vacío, sin ninguna tag o fecha inválida, **Then** el sistema muestra los mismos mensajes de error que el alta (002) y no guarda los cambios.
 7. **Given** un mes con tres movimientos, **When** elimino uno confirmando la acción, **Then** el listado pasa a mostrar dos, y el balance de cabecera y el cierre mensual se recalculan sin el movimiento eliminado.
-8. **Given** el diálogo de confirmación de borrado, **When** cancelo, **Then** no se elimina nada y el listado permanece intacto.
+8. **Given** el diálogo de confirmación de borrado mostrando los datos del movimiento (concepto, importe y fecha), **When** cancelo, **Then** no se elimina nada y el listado permanece intacto.
 9. **Given** un movimiento con varias tags, **When** lo elimino, **Then** desaparecen sus asociaciones con tags pero el catálogo de tags permanece intacto (las tags siguen existiendo y usándose por otros movimientos).
 
 ### Edge Cases
@@ -42,17 +42,24 @@ Como miembro de la familia, quiero corregir cualquier dato de un movimiento ya r
 - Aritmética monetaria: los importes se manejan en céntimos enteros sin coma flotante (ADR 0007); una edición de importe nunca introduce desviaciones de redondeo.
 - Validaciones de frontera: Zod valida en las Server Actions de edición y eliminación igual que en el alta (constitución IV).
 
+## Clarifications
+
+### Session 2026-09-14
+
+- Q: ¿Qué debe mostrar el diálogo de confirmación de borrado de un movimiento? → A: Los datos del movimiento (concepto, importe y fecha), no un mensaje genérico: evita borrar el movimiento equivocado en un listado denso.
+- Q: Tras guardar una edición que mueve el movimiento a otro mes o cuenta (fuera de la vista actual), ¿qué debe hacer la pantalla? → A: Permanecer en el mes/cuenta de los selectores actuales y mostrar un aviso de éxito que indique que el movimiento se movió a otro mes/cuenta.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: El sistema MUST permitir editar cualquier movimiento existente desde el listado de la pantalla principal, modificando: fecha, concepto, descripción, importe, cuenta, tipo (gasto/ingreso), naturaleza (personal/compartido, en gastos) y tags (una o más).
 - **FR-002**: Las validaciones de edición MUST ser idénticas a las del alta (002): importe mayor que cero en céntimos enteros, concepto no vacío tras trim, descripción opcional, fecha de calendario válida, mínimo una tag sin duplicados, naturaleza obligatoria en gastos y prohibida en ingresos.
-- **FR-003**: El sistema MUST permitir eliminar físicamente un movimiento existente tras una confirmación explícita y cancelable; la eliminación borra sus asociaciones de tags (movement_tags) pero MUST NOT modificar el catálogo de tags.
+- **FR-003**: El sistema MUST permitir eliminar físicamente un movimiento existente tras una confirmación explícita y cancelable que muestre los datos del movimiento (concepto, importe y fecha); la eliminación borra sus asociaciones de tags (movement_tags) pero MUST NOT modificar el catálogo de tags.
 - **FR-004**: Balance de cabecera, listados y cierres mensuales (005) MUST reflejar el estado tras cada edición o eliminación sin pasos manuales: son vistas derivadas de los movimientos (ADR 0009, FR-009 de 005), no hay totales persistidos que recalcular.
 - **FR-005**: Al editar un movimiento cambiándolo de cuenta y/o de mes, el movimiento MUST computar en adelante exclusivamente en la cuenta y el mes de su nueva fecha, sin residuos en la cuenta/mes de origen.
 - **FR-006**: El formulario de edición MUST ser el mismo formulario del alta (002) precargado con los datos del movimiento, en la misma pantalla principal y sin navegación a una ruta nueva; la interacción de apertura (botón por fila, diálogo) se decide en el plan.
-- **FR-007**: La UI MUST estar en español, dar feedback de éxito/error tras guardar o eliminar (incluido el caso "movimiento no encontrado"), y revalidar la pantalla para actualizar listado, balance y cierre en la misma visualización.
+- **FR-007**: La UI MUST estar en español, dar feedback de éxito/error tras guardar o eliminar (incluido el caso "movimiento no encontrado"), y revalidar la pantalla para actualizar listado, balance y cierre en la misma visualización. Cuando la edición mueve el movimiento fuera de la vista actual (cambio de mes o de cuenta), la pantalla MUST permanecer en los selectores actuales y el aviso de éxito MUST indicar que el movimiento pasó a otro mes/cuenta.
 - **FR-008**: Los datos que crucen la frontera (Server Actions de edición y de eliminación) MUST validarse con Zod en tiempo de ejecución (constitución IV), incluyendo el identificador del movimiento.
 
 ### Key Entities *(include if feature involves data)*
