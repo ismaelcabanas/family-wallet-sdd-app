@@ -59,6 +59,7 @@ El proyecto sigue desarrollo dirigido por especificaciones. Comandos (en este or
 - `specs/001-family-wallet/` es el **roadmap maestro**: NO se implementa directamente; las features hijas (`002-...`, `003-...`) desarrollan sus historias.
 - Cada `/speckit.plan` valida contra la constitución y justifica desviaciones en Complexity Tracking.
 - **Granularidad** (constitución II, v1.2.1): una feature hija comprende por defecto una única US pequeña que entrega valor por sí sola; si una spec termina agrupando varias USs con valor independiente, se divide en features separadas. Agrupar historias en una misma spec es una excepción que decide y justifica el propietario (p. ej. 003: edición y eliminación comparten formulario y recorrido UI).
+- **Diagramas de diseño en el plan**: cada `/speckit.plan` incluye diagramas mermaid del diseño congelado: clases del modelo en `data-model.md` (sección «Diagrama de clases»), y componentes por capa + secuencia del happy path en `plan.md` (sección «Diagramas de diseño», definida en la plantilla `.specify/templates/plan-template.md`). Son la foto del diseño de la feature; `docs/architecture/diagrams/` sigue siendo la documentación viva que la implementación extiende reutilizándolos como base.
 
 ## Estructura del repositorio
 

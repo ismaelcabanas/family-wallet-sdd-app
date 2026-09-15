@@ -101,6 +101,89 @@ specs/006-resumen-global-mensual/
 
 **Structure Decision**: misma estructura por capas concéntricas que 002/005 (`docs/architecture/overview.md`): dominio y aplicación módulos puros; `src/app/resumen/page.tsx` adaptador inbound fino (patrón ADR 0008 de searchParams); UI en `src/infrastructure/primary/ui/`. Tests co-localizados con su SUT; e2e en `e2e/` (spec nueva, serie dentro del fichero por estado compartido de BD, mes propio sin colisión con 002/003/005). **No se tocan** `schema/`, `drizzle/` ni Server Actions: el resumen consume `MovementRepository` y `AccountRepository` existentes (más el nuevo método de lectura).
 
+## Diagramas de diseño
+
+Foto del diseño de esta feature (mermaid, como la documentación viva del proyecto); `docs/architecture/diagrams/` se extiende en la fase de implementación reutilizándolos como base. El diagrama de clases del modelo vive en [data-model.md §1.6](./data-model.md).
+
+### Componentes que intervienen
+
+```mermaid
+flowchart LR
+    U((Usuario))
+
+    subgraph Inbound["Adaptadores inbound — src/app, src/infrastructure/primary"]
+        Enlace["Enlace 'Resumen global' en / (page.tsx, ampliado)"]
+        ResumenPage["/resumen page.tsx (server; valida month con Zod)"]
+        MonthSelector["MonthSelector (client, router.replace)"]
+        Panel["GlobalSummaryPanel (server; solo formatea)"]
+    end
+
+    subgraph Aplicacion["Capa de aplicación — src/application"]
+        UC["GetGlobalMonthlySummary"]
+        PortMov["«port» MovementRepository"]
+        PortAcc["«port» AccountRepository"]
+    end
+
+    subgraph Dominio["Dominio puro — src/domain"]
+        VO["GlobalMonthlySummary (VO nuevo)"]
+        Cierre["MonthlyClosure (VO de 005)"]
+    end
+
+    subgraph Outbound["Adaptadores outbound — src/infrastructure/db"]
+        DrizzleMov["DrizzleMovementRepository (+ listByMonth)"]
+        DrizzleAcc["DrizzleAccountRepository"]
+        LibSQL[("SQLite / Turso (libSQL)")]
+    end
+
+    U --> Enlace
+    U --> MonthSelector
+    MonthSelector -- "/resumen?month=YYYY-MM" --> ResumenPage
+    Enlace -- "/resumen?month={mes activo}" --> ResumenPage
+    ResumenPage --> UC : "execute(month)"
+    UC --> PortMov : "listByMonth(month)"
+    UC --> PortAcc : "findAll()"
+    DrizzleMov -. implementa .-> PortMov
+    DrizzleAcc -. implementa .-> PortAcc
+    DrizzleMov --> LibSQL
+    DrizzleAcc --> LibSQL
+    UC --> VO : "fromMovements(inputs, accounts)"
+    VO --> Cierre : "fromMovements(inputs)"
+    ResumenPage --> Panel : "GlobalMonthlySummaryDTO"
+```
+
+> Nota: las dependencias apuntan siempre hacia el dominio (constitución VII): la página (adaptador) depende del caso de uso, el caso de uso de los puertos (aplicación) y del VO (dominio), y los adaptadores Drizzle implementan los puertos.
+
+### Secuencia — happy path de GetGlobalMonthlySummary
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario
+    participant S as MonthSelector (client)
+    participant R as "/resumen page.tsx (server)"
+    participant UC as GetGlobalMonthlySummary
+    participant MR as "«port» MovementRepository"
+    participant AR as "«port» AccountRepository"
+    participant VO as GlobalMonthlySummary (VO)
+    participant CL as MonthlyClosure (VO)
+
+    U->>S: selecciona mes
+    S->>R: GET /resumen?month=YYYY-MM (router.replace)
+    R->>R: valida month con Zod (default: mes actual)
+    R->>UC: execute(month)
+    UC->>UC: valida formato YYYY-MM
+    UC->>MR: listByMonth(month)
+    MR-->>UC: MovementDTO[] (todas las cuentas, tags incluidas)
+    UC->>AR: findAll()
+    AR-->>UC: AccountDTO[] (con memberName)
+    UC->>VO: fromMovements(inputs, accounts)
+    VO->>CL: fromMovements(inputs)
+    CL-->>VO: KPIs agregados + tagBreakdown
+    VO-->>UC: GlobalMonthlySummary (+ memberBreakdown)
+    UC-->>R: GlobalMonthlySummaryDTO
+    R-->>U: HTML con "Resumen global de {Mes}" (el panel solo formatea)
+```
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
