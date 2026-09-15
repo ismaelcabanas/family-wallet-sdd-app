@@ -17,7 +17,7 @@ npm run db:seed        # precarga cuentas, miembros y tags (idempotente)
 npm run dev            # http://localhost:3000
 ```
 
-**Comprobación inicial (FR-001, FR-007)**: en `/`, junto al título, aparece el enlace "Resumen global". Al abrirlo (`/resumen?month={mes actual}`) se ve "Resumen global de {Mes YYYY}" con Ingresos `0,00 €`, Gastos `0,00 €`, Saldo del mes `0,00 €`, naturaleza a `0,00 €` y "Sin gastos este mes." en ambos desgloses (con la BD recién migrada+sembrada, sin movimientos).
+**Comprobación inicial (FR-001, FR-007)**: en `/`, junto al título, aparece el enlace "Resumen global". Al abrirlo (`/summary?month={mes actual}`) se ve "Resumen global de {Mes YYYY}" con Ingresos `0,00 €`, Gastos `0,00 €`, Saldo del mes `0,00 €`, naturaleza a `0,00 €` y "Sin gastos este mes." en ambos desgloses (con la BD recién migrada+sembrada, sin movimientos).
 
 ## Verificación de gates automáticos
 
@@ -34,17 +34,17 @@ npm run test:e2e       # Playwright: registro (002) + cierre (005) + edición (0
 
 ### E1 — El global es la suma de las tres cuentas (Escenario 1)
 
-1. Abre `/resumen` en el **mes actual** y anota (o fotografía) los KPIs iniciales.
+1. Abre `/summary` en el **mes actual** y anota (o fotografía) los KPIs iniciales.
 2. En `/`, registra en la **Cuenta común**: gasto "Hipoteca" `850,00` naturaleza compartido, tags Vivienda+Hipoteca.
 3. En una **cuenta personal** (Miembro A): ingreso "Nómina" `2.100,00`; gasto "Gasolina" `60,00` naturaleza **personal**, tag Coche.
 4. En la otra **cuenta personal** (Miembro B): gasto "Compra semanal" `150,50` naturaleza **compartido**, tag Alimentación.
-5. Vuelve a `/resumen` (mismo mes).
+5. Vuelve a `/summary` (mismo mes).
 
 - ✅ Ingresos `2.100,00 €`; Gastos `1.060,50 €` (= 850,00 + 60,00 + 150,50, suma exacta de las tres cuentas); Saldo del mes `+1.039,50 €`; Gastos compartidos `1.000,50 €` (850,00 + 150,50 — incluye el pagado desde cuenta personal); Gastos personales `60,00 €`.
 
 ### E2 — Desglose por miembro con atribución correcta (Escenario 2)
 
-Con los movimientos de E1, en `/resumen` (mismo mes):
+Con los movimientos de E1, en `/summary` (mismo mes):
 
 - ✅ Desglose por miembro: fila **Miembro A** con personales `60,00 €` y compartidos `0,00 €`; fila **Miembro B** con personales `0,00 €` y compartidos `150,50 €`; fila **Cuenta común** con compartidos `850,00 €`. Las filas cubren el total de gastos (`60,00 + 150,50 + 850,00 = 1.060,50 €`).
 
@@ -57,27 +57,27 @@ Con los movimientos de E1 (la Hipoteca lleva Vivienda+Hipoteca):
 ### E4 — Coherencia con los cierres por cuenta de 005 (SC-003)
 
 1. En `/`, recorre las tres cuentas con el selector y anota los KPIs del panel "Cierre de {mes}" de cada una.
-2. Compara con `/resumen` del mismo mes.
+2. Compara con `/summary` del mismo mes.
 
 - ✅ Cada KPI global es exactamente la suma de los tres cierres (ingresos, gastos, compartidos, personales, saldo); el desglose por tag global es la fusión de los tres (mismas reglas de orden).
 
 ### E5 — Cuenta vacía aporta cero (Escenario 4)
 
 1. Elige un **mes pasado** sin movimientos en ninguna cuenta y registra movimientos solo en una cuenta personal.
-2. Abre `/resumen` de ese mes.
+2. Abre `/summary` de ese mes.
 
 - ✅ El global equivale exactamente a esa cuenta; las otras aportan cero; sin errores.
 
 ### E6 — Cambio de mes recalcula (Escenario 5)
 
-1. En `/resumen`, cambia el mes con el selector.
+1. En `/summary`, cambia el mes con el selector.
 
-- ✅ Todos los KPIs y desgloses se recalculan para el nuevo mes en la misma vista (URL `/resumen?month=...`), sin recargar la página; "Volver" regresa a `/`.
+- ✅ Todos los KPIs y desgloses se recalculan para el nuevo mes en la misma vista (URL `/summary?month=...`), sin recargar la página; "Volver" regresa a `/`.
 
 ### E7 — Movimiento de otro mes no contamina (edge case)
 
 1. En `/`, registra un gasto fechado el **mes que viene**.
-2. En `/resumen`, revisa el mes actual y el siguiente.
+2. En `/summary`, revisa el mes actual y el siguiente.
 
 - ✅ El resumen del mes actual no cambia; el gasto computa en el resumen del mes siguiente.
 

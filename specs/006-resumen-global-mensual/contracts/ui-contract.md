@@ -1,6 +1,6 @@
 # Contrato de UI: Resumen Global Mensual
 
-**Feature**: `006-resumen-global-mensual` | **Ruta**: `src/app/resumen/page.tsx` (`/resumen`) | **Componentes**: `src/infrastructure/primary/ui/global-summary-panel.tsx` (servidor), `src/infrastructure/primary/ui/month-selector.tsx` (cliente)
+**Feature**: `006-resumen-global-mensual` | **Ruta**: `src/app/summary/page.tsx` (`/summary`) | **Componentes**: `src/infrastructure/primary/ui/global-summary-panel.tsx` (servidor), `src/infrastructure/primary/ui/month-selector.tsx` (cliente)
 
 Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantalla principal por cuenta de 002/005. La pantalla principal no se altera salvo un enlace de entrada (§1.2).
 
@@ -8,25 +8,27 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 
 ## 1. Navegación y URL (FR-001, FR-007)
 
-### 1.1 Ruta `/resumen`
+### 1.1 Ruta `/summary`
+
+> El path va en inglés por consistencia con los identificadores de código (constitución VI); la UI visible permanece en español ("Resumen global de {Mes YYYY}", "Volver").
 
 - Server component fino (adaptador): valida `searchParams.month` con Zod (`/^\d{4}-(0[1-9]|1[0-2])$/`, mismo esquema que `/`); si falta o es inválido, por defecto al mes actual (`currentMonth()`).
-- URL canónica: `/resumen?month=YYYY-MM`. El cambio de mes actualiza la URL con `router.replace` (mismo patrón del selector de 002, sin recarga completa).
+- URL canónica: `/summary?month=YYYY-MM`. El cambio de mes actualiza la URL con `router.replace` (mismo patrón del selector de 002, sin recarga completa).
 - Estructura de la página: enlace "Volver" a `/` + título + selector de mes + panel del resumen (§2).
 
 ### 1.2 Enlace de entrada desde la pantalla principal
 
-- En `/` (cabecera, junto al título "Family Wallet"): enlace **"Resumen global"** → `/resumen?month={mes activo del selector}` (preserva el contexto temporal).
+- En `/` (cabecera, junto al título "Family Wallet"): enlace **"Resumen global"** → `/summary?month={mes activo del selector}` (preserva el contexto temporal).
 - Es el único cambio en la pantalla principal; regiones de 002/003/005 intactas (sus contratos no cambian).
 
 ### 1.3 Selector de mes (`month-selector.tsx`)
 
-- Componente cliente reutilizable (variant del `account-month-selector` de 002 sin cuenta): `Select` shadcn con `buildMonthWindow(month, 24)`, etiqueta "Mes", navegación a `/resumen?month=...` vía `router.replace` dentro de `startTransition` (mismo patrón existente). Diseñado para que `009-cuenta-resultados-anual` pueda reutilizarlo.
+- Componente cliente reutilizable (variant del `account-month-selector` de 002 sin cuenta): `Select` shadcn con `buildMonthWindow(month, 24)`, etiqueta "Mes", navegación a `/summary?month=...` vía `router.replace` dentro de `startTransition` (mismo patrón existente). Diseñado para que `009-cuenta-resultados-anual` pueda reutilizarlo.
 
 ## 2. Estructura de la página y el panel
 
 ```text
-/resumen?month=2026-09
+/summary?month=2026-09
 ┌─────────────────────────────────────────────┐
 │ ← Volver          Family Wallet             │
 │                                             │
@@ -63,7 +65,7 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 | Elemento | Texto/Formato exacto |
 |---|---|
 | Enlace entrada en `/` | "Resumen global" (junto al título de la cabecera) |
-| Enlace vuelta en `/resumen` | "Volver" (a `/`) |
+| Enlace vuelta en `/summary` | "Volver" (a `/`) |
 | KPI Ingresos / Gastos | labels "Ingresos" / "Gastos"; importes `Intl es-ES` EUR sin signo |
 | KPI Saldo del mes | label "Saldo del mes"; `+`/`−` (U+2212)/sin signo si 0 — helper `formatSignedCents` existente |
 | Naturaleza | labels "Gastos compartidos" / "Gastos personales"; importes sin signo |

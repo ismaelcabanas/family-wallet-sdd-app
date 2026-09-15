@@ -180,7 +180,7 @@ Implementación `DrizzleMovementRepository.listByMonth`: la query de `listByMont
 
 | Regla | Frontera (Zod) | Aplicación | Dominio (VO `GlobalMonthlySummary`) | DB |
 |---|---|---|---|---|
-| searchParams month (ruta `/resumen`) | ✅ `src/app/resumen/page.tsx` (mismo patrón que `/`, ADR 0008) | — | — | — |
+| searchParams month (ruta `/summary`) | ✅ `src/app/summary/page.tsx` (mismo patrón que `/`, ADR 0008) | — | — | — |
 | Formato de mes `YYYY-MM` del caso de uso | — | ✅ `GetGlobalMonthlySummary` (misma regla que `ListMovements`) | — | — |
 | Σ ingresos/gastos/naturaleza global | — | — | ✅ por composición (`MonthlyClosure`) | — |
 | Saldo del mes global (admite negativo) | — | — | ✅ `Money.fromCentsOrZero` | — |
@@ -226,7 +226,7 @@ Céntimos enteros en DTO (mismo criterio que `MovementDTO`/`MonthlyClosureDTO`);
 | Desglose por miembro | `memberBreakdown` / `MemberBreakdownEntry` | Atribución por dueño de la cuenta de pago |
 | Cuenta común (fila del desglose) | `memberName: null` | La etiqueta vive solo en la UI |
 | Gastos personales/compartidos de un ámbito | `personal` / `shared` (`Money`) | Dentro de `MemberBreakdownEntry` |
-| Resumen global (ruta) | `/resumen` | `src/app/resumen/page.tsx`, searchParam `month` |
+| Resumen global (ruta) | `/summary` | `src/app/summary/page.tsx`, searchParam `month` |
 | Panel del resumen | `GlobalSummaryPanel` | Componente servidor de UI |
 | Selector de mes | `MonthSelector` | Componente cliente reutilizable (sin cuenta) |
 | Movimientos del mes (todas las cuentas) | `listByMonth` | Método del puerto `MovementRepository` |

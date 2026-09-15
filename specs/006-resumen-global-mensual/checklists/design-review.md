@@ -1,6 +1,6 @@
 # Checklist de Revisión de Diseño: Resumen Mensual Global
 
-**Purpose**: Challenge formal del diseño de la feature 006 en toda su huella documental (spec + plan + research + data-model + contracts + quickstart), como gate antes de `/speckit.tasks`. Énfasis obligatorio en: la composición `GlobalMonthlySummary` ◆→ `MonthlyClosure` como única fuente de reglas agregadas (ADR 0012), la coherencia global = Σ cierres por cuenta (FR-002/SC-003), el nuevo método de puerto `listByMonth`, la ruta propia `/resumen` y la atribución por miembro con la fila "Cuenta común".
+**Purpose**: Challenge formal del diseño de la feature 006 en toda su huella documental (spec + plan + research + data-model + contracts + quickstart), como gate antes de `/speckit.tasks`. Énfasis obligatorio en: la composición `GlobalMonthlySummary` ◆→ `MonthlyClosure` como única fuente de reglas agregadas (ADR 0012), la coherencia global = Σ cierres por cuenta (FR-002/SC-003), el nuevo método de puerto `listByMonth`, la ruta propia `/summary` y la atribución por miembro con la fila "Cuenta común".
 **Created**: 2026-09-15
 **Feature**: [spec.md](../spec.md)
 
@@ -13,7 +13,7 @@
 - [ ] CHK001 - La composición `GlobalMonthlySummary` ◆→ `MonthlyClosure`: ¿queda inequívoco en TODA la huella que las reglas agregadas (naturaleza, totales, multi-tag, orden) viven SOLO en `MonthlyClosure` y que el VO global no las reimplementa, para que FR-002 sea garantía estructural y no promesa de implementación? [Clarity, Consistency, Spec §FR-002, research.md §1, data-model.md §1.1/§1.6]
 - [ ] CHK002 - La coherencia "al céntimo" entre resumen global y cierres por cuenta (FR-002/SC-003): ¿está definida KPI a KPI y con verificación objetiva doble (test de invariante del VO + escenario manual E4 contra los paneles de 005)? [Measurability, Traceability, data-model.md §1.1 invariante 2, quickstart.md §E4]
 - [ ] CHK003 - El nuevo contrato de puerto `listByMonth(month)`: ¿queda sin ambigüedad qué devuelve (TODAS las cuentas, rango semicerrado del mes, tags incluidas, orden) y que NO solapa semánticamente con `listByMonthAndAccount` (el filtro de cuenta es la única diferencia), incluida la nota del formato `YYYY-MM` con año? [Clarity, data-model.md §2.1, research.md §2]
-- [ ] CHK004 - La decisión de ruta propia `/resumen` (frente a sección en `/` o pseudo-cuenta "Todas"): ¿está trazada la delegación spec→plan (FR-007) y documentado el racional completo con alternativas rechazadas, para que `/speckit.tasks` no la reabra? [Traceability, research.md §3, contracts/ui-contract.md §1]
+- [ ] CHK004 - La decisión de ruta propia `/summary` (frente a sección en `/` o pseudo-cuenta "Todas"): ¿está trazada la delegación spec→plan (FR-007) y documentado el racional completo con alternativas rechazadas, para que `/speckit.tasks` no la reabra? [Traceability, research.md §3, contracts/ui-contract.md §1]
 - [ ] CHK005 - ¿Queda el contenido mínimo del ADR 0012 señalizado (composición + puerto `listByMonth` + alternativas rechazadas de research §1–§3) en Complexity Tracking para que `/speckit.tasks` lo materialice sin reinterpretar? [Traceability, plan.md §Complexity Tracking]
 
 ## Completitud de requisitos — Contrato de UI
@@ -23,7 +23,7 @@
 - [ ] CHK008 - El comportamiento del desglose por miembro cuando SOLO la cuenta común tiene gastos (cero filas de miembros, solo "Cuenta común"): ¿está contemplado como caso o se deduce de las reglas generales sin ambigüedad? [Coverage, Gap, contracts/ui-contract.md §3]
 - [ ] CHK009 - La semántica accesible del desglose por miembro ("tabla semántica o lista de definición"): ¿es una elección deliberada delegada a implementación (guía PoC) o una ambigüedad que debe cerrarse ahora? [Clarity, Ambiguity, contracts/ui-contract.md §4]
 - [ ] CHK010 - El enlace "Resumen global" en `/`: ¿están definidos texto exacto, ubicación (cabecera, junto al título), preservación del mes activo en la URL destino y la garantía de que es el ÚNICO cambio en la pantalla de 002/003/005? [Completeness, Consistency, contracts/ui-contract.md §1.2/§5]
-- [ ] CHK011 - El selector de mes de `/resumen`: ¿reutiliza el patrón existente (buildMonthWindow ±24, `router.replace` en `startTransition`, mismas etiquetas) y está justificado como componente reutilizable sin caer en sobre-diseño para 009? [Consistency, Assumption, contracts/ui-contract.md §1.3, research.md §3]
+- [ ] CHK011 - El selector de mes de `/summary`: ¿reutiliza el patrón existente (buildMonthWindow ±24, `router.replace` en `startTransition`, mismas etiquetas) y está justificado como componente reutilizable sin caer en sobre-diseño para 009? [Consistency, Assumption, contracts/ui-contract.md §1.3, research.md §3]
 
 ## Claridad de requisitos
 
@@ -31,7 +31,7 @@
 - [ ] CHK013 - El formato numérico y signos: ¿el contrato fija totales sin signo, saldo con signo contable (`+`/`−` U+2212/sin signo si 0) reutilizando `formatSignedCents` de 005, sin helpers nuevos? [Clarity, Consistency, contracts/ui-contract.md §3]
 - [ ] CHK014 - La terminología "personal/compartido" (y NO "propio/común" del maestro): ¿es consistente en spec, contracts, plan y research, con la asunción de traducción documentada? [Consistency, Spec §Assumptions]
 - [ ] CHK015 - Los límites del desglose por miembro: ¿la spec y el contrato dejan explícito que cubre SOLO gastos (ingresos por miembro llegan con 009) y que los ingresos no aparecen en ningún desglose? [Boundary, Clarity, Spec §FR-004, edge cases]
-- [ ] CHK016 - El fallback de URL (`/resumen` sin `month` o con `month` inválido → mes actual): ¿está definido y alineado con el comportamiento de `/` en 002 (mismo esquema Zod, mismo default)? [Clarity, Consistency, contracts/ui-contract.md §1.1]
+- [ ] CHK016 - El fallback de URL (`/summary` sin `month` o con `month` inválido → mes actual): ¿está definido y alineado con el comportamiento de `/` en 002 (mismo esquema Zod, mismo default)? [Clarity, Consistency, contracts/ui-contract.md §1.1]
 
 ## Consistencia entre documentos
 
@@ -52,7 +52,7 @@
 - [ ] CHK025 - Mes futuro seleccionado: ¿está cubierto explícitamente (comportamiento igual que mes vacío, o con movimientos registrados por adelantado) en huella o verificación, como lo estuvo en 005? [Coverage, Gap, Spec §Edge Cases]
 - [ ] CHK026 - Dos miembros con el mismo nombre: ¿fusionan filas en `memberBreakdown` y esa asunción está documentada (research/data-model), o debe prohibirse en 008-gestion-cuentas-miembros? [Edge Case, Assumption, research.md §1, data-model.md §1.1]
 - [ ] CHK027 - Movimiento con `accountId` sin cuenta conocida por `findAll()` (dato huérfano): ¿está asumido como imposible (sin borrado de cuentas en el producto) y documentado, o el VO necesita regla defensiva? [Gap, Assumption, data-model.md §1.1]
-- [ ] CHK028 - `/resumen` con la BD sin sembrar (cero cuentas): ¿el comportamiento queda derivado de las reglas (panel a ceros, desgloses vacíos) o necesita definición explícita, dado el supuesto de cuentas preconfiguradas del maestro? [Gap, Assumption, Spec §Assumptions]
+- [ ] CHK028 - `/summary` con la BD sin sembrar (cero cuentas): ¿el comportamiento queda derivado de las reglas (panel a ceros, desgloses vacíos) o necesita definición explícita, dado el supuesto de cuentas preconfiguradas del maestro? [Gap, Assumption, Spec §Assumptions]
 
 ## Requisitos no funcionales
 
