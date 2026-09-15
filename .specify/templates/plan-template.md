@@ -103,6 +103,33 @@ ios/ or android/
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
 
+## Diagramas de diseño
+
+<!--
+  ACTION REQUIRED: Render the frozen design of this feature as mermaid diagrams
+  (same conventions as docs/architecture/diagrams/). Content in Spanish (constitution VI).
+
+  1. Class diagram of the model → NOT here: it lives in data-model.md
+     (section "Diagrama de clases (diseño)").
+  2. Participating components → below: layered mermaid flowchart (adaptadores
+     inbound, aplicación/puertos, dominio, adaptadores outbound) with dependencies
+     pointing to the domain.
+  3. Sequence diagram → below: happy path of the main use case, from the actor
+     to the rendered response through use case, ports and domain VOs.
+
+  Anti-drift rule: these diagrams are the design SNAPSHOT of the feature;
+  docs/architecture/diagrams/ remains the living documentation, extended during
+  implementation reusing these diagrams as the base.
+-->
+
+### Componentes que intervienen
+
+[mermaid flowchart: participantes por capa, dependencias hacia el dominio]
+
+### Secuencia — happy path
+
+[mermaid sequenceDiagram: actor → adaptador inbound → caso de uso → puertos → dominio → respuesta]
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

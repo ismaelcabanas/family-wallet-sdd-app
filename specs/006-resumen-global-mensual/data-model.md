@@ -74,6 +74,88 @@ Ninguno nuevo: la factory es total sobre inputs bien formados (los movimientos y
 
 Ninguna: VO inmutable recalculado en cada consulta (FR-005, ADR 0009/0012).
 
+### 1.6 Diagrama de clases (diseño)
+
+Foto del diseño de esta feature; la documentación viva del modelo de dominio (`docs/architecture/diagrams/domain-model.md`) se extiende en la fase de implementación reutilizándolo como base.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class Money {
+        <<Value Object de 002>>
+        +amountCents int
+    }
+
+    class MonthlyClosure {
+        <<Value Object de 005 (reutilizado)>>
+        +incomeTotal Money
+        +expenseTotal Money
+        +sharedExpenseTotal Money
+        +personalExpenseTotal Money
+        +monthBalance Money
+        +tagBreakdown TagBreakdownEntry[]
+        +fromMovements(inputs)$ MonthlyClosure
+    }
+
+    class GlobalMonthlySummary {
+        <<Value Object nuevo en 006>>
+        +incomeTotal Money
+        +expenseTotal Money
+        +sharedExpenseTotal Money
+        +personalExpenseTotal Money
+        +monthBalance Money
+        +tagBreakdown TagBreakdownEntry[]
+        +memberBreakdown MemberBreakdownEntry[]
+        +fromMovements(inputs, accounts)$ GlobalMonthlySummary
+    }
+
+    class ClosureMovementInput {
+        <<record de 005>>
+        +type MovementType
+        +nature ExpenseNature?
+        +amountCents number
+        +tags ClosureTagRef[]
+    }
+
+    class GlobalSummaryMovementInput {
+        <<record nuevo en 006>>
+        +accountId number
+    }
+
+    class SummaryAccountRef {
+        <<record nuevo en 006>>
+        +id number
+        +type AccountType
+        +memberName string?
+    }
+
+    class TagBreakdownEntry {
+        <<de 005>>
+        +tagId number
+        +tagName string
+        +amount Money
+    }
+
+    class MemberBreakdownEntry {
+        <<nuevo en 006>>
+        +memberName string?
+        +personal Money
+        +shared Money
+    }
+
+    ClosureMovementInput <|-- GlobalSummaryMovementInput
+    GlobalMonthlySummary *-- MonthlyClosure : compone (KPIs agregados)
+    GlobalMonthlySummary ..> GlobalSummaryMovementInput : fromMovements
+    GlobalMonthlySummary ..> SummaryAccountRef : fromMovements
+    MonthlyClosure ..> ClosureMovementInput : fromMovements
+    GlobalMonthlySummary o-- TagBreakdownEntry
+    GlobalMonthlySummary o-- MemberBreakdownEntry
+    MonthlyClosure o-- TagBreakdownEntry
+    TagBreakdownEntry o-- Money
+    MemberBreakdownEntry o-- Money
+```
+
 ---
 
 ## 2. Vista de Persistencia (Drizzle, SQLite/Turso)
@@ -85,6 +167,8 @@ Ninguna: VO inmutable recalculado en cada consulta (FR-005, ADR 0009/0012).
 ```text
 + listByMonth(month: string): Promise<MovementDTO[]>   // movimientos de TODAS las cuentas del mes, tags incluidas
 ```
+
+> **Formato de `month`**: `YYYY-MM` (año y mes, p. ej. `2026-09`) — el año va incluido en el parámetro, convención de 002/005 (searchParams, selector y cierres). El rango de la query cruza correctamente el cambio de año (diciembre → enero del año siguiente).
 
 Implementación `DrizzleMovementRepository.listByMonth`: la query de `listByMonthAndAccount` sin filtro de cuenta — rango semicerrado sargable `[month-01, primer día del mes siguiente)`, `LEFT JOIN` de tags, `ORDER BY date DESC, id DESC`. La lectura de cuentas usa el puerto existente `AccountRepository.findAll()` (devuelve `memberName`).
 
