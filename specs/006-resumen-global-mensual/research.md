@@ -52,9 +52,9 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 ---
 
-## 3. Ubicación de la vista: ruta propia `/resumen` (FR-007)
+## 3. Ubicación de la vista: ruta propia `/summary` (FR-007)
 
-**Decision**: **ruta nueva `src/app/resumen/page.tsx`** (`/resumen?month=YYYY-MM`), con: selector de mes propio (componente cliente reutilizable `month-selector.tsx`, variant del selector de 002 sin cuenta), enlace de vuelta a `/` y el panel **`global-summary-panel.tsx`** (componente servidor, espejo del panel de 005). En la pantalla principal se añade un **enlace "Resumen global"** junto a la cabecera que preserva el mes activo (`/resumen?month={mes}`).
+**Decision**: **ruta nueva `src/app/summary/page.tsx`** (`/summary?month=YYYY-MM`), con: selector de mes propio (componente cliente reutilizable `month-selector.tsx`, variant del selector de 002 sin cuenta), enlace de vuelta a `/` y el panel **`global-summary-panel.tsx`** (componente servidor, espejo del panel de 005). En la pantalla principal se añade un **enlace "Resumen global"** junto a la cabecera que preserva el mes activo (`/summary?month={mes}`).
 
 **Rationale**:
 - La pantalla principal está **scopeada por cuenta** (selectores → balance → cierre de esa cuenta); el resumen global es una vista de **ámbito familiar** que ignora la cuenta: mezclarlo ahí dejaría un selector sin efecto sobre una región, rompiendo el modelo mental de la pantalla.
@@ -99,8 +99,8 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 1. **Dominio** (`GlobalMonthlySummary.test.ts`, node): happy path con movimientos de varias cuentas; atribución por miembro (personales y compartidos desde cuenta personal; cuenta común al bucket null); **invariante de coherencia** (global = Σ cierres por cuenta, KPI a KPI, y desglose por tag fusionado); multi-tag sin duplicar total; ingresos fuera de desgloses; mes vacío → ceros; orden y desempates de ambos desgloses; gastos con naturaleza personal pagados desde la común (caso teórico admitido por el modelo) al bucket null con su naturaleza.
 2. **Aplicación** (`GetGlobalMonthlySummary.test.ts`, node): doble en memoria de `MovementRepository` (con `listByMonth`) y de `AccountRepository`; validación de mes; mapeo DTO→dominio→DTO; resultados idénticos a los del VO.
 3. **Persistencia** (`DrizzleMovementRepository.test.ts`, ampliación): `listByMonth` contra libsql `:memory:` con migraciones: devuelve movimientos de todas las cuentas del mes (rango exacto, sin meses contiguos) con sus tags; mes vacío → [].
-4. **UI** (`global-summary-panel.test.tsx` y `month-selector.test.tsx`, ui jsdom + RTL): KPIs y desgloses con formato es-ES vía helpers, fila "Cuenta común" para `memberName: null`, estados vacíos, y navegación del selector a `/resumen?month=`.
-5. **E2E** (`e2e/resumen-global.spec.ts`): fichero nuevo, specs **en serie** dentro del fichero (convención de 002/005) y **mes propio sin colisión** (p. ej. 2026-06, libres 2026-07/2026-08): registra vía UI movimientos en las tres cuentas, abre `/resumen?month=...` desde el enlace de la pantalla principal y verifica KPIs exactos (suma de cuentas, compartidos incluyendo pagados desde personales, desglose por tag fusionado y desglose por miembro con "Cuenta común"); después verifica mes vacío → ceros. El cambio de mes queda en verificación manual (quickstart), como en 005 (decisión del revisor 2026-09-10, misma línea).
+4. **UI** (`global-summary-panel.test.tsx` y `month-selector.test.tsx`, ui jsdom + RTL): KPIs y desgloses con formato es-ES vía helpers, fila "Cuenta común" para `memberName: null`, estados vacíos, y navegación del selector a `/summary?month=`.
+5. **E2E** (`e2e/resumen-global.spec.ts`): fichero nuevo, specs **en serie** dentro del fichero (convención de 002/005) y **mes propio sin colisión** (p. ej. 2026-06, libres 2026-07/2026-08): registra vía UI movimientos en las tres cuentas, abre `/summary?month=...` desde el enlace de la pantalla principal y verifica KPIs exactos (suma de cuentas, compartidos incluyendo pagados desde personales, desglose por tag fusionado y desglose por miembro con "Cuenta común"); después verifica mes vacío → ceros. El cambio de mes queda en verificación manual (quickstart), como en 005 (decisión del revisor 2026-09-10, misma línea).
 
 **Rationale**: el e2e protege el flujo completo registro→resumen global (la acción de la feature) sin repetir la casuística del formulario (ya cubierta por `e2e/registro-movimientos.spec.ts`); la coherencia con los cierres por cuenta queda clavada en el test de dominio (más barato y determinista que en e2e).
 
@@ -116,6 +116,6 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 | Coherencia FR-002 | Garantía estructural por composición + test de invariante (global = Σ cierres) | 0012 |
 | Lectura de datos | Puerto `MovementRepository.listByMonth(month)`; cuentas vía `AccountRepository.findAll()` | 0012 |
 | Persistencia | Ninguna: vista derivada (FR-005, ADR 0009); sin índice nuevo (escala familiar, YAGNI) | 0009 → 0012 |
-| Vista | Ruta propia `/resumen?month=` + panel servidor + selector de mes; enlace desde `/` | — |
+| Vista | Ruta propia `/summary?month=` + panel servidor + selector de mes; enlace desde `/` | — |
 | Desglose por miembro | Atribución por dueño de la cuenta de pago; "Cuenta común" como fila sin atribución | — |
 | Tests | VO + use case + repo (libsql :memory:) + RTL + e2e nuevo en serie, mes propio | — |
