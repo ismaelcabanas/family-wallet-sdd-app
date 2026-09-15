@@ -1,4 +1,4 @@
-# Specification Quality Checklist: Resumen Mensual Global y Cuadre
+# Specification Quality Checklist: Resumen Mensual Global
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-09-15
@@ -31,5 +31,5 @@
 
 ## Notes
 
-- FR-005 granularity (real saldo declaration: per account vs. single global) resolved with the user on 2026-09-15: per account, with per-account and aggregated global cuadre (recorded in spec Clarifications).
-- Minor technology mentions (Zod, Intl es-ES, céntimos enteros/ADR 0007, Playwright) are project constitution conventions (principios IV, III y moneda del maestro), kept as in 003/005 for consistency, not implementation design.
+- 2026-09-15 (revisión de granularidad): la spec original contenía dos USs (resumen global y cuadre). Aplicando el acuerdo una feature = una US pequeña con valor propio (constitución v1.2.1), el cuadre se separó a `010-cuadre-mensual` (reservada en el roadmap maestro, con la clarificación de saldos por cuenta registrada allí).
+- Minor technology mentions (Intl es-ES, céntimos enteros/ADR 0007, Playwright) are project constitution conventions (principios III y moneda del maestro), kept as in 003/005 for consistency, not implementation design.

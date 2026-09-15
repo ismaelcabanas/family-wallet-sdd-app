@@ -58,6 +58,7 @@ El proyecto sigue desarrollo dirigido por especificaciones. Comandos (en este or
 - **Auto-commits por fase**: los hooks de la extensión git (`before_*`/`after_*` → `speckit.git.commit` en `.specify/extensions.yml`) están habilitados como automáticos; commitean los artefactos de cada fase con mensaje Conventional Commit generado al efecto (`commit_style: conventional` en `.specify/extensions/git/git-config.yml`).
 - `specs/001-family-wallet/` es el **roadmap maestro**: NO se implementa directamente; las features hijas (`002-...`, `003-...`) desarrollan sus historias.
 - Cada `/speckit.plan` valida contra la constitución y justifica desviaciones en Complexity Tracking.
+- **Granularidad** (constitución II, v1.2.1): una feature hija comprende por defecto una única US pequeña que entrega valor por sí sola; si una spec termina agrupando varias USs con valor independiente, se divide en features separadas. Agrupar historias en una misma spec es una excepción que decide y justifica el propietario (p. ej. 003: edición y eliminación comparten formulario y recorrido UI).
 
 ## Estructura del repositorio
 

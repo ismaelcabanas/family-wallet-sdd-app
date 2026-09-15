@@ -22,14 +22,15 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 | `003-edicion-movimientos` | FR-008 (refinamiento) | Edición y eliminación de movimientos desde el listado; balances, listado y cierres son vistas derivadas y se actualizan automáticamente | En curso (spec en borrador) |
 | `004-gestion-tags` | US5 | Catálogo de tags: crear, renombrar, fusionar y desactivar tags sin perder el histórico | Futura |
 | `005-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Completada |
-| `006-resumen-global-mensual` | US3 | Resumen mensual global que agrega las tres cuentas: desglose de gastos por naturaleza, tag y miembro (incluidos los comunes pagados desde cuentas personales), y cuadre mensual con los saldos reales declarados | Futura |
+| `006-resumen-global-mensual` | US3 | Resumen mensual global que agrega las tres cuentas: totales de ingresos y gastos por naturaleza, saldo del mes y desgloses de gastos por tag y por miembro (incluidos los comunes pagados desde cuentas personales) | Futura |
 | `007-filtrado-busqueda` | FR-009 (refinamiento) | Filtrado y búsqueda de movimientos por mes, cuenta, tipo, naturaleza, tag y miembro | Futura |
 | `008-gestion-cuentas-miembros` | FR-001 (refinamiento) | Gestión de cuentas y miembros: añadir y renombrar | Futura |
 | `009-cuenta-resultados-anual` | US4 | Cuenta de resultados anual: por mes, ingresos por miembro, gasto real y saldo; desglose por tag en columnas mensuales con totales anuales, media mensual y total sin gastos personales | Futura |
+| `010-cuadre-mensual` | FR-012 (refinamiento de US3) | Cuadre mensual: declaración manual de saldos reales por cuenta (clarificación 2026-09-15) y comparación automática con la variación calculada (ingresos − gastos), por cuenta y global, señalando descuadres sin bloquear | Futura |
 
 > **Nota (2026-09-14)**: la feature `003-gestion-movimientos` original (FR-001/FR-008/FR-009) se dividió por tamaño y cohesión en tres features: `003-edicion-movimientos` (FR-008), `007-filtrado-busqueda` (FR-009) y `008-gestion-cuentas-miembros` (FR-001). Los números 004 y 006 estaban ya reservados en este roadmap.
 >
-> **Nota (2026-09-15)**: la feature `006-analisis-agregado` original (US3 + US4) se dividió por tamaño y cohesión en dos features: `006-resumen-global-mensual` (US3: FR-007 + FR-012 del maestro) y `009-cuenta-resultados-anual` (US4: FR-013). El número 009 sigue a los reservados en el split de 003 (007, 008).
+> **Nota (2026-09-15)**: la feature `006-analisis-agregado` original (US3 + US4) se dividió por tamaño y cohesión en dos features: `006-resumen-global-mensual` (US3: FR-007 del maestro) y `009-cuenta-resultados-anual` (US4: FR-013). El número 009 sigue a los reservados en el split de 003 (007, 008). Aplicando además el acuerdo de granularidad —una feature hija = una US pequeña con valor propio (constitución v1.2.1)—, el cuadre mensual con declaración de saldos reales (FR-012) se separó en `010-cuadre-mensual`; los saldos se declaran por cuenta, con cuadre por cuenta y global agregado (clarificación del propietario, 2026-09-15).
 
 ### Alcance diferido (decisiones del usuario)
 

@@ -40,6 +40,13 @@ Sync Impact Report (v1.2.0, 2026-08-31)
 - Added sections: Restricciones Tecnológicas → bullet de UI (Tailwind CSS + shadcn/ui); Testing ampliado con Playwright e2e
 - Removed sections: ninguno
 - Follow-up TODOs: ninguno (ADRs 0005 y 0006 registran ambas decisiones)
+
+Sync Impact Report (v1.2.1, 2026-09-15)
+- Version change: 1.2.0 → 1.2.1 (PATCH: clarificación de granularidad de features)
+- Modified principles: II (cada feature hija comprende por defecto una única US pequeña con valor propio; división obligatoria si surgen varias USs con valor independiente)
+- Added sections: ninguno
+- Removed sections: ninguno
+- Follow-up TODOs: ninguno (aplicada al split de 006 → 010-cuadre-mensual en el roadmap maestro)
 -->
 
 # Family Wallet Constitution
@@ -50,7 +57,7 @@ Sync Impact Report (v1.2.0, 2026-08-31)
 Family Wallet es una aplicación familiar de uso individual. TODO el software MUST mantenerse como un monolito único: un solo proyecto Next.js, sin microservicios, sin librerías internas organizativas ni abstracciones prematuras (YAGNI). Cualquier propuesta de nuevo proyecto, paquete o capa de indirección MUST justificarse en el Complexity Tracking del plan. Rationale: el valor está en el producto, no en la arquitectura; un monolito es auditable y mantenible por una sola persona.
 
 ### II. Spec-Driven Development (NO NEGOCIABLE)
-Toda funcionalidad MUST nacer de una especificación escrita siguiendo el flujo Spec Kit (`/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement`). El roadmap maestro (`specs/001-family-wallet/spec.md`) define la visión; las features hijas (numeradas secuencialmente bajo `specs/`) desarrollan cada slice con ciclo completo e independiente. Está PROHIBIDO implementar código de funcionalidad sin spec, plan y tasks previos aprobados.
+Toda funcionalidad MUST nacer de una especificación escrita siguiendo el flujo Spec Kit (`/speckit.specify` → `/speckit.clarify` → `/speckit.plan` → `/speckit.tasks` → `/speckit.implement`). El roadmap maestro (`specs/001-family-wallet/spec.md`) define la visión; las features hijas (numeradas secuencialmente bajo `specs/`) desarrollan cada slice con ciclo completo e independiente. Cada feature hija comprende por defecto una única user story pequeña que entrega valor por sí sola: si al especificar surgen varias historias con valor independiente, MUST dividirse en features separadas; agrupar varias historias en una misma spec es una excepción que decide y justifica el propietario (p. ej. la fusión de edición y eliminación en 003, que comparten formulario y recorrido UI). Está PROHIBIDO implementar código de funcionalidad sin spec, plan y tasks previos aprobados.
 
 ### III. Calidad Verificada
 Todo cambio de código MUST pasar los gates de calidad: lint, typecheck y tests en verde. La lógica de negocio (cálculo de cierres, totales, cuadres) MUST estar cubierta por tests automatizados; la corrección aritmética frente al Excel actual es un criterio de aceptación explícito. Los flujos críticos de usuario (p. ej. registrar un movimiento) MUST estar cubiertos por tests end-to-end automatizados con Playwright, incluidos en CI. Un push que falle cualquier gate de CI MUST considerarse bloqueado.
@@ -97,4 +104,4 @@ Referencia de estilo para la organización en capas y los patrones tácticos: [C
 - Toda revisión de un plan o implementación MUST verificar el cumplimiento de esta constitución.
 - El documento de guía para agentes de IA en tareas de desarrollo es `AGENTS.md` (raíz del repositorio); ambos documentos MUST mantenerse consistentes.
 
-**Version**: 1.2.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-31
+**Version**: 1.2.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-09-15
