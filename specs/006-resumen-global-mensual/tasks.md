@@ -57,16 +57,16 @@
 
 ## Phase 4: User Story 1 - Adaptador inbound (UI)
 
-**Goal**: vista propia `/resumen` con selector de mes y panel servidor que solo formatea; enlace de entrada desde `/` (ui-contract íntegro).
+**Goal**: vista propia `/summary` con selector de mes y panel servidor que solo formatea; enlace de entrada desde `/` (ui-contract íntegro).
 
-- [ ] T008 [P] [US1] Crear el componente cliente `MonthSelector` en `src/infrastructure/primary/ui/month-selector.tsx` según contracts/ui-contract.md §1.3: `Select` shadcn existente con `buildMonthWindow(month, 24)` y `monthLabel`, label "Mes", navegación `router.replace("/resumen?month=…")` en `startTransition` con `opacity-60` pendiente (variant del selector de 002 sin cuenta; reutilizable para 009)
-- [ ] T009 [P] [US1] Escribir tests de `MonthSelector` en `src/infrastructure/primary/ui/month-selector.test.tsx` (jsdom + RTL): renderiza la ventana de meses con etiqueta "Mes" y navega a `/resumen?month=` al seleccionar (mock de `useRouter`)
+- [ ] T008 [P] [US1] Crear el componente cliente `MonthSelector` en `src/infrastructure/primary/ui/month-selector.tsx` según contracts/ui-contract.md §1.3: `Select` shadcn existente con `buildMonthWindow(month, 24)` y `monthLabel`, label "Mes", navegación `router.replace("/summary?month=…")` en `startTransition` con `opacity-60` pendiente (variant del selector de 002 sin cuenta; reutilizable para 009)
+- [ ] T009 [P] [US1] Escribir tests de `MonthSelector` en `src/infrastructure/primary/ui/month-selector.test.tsx` (jsdom + RTL): renderiza la ventana de meses con etiqueta "Mes" y navega a `/summary?month=` al seleccionar (mock de `useRouter`)
 - [ ] T010 [P] [US1] Crear el componente servidor `GlobalSummaryPanel` en `src/infrastructure/primary/ui/global-summary-panel.tsx` según contracts/ui-contract.md §2–§3: `<section aria-labelledby>` con título "Resumen global de {Mes YYYY}" (`monthLabel`), grid de KPIs "Ingresos"/"Gastos" sin signo y "Saldo del mes" con `formatSignedCents` existente, sub-desglose "Gastos compartidos"/"Gastos personales", "Desglose por tag" con la nota permanente de 005 y "Desglose por miembro" con cabeceras "personales"/"compartidos", fila "Cuenta común" para `memberName: null`, orden (total desc, nombre asc, "Cuenta común" al final), filas solo con gastos; estados vacíos "Sin gastos este mes." en ambos desgloses y KPIs a `0,00 €` sin ocultar el panel; apilado móvil
 - [ ] T011 [P] [US1] Escribir tests de UI en `src/infrastructure/primary/ui/global-summary-panel.test.tsx` (jsdom + RTL): KPIs y ambos desgloses con formato es-ES (helpers o espacio no rompible), fila "Cuenta común" cuando `memberName: null`, miembros sin gastos sin fila, orden y empates del desglose por miembro, nota multi-tag visible, "Sin gastos este mes." en mes vacío, saldo positivo/negativo/cero exacto sin signo
-- [ ] T012 [US1] Crear la ruta `src/app/resumen/page.tsx` (server, adaptador fino): validar `searchParams.month` con Zod (`/^\d{4}-(0[1-9]|1[0-2])$/`, default `currentMonth()`; mismo patrón que `/`, ADR 0008), instanciar `GetGlobalMonthlySummary` con `DrizzleMovementRepository`+`DrizzleAccountRepository`, renderizar enlace "Volver" a `/`, `MonthSelector` y `GlobalSummaryPanel` (ui-contract §1.1)
-- [ ] T013 [US1] Añadir el enlace "Resumen global" en `src/app/page.tsx`: en la cabecera, junto al título "Family Wallet", enlazando a `/resumen?month={mes activo}` (ui-contract §1.2; ÚNICO cambio en la pantalla principal — regiones de 002/003/005 intactas)
+- [ ] T012 [US1] Crear la ruta `src/app/summary/page.tsx` (server, adaptador fino): validar `searchParams.month` con Zod (`/^\d{4}-(0[1-9]|1[0-2])$/`, default `currentMonth()`; mismo patrón que `/`, ADR 0008), instanciar `GetGlobalMonthlySummary` con `DrizzleMovementRepository`+`DrizzleAccountRepository`, renderizar enlace "Volver" a `/`, `MonthSelector` y `GlobalSummaryPanel` (ui-contract §1.1)
+- [ ] T013 [US1] Añadir el enlace "Resumen global" en `src/app/page.tsx`: en la cabecera, junto al título "Family Wallet", enlazando a `/summary?month={mes activo}` (ui-contract §1.2; ÚNICO cambio en la pantalla principal — regiones de 002/003/005 intactas)
 
-**Checkpoint**: `npm run dev` muestra `/resumen` con los KPIs globales del mes y la navegación desde `/` funciona.
+**Checkpoint**: `npm run dev` muestra `/summary` con los KPIs globales del mes y la navegación desde `/` funciona.
 
 ---
 
@@ -80,8 +80,8 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T015 [P] Registrar el ADR en `docs/architecture/adr/0012-resumen-global-composicion-cierre.md`: resumen global por composición del cierre (única fuente de reglas agregadas; FR-002 como garantía estructural + test de invariante), lectura propia del mes vía nuevo método de puerto `listByMonth`, vista en ruta propia `/resumen`; se rechazan el VO duplicado, la composición en aplicación, la agregación SQL y la sección global en `/` (plan.md §Complexity Tracking, research.md §1–§3)
-- [ ] T016 [P] Actualizar la documentación de arquitectura en el mismo cambio reutilizando los diagramas del plan como base: `docs/architecture/overview.md` (ruta `/resumen`, `GetGlobalMonthlySummary`, VO, `listByMonth`), `docs/architecture/diagrams/domain-model.md` (clase `GlobalMonthlySummary`, data-model.md §1.6) y `docs/architecture/diagrams/c4.md` (nueva vista en el contenedor web); valorar fichero de secuencia propio con el diagrama de plan.md §Diagramas
+- [ ] T015 [P] Registrar el ADR en `docs/architecture/adr/0012-resumen-global-composicion-cierre.md`: resumen global por composición del cierre (única fuente de reglas agregadas; FR-002 como garantía estructural + test de invariante), lectura propia del mes vía nuevo método de puerto `listByMonth`, vista en ruta propia `/summary`; se rechazan el VO duplicado, la composición en aplicación, la agregación SQL y la sección global en `/` (plan.md §Complexity Tracking, research.md §1–§3)
+- [ ] T016 [P] Actualizar la documentación de arquitectura en el mismo cambio reutilizando los diagramas del plan como base: `docs/architecture/overview.md` (ruta `/summary`, `GetGlobalMonthlySummary`, VO, `listByMonth`), `docs/architecture/diagrams/domain-model.md` (clase `GlobalMonthlySummary`, data-model.md §1.6) y `docs/architecture/diagrams/c4.md` (nueva vista en el contenedor web); valorar fichero de secuencia propio con el diagrama de plan.md §Diagramas
 - [ ] T017 Ejecutar la verificación manual completa de `specs/006-resumen-global-mensual/quickstart.md` (E1–E7 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada
 - [ ] T018 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
 
@@ -134,7 +134,7 @@ Task: "T016 [P] overview.md + diagrams/domain-model.md + c4.md"
 1. Dominio con composición e invariantes protegidos (T001–T002).
 2. Aplicación con caso de uso autocontenido (T003–T005).
 3. Persistencia con la lectura completa del mes (T006–T007).
-4. UI + ruta `/resumen` + enlace (T008–T013).
+4. UI + ruta `/summary` + enlace (T008–T013).
 5. **STOP y VALIDAR**: quickstart E1–E7 manualmente + gates en verde.
 6. Polish: ADR 0012, docs y verificación final (T015–T018).
 
