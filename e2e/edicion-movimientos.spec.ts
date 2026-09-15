@@ -14,11 +14,13 @@ async function selectAccount(page: Page, accountName: string): Promise<void> {
   await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
 }
 
-async function selectAugust2026(page: Page): Promise<void> {
+async function selectMonth(page: Page, monthLabel: string): Promise<void> {
   await page.getByRole("combobox", { name: "Mes visible" }).click();
-  await page.getByRole("option", { name: "Agosto de 2026" }).click();
+  await page.getByRole("option", { name: monthLabel }).click();
   const panel = page.getByRole("region").filter({ hasText: "Cierre de" }).first();
-  await expect(panel.getByText(/agosto de 2026/i).first()).toBeVisible({ timeout: 10_000 });
+  await expect(panel.getByText(new RegExp(monthLabel, "i")).first()).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 async function registerMovement(
@@ -26,12 +28,13 @@ async function registerMovement(
   fields: {
     concept: string;
     amount: string;
+    date?: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
     tags?: string[];
   },
 ): Promise<void> {
-  await page.getByLabel("Fecha", { exact: true }).fill("2026-08-10");
+  await page.getByLabel("Fecha", { exact: true }).fill(fields.date ?? "2026-08-10");
   await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
@@ -66,7 +69,7 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
     await selectAccount(page, "Cuenta de Miembro B");
-    await selectAugust2026(page);
+    await selectMonth(page, "Agosto de 2026");
   });
 
   test("E1: editar el importe recalcula listado, balance y cierre", async ({ page }) => {
@@ -132,5 +135,31 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
       timeout: 10_000,
     });
     await expect(panel.getByText("20,00")).toHaveCount(0);
+  });
+
+  test("E3: eliminar el último movimiento visible tuesta y muestra el estado vacío", async ({
+    page,
+  }) => {
+    await selectMonth(page, "Julio de 2026");
+    await registerMovement(page, {
+      concept: "Solitario",
+      amount: "15,00",
+      date: "2026-07-05",
+      nature: "personal",
+      tags: ["Ocio"],
+    });
+
+    await page.getByRole("button", { name: "Eliminar Solitario" }).click();
+    const confirmDialog = page.getByRole("alertdialog", { name: "Eliminar movimiento" });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole("button", { name: /^Eliminar$/ }).click();
+
+    await expect(page.getByText("Movimiento eliminado")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Aún no hay movimientos en este mes/)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByRole("region", { name: "Movimientos del mes" }),
+    ).toHaveCount(0);
   });
 });

@@ -11,7 +11,6 @@ import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRe
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountMonthSelector } from "@/infrastructure/primary/ui/account-month-selector";
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
-import { EmptyState } from "@/infrastructure/primary/ui/empty-state";
 import { currentMonth } from "@/infrastructure/primary/ui/format";
 import { MonthlyClosurePanel } from "@/infrastructure/primary/ui/monthly-closure-panel";
 import { MovementForm } from "@/infrastructure/primary/ui/movement-form";
@@ -79,17 +78,13 @@ export default async function Home({
 
       <MonthlyClosurePanel closure={closure} month={month} />
 
-      {movements.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <MovementList
-          movements={movements}
-          accounts={accounts}
-          tags={tags}
-          currentAccountId={activeAccount.id}
-          currentMonth={month}
-        />
-      )}
+      <MovementList
+        movements={movements}
+        accounts={accounts}
+        tags={tags}
+        currentAccountId={activeAccount.id}
+        currentMonth={month}
+      />
     </main>
   );
 }

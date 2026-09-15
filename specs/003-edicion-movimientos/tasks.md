@@ -170,6 +170,14 @@ Task T023/T024: "delete-movement-dialog (test + impl)"
 
 ---
 
+## Phase 5: Revisión de PR (post-implementación)
+
+**Purpose**: Defecto detectado en la revisión manual de la PR #3 (2026-09-15): al eliminar el único movimiento visible, el toast "Movimiento eliminado" no aparecía. Comportamiento ya exigido por FR-007/ui-contract §4/quickstart E6 → bug de implementación contra la spec existente (sin cambios de spec): test de regresión en rojo + fix en la misma rama.
+
+- [X] T030 [US1] Fix toast perdido al vaciar la vista: el swap `EmptyState`/`MovementList` en `page.tsx` desmontaba el listado y su diálogo antes de recibir el estado de `useActionState`; el estado vacío pasa a renderizarse dentro de `movement-list.tsx` (client). Regresiones: `movement-list.test.tsx` (RTL, diálogo sobrevive al refresco que vacía la lista) y `e2e/edicion-movimientos.spec.ts` E3 (eliminar el último movimiento → toast + estado vacío)
+
+---
+
 ## Notes
 
 - [P] = ficheros distintos, sin dependencias de tareas incompletas
