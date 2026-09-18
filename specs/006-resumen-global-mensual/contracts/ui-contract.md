@@ -32,11 +32,11 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 ┌─────────────────────────────────────────────┐
 │ ← Volver          Family Wallet             │
 │                                             │
-│ Resumen global de Septiembre 2026           │  ← monthLabel existente
-│                                             │
 │ [Mes ▾]                                     │  ← month-selector (sin cuenta)
 │                                             │
 │ ┌─────────────────────────────────────────┐ │
+│ │ Resumen global de Septiembre 2026       │ │  ← monthLabel; ÚNICO título visible
+│ │                                         │ │
 │ │ [Ingresos]   [Gastos]   [Saldo del mes] │ │  ← KPIs (grid 3 col. escritorio / apilado móvil)
 │ │  3.100,50 €  1.270,50 €  +1.830,00 €    │ │
 │ │                                         │ │
@@ -48,7 +48,7 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 │ │ Vivienda              850,00 €          │ │
 │ │ ...                                    │ │
 │ │                                         │ │
-│ │ Desglose por miembro                    │ │  ← NUEVO
+│ │ Desglose por miembro                    │ │  ← NUEVO (tabla semántica)
 │ │                 personales  compartidos │ │
 │ │ Miembro A          60,00 €    120,50 €  │ │
 │ │ Miembro B           0,00 €     50,00 €  │ │
@@ -57,7 +57,7 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 └─────────────────────────────────────────────┘
 ```
 
-- Título de página: **"Resumen global de {Mes YYYY}"** (primera letra mayúscula vía `monthLabel`); el mes es el seleccionado, no necesariamente el actual.
+- La página **no añade título propio**: su cabecera es el enlace "Volver" y "Family Wallet"; el único título visible es el del panel — **"Resumen global de {Mes YYYY}"** (primera letra mayúscula vía `monthLabel`; patrón de 005; decisión de revisión, 2026-09-15). El mes es el seleccionado, no necesariamente el actual.
 - El panel (`GlobalSummaryPanel`) replica la estructura del `MonthlyClosurePanel` de 005 (sección con `aria-labelledby`, grid de KPIs, naturaleza, desglose por tag con su nota) y añade el desglose por miembro.
 
 ## 3. Formato, textos y estados
@@ -70,8 +70,9 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 | KPI Saldo del mes | label "Saldo del mes"; `+`/`−` (U+2212)/sin signo si 0 — helper `formatSignedCents` existente |
 | Naturaleza | labels "Gastos compartidos" / "Gastos personales"; importes sin signo |
 | Desglose por tag | título "Desglose por tag"; filas `nombre  importe`; nota permanente de 005 ("Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos."); orden importe desc, empate alfabético (`es`) |
-| Desglose por miembro | título "Desglose por miembro"; cabeceras de columna "personales" y "compartidos"; una fila por miembro con gastos + fila "Cuenta común" si la común tiene gastos; importes sin signo |
-| Fila Cuenta común | etiqueta "Cuenta común" para `memberName: null` (la etiqueta vive solo en la UI) |
+| Desglose por miembro | título "Desglose por miembro"; tabla con cabeceras de columna "personales" y "compartidos"; una fila por miembro con gastos + fila "Cuenta común" si la común tiene gastos; importes sin signo |
+| Identidad de las filas | una fila por `memberId` (no por nombre): dos miembros homónimos generan filas distintas y varias cuentas personales del mismo miembro una sola fila (decisión de revisión, 2026-09-15) |
+| Fila Cuenta común | etiqueta "Cuenta común" para `memberId: null` (la etiqueta vive solo en la UI) |
 | Orden desglose por miembro | total de la fila (personal+compartido) descendente; empate → nombre ascendente (`es`); "Cuenta común" al final en empates |
 | Mes sin movimientos | KPIs a `0,00 €`, saldo `0,00 €`, ambos desgloses muestran "Sin gastos este mes." (el panel NO se oculta) |
 | Miembro sin gastos | no genera fila (solo filas con datos) |
@@ -79,7 +80,7 @@ Vista nueva de ámbito familiar (todas las cuentas), independiente de la pantall
 
 ## 4. Accesibilidad y responsive (guía PoC, mismo criterio que 002/005 §4)
 
-- Página con `<main>`; panel como `<section aria-labelledby>`; el desglose por miembro como tabla semántica o lista de definición con cabeceras percibibles.
+- Página con `<main>`; panel como `<section aria-labelledby>`; el desglose por miembro como **tabla semántica** (`<table>` con `<th scope="col">` "personales"/"compartidos"; decisión de revisión, 2026-09-15), el desglose por tag como lista (patrón 005).
 - Grid de KPIs y desgloses apilados en móvil; sin scroll horizontal.
 - Números como texto (mismo patrón que el resto de la app).
 

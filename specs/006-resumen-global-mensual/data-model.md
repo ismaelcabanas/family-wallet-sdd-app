@@ -29,7 +29,8 @@ GlobalMonthlySummary.fromMovements(
 | | `accountId` | `number` | Cuenta desde la que se pagó; se usa SOLO para la atribución por miembro. |
 | `SummaryAccountRef` | `id` | `number` | Identifica la cuenta de pago. |
 | | `type` | `'personal' \| 'shared'` | Solo las cuentas personales atribuyen gastos a un miembro. |
-| | `memberName` | `string \| null` | Dueño de la cuenta personal; `null` en la cuenta común (sin atribución). |
+| | `memberId` | `number \| null` | Identidad del dueño de la cuenta personal — clave de agrupación del desglose; `null` en la cuenta común (sin atribución). |
+| | `memberName` | `string \| null` | Nombre del dueño, SOLO visualización (viaja al DTO para pintar la fila); no agrupa. |
 
 **Campos del VO** (inmutables; los cinco primeros delegan en el `MonthlyClosure` interno):
 
@@ -41,9 +42,9 @@ GlobalMonthlySummary.fromMovements(
 | personalExpenseTotal | `Money` | Σ de gastos con nature = `'personal'`. |
 | monthBalance | `Money` | `incomeTotal − expenseTotal`; admite negativo. |
 | tagBreakdown | `ReadonlyArray<TagBreakdownEntry>` | Misma regla que el cierre: un gasto suma una vez por cada tag que lleva; orden importe desc, desempate nombre asc (`localeCompare es`). |
-| memberBreakdown | `ReadonlyArray<MemberBreakdownEntry>` | Solo gastos. Por cada gasto: cuenta de pago → si es personal, al `memberName` de su dueño; si es común, al bucket sin atribución. Acumula `personal`/`shared` según la naturaleza del gasto. Solo filas con algún gasto; orden total (personal+shared) desc, desempate nombre asc, fila sin atribución al final. |
+| memberBreakdown | `ReadonlyArray<MemberBreakdownEntry>` | Solo gastos. Por cada gasto: cuenta de pago → si es personal, al `memberId` de su dueño; si es común, al bucket sin atribución (`memberId: null`). Acumula `personal`/`shared` según la naturaleza del gasto. Solo filas con algún gasto; orden total (personal+shared) desc, desempate nombre asc, fila sin atribución al final. |
 
-`MemberBreakdownEntry` (dominio): `{ memberName: string | null; personal: Money; shared: Money }` — `memberName = null` significa "pagado desde la cuenta común" (la UI lo etiqueta "Cuenta común", contracts §3).
+`MemberBreakdownEntry` (dominio): `{ memberId: number | null; memberName: string | null; personal: Money; shared: Money }` — `memberId = null` significa "pagado desde la cuenta común" (la UI lo etiqueta "Cuenta común", contracts §3); `memberName` es solo visualización.
 
 **Invariantes** (verificados en tests del VO):
 
@@ -51,6 +52,7 @@ GlobalMonthlySummary.fromMovements(
 2. **Coherencia (FR-002/SC-003)**: `GlobalMonthlySummary.fromMovements(unión del mes)` = Σ de los `MonthlyClosure` de cada cuenta, KPI a KPI; y `tagBreakdown` global = fusión de los desgloses por cuenta. Garantía estructural de la composición + test explícito de invariante.
 3. La Σ de `memberBreakdown` (personal+shared de todas las filas) = `expenseTotal` (cada gasto computa exactamente en una fila, la de su cuenta de pago).
 4. Los ingresos no aparecen en ningún desglose (FR-004; regla de 005 para tags).
+5. **Agrupación por identidad** (decisión de revisión, 2026-09-15): la fila es del `memberId`, no del nombre — dos miembros homónimos generan filas distintas y varias cuentas personales del mismo miembro fusionan en una sola.
 
 ### 1.2 Entidades y VOs reutilizados (sin cambios)
 
@@ -127,6 +129,7 @@ classDiagram
         <<record nuevo en 006>>
         +id number
         +type AccountType
+        +memberId number?
         +memberName string?
     }
 
@@ -139,6 +142,7 @@ classDiagram
 
     class MemberBreakdownEntry {
         <<nuevo en 006>>
+        +memberId number?
         +memberName string?
         +personal Money
         +shared Money
@@ -185,7 +189,7 @@ Implementación `DrizzleMovementRepository.listByMonth`: la query de `listByMont
 | Σ ingresos/gastos/naturaleza global | — | — | ✅ por composición (`MonthlyClosure`) | — |
 | Saldo del mes global (admite negativo) | — | — | ✅ `Money.fromCentsOrZero` | — |
 | Multi-etiquetado: una vez por tag, sin duplicar total | — | — | ✅ (regla heredada del cierre) | — |
-| Atribución por miembro (cuenta de pago → dueño; común → sin atribución) | — | — | ✅ pasada propia del VO | — |
+| Atribución por miembro (cuenta de pago → dueño; común → sin atribución; agrupación por `memberId`, no por nombre) | — | — | ✅ pasada propia del VO | — |
 | Orden de ambos desgloses (importe/total desc, nombre asc, null al final) | — | — | ✅ | — |
 | Solo gastos en los desgloses | — | — | ✅ | — |
 | Mapeo `MovementDTO[]`+`AccountDTO[]` → inputs de dominio → `GlobalMonthlySummaryDTO` | — | ✅ `GetGlobalMonthlySummary` | — | — |
@@ -209,10 +213,13 @@ GlobalMonthlySummaryDTO
 └── memberBreakdown: MemberBreakdownEntryDTO[]
 
 MemberBreakdownEntryDTO
-├── memberName: string | null          // null = pagado desde la cuenta común ("Cuenta común" en UI)
+├── memberId: number | null            // null = pagado desde la cuenta común; clave de la fila
+├── memberName: string | null          // solo visualización ("Cuenta común" en UI si es null)
 ├── personalCents: number              // gastos personales atribuidos a ese ámbito
 └── sharedCents: number                // gastos compartidos atribuidos a ese ámbito
 ```
+
+Ampliación adicional: **`AccountDTO`** gana `memberId: number | null` (identidad del dueño de la cuenta personal; el `findAll` ya hace el join de miembros) — fuente de `SummaryAccountRef.memberId` (decisión de revisión, 2026-09-15).
 
 Céntimos enteros en DTO (mismo criterio que `MovementDTO`/`MonthlyClosureDTO`); el formateo a EUR es exclusivo del adaptador UI.
 
@@ -224,7 +231,7 @@ Céntimos enteros en DTO (mismo criterio que `MovementDTO`/`MonthlyClosureDTO`);
 |---|---|---|
 | Resumen global (mensual) | `GlobalMonthlySummary` | VO de dominio calculado (no persistido); compone `MonthlyClosure` |
 | Desglose por miembro | `memberBreakdown` / `MemberBreakdownEntry` | Atribución por dueño de la cuenta de pago |
-| Cuenta común (fila del desglose) | `memberName: null` | La etiqueta vive solo en la UI |
+| Cuenta común (fila del desglose) | `memberId: null` (+ `memberName: null`) | La etiqueta vive solo en la UI; la fila se agrupa por identidad (`memberId`) |
 | Gastos personales/compartidos de un ámbito | `personal` / `shared` (`Money`) | Dentro de `MemberBreakdownEntry` |
 | Resumen global (ruta) | `/summary` | `src/app/summary/page.tsx`, searchParam `month` |
 | Panel del resumen | `GlobalSummaryPanel` | Componente servidor de UI |

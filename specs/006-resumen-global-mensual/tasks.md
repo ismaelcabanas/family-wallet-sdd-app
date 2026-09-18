@@ -25,8 +25,8 @@
 
 **Goal**: VO puro `GlobalMonthlySummary` que compone `MonthlyClosure` (única fuente de reglas agregadas) y añade el desglose por miembro con sus invariantes (data-model §1.1, ADR 0012).
 
-- [ ] T001 [P] [US1] Escribir tests unitarios del VO `GlobalMonthlySummary` en `src/domain/movement/GlobalMonthlySummary.test.ts`: KPIs agregados idénticos a `MonthlyClosure.fromMovements` sobre la unión (delegación); **invariante de coherencia** (VO global sobre la unión del mes = Σ `MonthlyClosure` de cada cuenta, KPI a KPI, y `tagBreakdown` global = fusión de los por cuenta); atribución por miembro (gastos de cuenta personal al `memberName` de su dueño según naturaleza; gastos de la cuenta común al bucket `null` con SU naturaleza, incluido un gasto personal pagado desde la común); Σ `memberBreakdown` (personal+shared de todas las filas) = `expenseTotal`; ingresos fuera de ambos desgloses; multi-tag computa en cada tag sin duplicar el total; mes vacío → totales a cero y desgloses vacíos; orden de `memberBreakdown` (total desc, nombre asc `localeCompare es`, fila `null` al final en empates); imputabilidad por nombre (dos cuentas personales del mismo miembro fusionan); inmutabilidad del VO
-- [ ] T002 [US1] Implementar el VO `GlobalMonthlySummary` (con `GlobalSummaryMovementInput`, `SummaryAccountRef` y `MemberBreakdownEntry`) en `src/domain/movement/GlobalMonthlySummary.ts`: factory `fromMovements(inputs, accounts)` que **compone** `MonthlyClosure.fromMovements(inputs)` para los KPIs agregados y `tagBreakdown` (sin reimplementar reglas) y calcula `memberBreakdown` en pasada propia con `Money`; cero dependencias externas (data-model.md §1.1/§1.6, ADR 0007)
+- [ ] T001 [P] [US1] Escribir tests unitarios del VO `GlobalMonthlySummary` en `src/domain/movement/GlobalMonthlySummary.test.ts`: KPIs agregados idénticos a `MonthlyClosure.fromMovements` sobre la unión (delegación); **invariante de coherencia** (VO global sobre la unión del mes = Σ `MonthlyClosure` de cada cuenta, KPI a KPI, y `tagBreakdown` global = fusión de los por cuenta); atribución por miembro (gastos de cuenta personal al `memberId` de su dueño según naturaleza; gastos de la cuenta común al bucket `null` con SU naturaleza, incluido un gasto personal pagado desde la común); **agrupación por identidad** (dos miembros homónimos → filas distintas; dos cuentas personales del mismo miembro → una fila); Σ `memberBreakdown` (personal+shared de todas las filas) = `expenseTotal`; ingresos fuera de ambos desgloses; multi-tag computa en cada tag sin duplicar el total; mes vacío → totales a cero y desgloses vacíos; orden de `memberBreakdown` (total desc, nombre asc `localeCompare es`, fila `null` al final en empates); inmutabilidad del VO
+- [ ] T002 [US1] Implementar el VO `GlobalMonthlySummary` (con `GlobalSummaryMovementInput`, `SummaryAccountRef` —con `memberId` como clave de agrupación y `memberName` solo visualización— y `MemberBreakdownEntry`) en `src/domain/movement/GlobalMonthlySummary.ts`: factory `fromMovements(inputs, accounts)` que **compone** `MonthlyClosure.fromMovements(inputs)` para los KPIs agregados y `tagBreakdown` (sin reimplementar reglas) y calcula `memberBreakdown` en pasada propia con `Money` agrupando por `memberId`; cero dependencias externas (data-model.md §1.1/§1.6, ADR 0007)
 
 **Checkpoint**: composición e invariantes protegidos por tests en verde.
 
@@ -34,22 +34,22 @@
 
 ## Phase 2: User Story 1 - Aplicación (TDD)
 
-**Goal**: DTOs, caso de uso autocontenido y contrato de lectura `listByMonth` en el puerto.
+**Goal**: DTOs (incl. `AccountDTO.memberId` para la atribución por identidad), contrato de lectura `listByMonth` en el puerto con su implementación Drizzle, y caso de uso autocontenido.
 
-- [ ] T003 [P] [US1] Ampliar `src/application/movement/dto.ts` con `GlobalMonthlySummaryDTO` y `MemberBreakdownEntryDTO` (`memberName: string | null`, `personalCents`, `sharedCents`; céntimos enteros) según data-model.md §4
-- [ ] T004 [P] [US1] Escribir tests de `GetGlobalMonthlySummary` en `src/application/movement/GetGlobalMonthlySummary.test.ts` con dobles en memoria de `MovementRepository` (con `listByMonth`) y `AccountRepository` (`findAll`): rechaza mes con formato inválido (regex `^\d{4}-(0[1-9]|1[0-2])$`); llama a los puertos con `(month)` y `()`; mapea `MovementDTO[]`+`AccountDTO[]` → inputs de dominio (tags completas por movimiento, `accountId` en cada input) y devuelve un `GlobalMonthlySummaryDTO` idéntico al cálculo directo de `GlobalMonthlySummary.fromMovements` sobre los mismos datos
-- [ ] T005 [US1] Implementar `GetGlobalMonthlySummary` en `src/application/movement/GetGlobalMonthlySummary.ts`: constructor con `MovementRepository` y `AccountRepository`, `execute(month: string)` valida el mes, lee `listByMonth(month)` + `findAll()`, calcula vía `GlobalMonthlySummary.fromMovements` y mapea a DTO (misma forma que `GetMonthlyClosure`; autocontenido, sin acoplamiento a la pantalla)
+- [ ] T003 [P] [US1] Ampliar `src/application/movement/dto.ts` con `GlobalMonthlySummaryDTO` y `MemberBreakdownEntryDTO` (`memberId: number | null`, `memberName: string | null`, `personalCents`, `sharedCents`; céntimos enteros) y con `memberId: number | null` en `AccountDTO` (identidad del dueño; el `findAll` ya hace el join de miembros) según data-model.md §4
+- [ ] T004 [US1] Ampliar el puerto `MovementRepository` en `src/application/movement/MovementRepository.ts` con `listByMonth(month: string): Promise<MovementDTO[]>` e implementarlo en `src/infrastructure/db/DrizzleMovementRepository.ts` (declaración e implementación en el mismo cambio para mantener el árbol compilando; precede al caso de uso, que consume el método): la query de `listByMonthAndAccount` sin filtro de cuenta — rango semicerrado sargable `[month-01, mes siguiente)` con cruce de año (`nextMonthFirstDay`), `LEFT JOIN` de tags, `ORDER BY date DESC, id DESC`, mapeo con `mapJoinedRowsToMovementDTOs` (data-model.md §2.1)
+- [ ] T005 [P] [US1] Escribir tests de `GetGlobalMonthlySummary` en `src/application/movement/GetGlobalMonthlySummary.test.ts` con dobles en memoria de `MovementRepository` (con `listByMonth`) y `AccountRepository` (`findAll`): rechaza mes con formato inválido (regex `^\d{4}-(0[1-9]|1[0-2])$`); llama a los puertos con `(month)` y `()`; mapea `MovementDTO[]`+`AccountDTO[]` → inputs de dominio (tags completas por movimiento, `accountId` en cada input) y devuelve un `GlobalMonthlySummaryDTO` idéntico al cálculo directo de `GlobalMonthlySummary.fromMovements` sobre los mismos datos, con `memberBreakdown` agrupado por `memberId` (homónimos → filas distintas)
+- [ ] T006 [US1] Implementar `GetGlobalMonthlySummary` en `src/application/movement/GetGlobalMonthlySummary.ts`: constructor con `MovementRepository` y `AccountRepository`, `execute(month: string)` valida el mes, lee `listByMonth(month)` + `findAll()`, calcula vía `GlobalMonthlySummary.fromMovements` y mapea a DTO (misma forma que `GetMonthlyClosure`; autocontenido, sin acoplamiento a la pantalla)
 
 **Checkpoint**: `execute(month)` devuelve el resumen global verificable con dobles.
 
 ---
 
-## Phase 3: User Story 1 - Persistencia (adaptador outbound)
+## Phase 3: User Story 1 - Persistencia (tests del adaptador)
 
-**Goal**: método de lectura `listByMonth` en el puerto y el adaptador Drizzle, con el árbol compilando en verde al cerrar la fase.
+**Goal**: batería del adaptador Drizzle para la lectura completa del mes.
 
-- [ ] T006 [US1] Ampliar el puerto `MovementRepository` en `src/application/movement/MovementRepository.ts` con `listByMonth(month: string): Promise<MovementDTO[]>` e implementarlo en `src/infrastructure/db/DrizzleMovementRepository.ts`: la query de `listByMonthAndAccount` sin filtro de cuenta — rango semicerrado sargable `[month-01, mes siguiente)` con cruce de año (`nextMonthFirstDay`), `LEFT JOIN` de tags, `ORDER BY date DESC, id DESC`, mapeo con `mapJoinedRowsToMovementDTOs` (data-model.md §2.1; el typecheck fuerza la implementación en ambos ficheros en el mismo cambio)
-- [ ] T007 [US1] Ampliar `src/infrastructure/db/DrizzleMovementRepository.test.ts` (libsql `:memory:` + migraciones de `drizzle/`, patrones existentes): `listByMonth` devuelve movimientos de TODAS las cuentas del mes con sus tags, respeta el rango exacto (sin meses contiguos ni movimientos de otros meses/años), y mes vacío → `[]`; comparativa con `listByMonthAndAccount` por cuenta (la unión de las tres llamadas = el resultado de `listByMonth`)
+- [ ] T007 [US1] Ampliar `src/infrastructure/db/DrizzleMovementRepository.test.ts` (libsql `:memory:` + migraciones de `drizzle/`, patrones existentes): `listByMonth` devuelve movimientos de TODAS las cuentas del mes con sus tags, respeta el rango exacto (sin meses contiguos ni movimientos de otros meses/años), y mes vacío → `[]`; comparativa con `listByMonthAndAccount` por cuenta (la unión de las tres llamadas = el resultado de `listByMonth`); verificar en `src/infrastructure/db/DrizzleRepositories.test.ts` (si procede) que `findAll` expone `memberId`
 
 **Checkpoint**: lectura del mes completa y verificada contra la BD real.
 
@@ -61,9 +61,9 @@
 
 - [ ] T008 [P] [US1] Crear el componente cliente `MonthSelector` en `src/infrastructure/primary/ui/month-selector.tsx` según contracts/ui-contract.md §1.3: `Select` shadcn existente con `buildMonthWindow(month, 24)` y `monthLabel`, label "Mes", navegación `router.replace("/summary?month=…")` en `startTransition` con `opacity-60` pendiente (variant del selector de 002 sin cuenta; reutilizable para 009)
 - [ ] T009 [P] [US1] Escribir tests de `MonthSelector` en `src/infrastructure/primary/ui/month-selector.test.tsx` (jsdom + RTL): renderiza la ventana de meses con etiqueta "Mes" y navega a `/summary?month=` al seleccionar (mock de `useRouter`)
-- [ ] T010 [P] [US1] Crear el componente servidor `GlobalSummaryPanel` en `src/infrastructure/primary/ui/global-summary-panel.tsx` según contracts/ui-contract.md §2–§3: `<section aria-labelledby>` con título "Resumen global de {Mes YYYY}" (`monthLabel`), grid de KPIs "Ingresos"/"Gastos" sin signo y "Saldo del mes" con `formatSignedCents` existente, sub-desglose "Gastos compartidos"/"Gastos personales", "Desglose por tag" con la nota permanente de 005 y "Desglose por miembro" con cabeceras "personales"/"compartidos", fila "Cuenta común" para `memberName: null`, orden (total desc, nombre asc, "Cuenta común" al final), filas solo con gastos; estados vacíos "Sin gastos este mes." en ambos desgloses y KPIs a `0,00 €` sin ocultar el panel; apilado móvil
-- [ ] T011 [P] [US1] Escribir tests de UI en `src/infrastructure/primary/ui/global-summary-panel.test.tsx` (jsdom + RTL): KPIs y ambos desgloses con formato es-ES (helpers o espacio no rompible), fila "Cuenta común" cuando `memberName: null`, miembros sin gastos sin fila, orden y empates del desglose por miembro, nota multi-tag visible, "Sin gastos este mes." en mes vacío, saldo positivo/negativo/cero exacto sin signo
-- [ ] T012 [US1] Crear la ruta `src/app/summary/page.tsx` (server, adaptador fino): validar `searchParams.month` con Zod (`/^\d{4}-(0[1-9]|1[0-2])$/`, default `currentMonth()`; mismo patrón que `/`, ADR 0008), instanciar `GetGlobalMonthlySummary` con `DrizzleMovementRepository`+`DrizzleAccountRepository`, renderizar enlace "Volver" a `/`, `MonthSelector` y `GlobalSummaryPanel` (ui-contract §1.1)
+- [ ] T010 [P] [US1] Crear el componente servidor `GlobalSummaryPanel` en `src/infrastructure/primary/ui/global-summary-panel.tsx` según contracts/ui-contract.md §2–§3: `<section aria-labelledby>` con título **"Resumen global de {Mes YYYY}"** (`monthLabel`) como ÚNICO título visible de la vista (la página no añade título propio — decisión de revisión 2026-09-15), grid de KPIs "Ingresos"/"Gastos" sin signo y "Saldo del mes" con `formatSignedCents` existente, sub-desglose "Gastos compartidos"/"Gastos personales", "Desglose por tag" con la nota permanente de 005 y "Desglose por miembro" como **tabla semántica** (`<table>` con `<th scope="col">` "personales"/"compartidos"), una fila por `memberId` (homónimos → filas distintas; React key `memberId`), fila "Cuenta común" para `memberId: null`, orden (total desc, nombre asc, "Cuenta común" al final), filas solo con gastos; estados vacíos "Sin gastos este mes." en ambos desgloses y KPIs a `0,00 €` sin ocultar el panel; apilado móvil
+- [ ] T011 [P] [US1] Escribir tests de UI en `src/infrastructure/primary/ui/global-summary-panel.test.tsx` (jsdom + RTL): KPIs y ambos desgloses con formato es-ES (helpers o espacio no rompible), fila "Cuenta común" cuando `memberId: null`, dos miembros homónimos como filas distintas, miembros sin gastos sin fila, orden y empates del desglose por miembro, nota multi-tag visible, "Sin gastos este mes." en mes vacío, saldo positivo/negativo/cero exacto sin signo
+- [ ] T012 [US1] Crear la ruta `src/app/summary/page.tsx` (server, adaptador fino): validar `searchParams.month` con Zod (`/^\d{4}-(0[1-9]|1[0-2])$/`, default `currentMonth()`; mismo patrón que `/`, ADR 0008), instanciar `GetGlobalMonthlySummary` con `DrizzleMovementRepository`+`DrizzleAccountRepository`, renderizar cabecera con enlace "Volver" a `/` y "Family Wallet" (SIN título de página propio: el título vive en el panel), `MonthSelector` y `GlobalSummaryPanel` (ui-contract §1.1/§2)
 - [ ] T013 [US1] Añadir el enlace "Resumen global" en `src/app/page.tsx`: en la cabecera, junto al título "Family Wallet", enlazando a `/summary?month={mes activo}` (ui-contract §1.2; ÚNICO cambio en la pantalla principal — regiones de 002/003/005 intactas)
 
 **Checkpoint**: `npm run dev` muestra `/summary` con los KPIs globales del mes y la navegación desde `/` funciona.
@@ -92,17 +92,17 @@
 ### Phase Dependencies
 
 - **Dominio (Phase 1)**: sin dependencias — empezar por aquí.
-- **Aplicación (Phase 2)**: T004/T005 dependen del VO (T002) y de los DTOs (T003).
-- **Persistencia (Phase 3)**: T006/T007 independientes del caso de uso (solo del puerto); el caso de uso solo es verde de extremo a extremo al cerrar la fase.
-- **UI (Phase 4)**: la ruta (T012) depende de T005 (caso de uso), T006 (repo) y T008/T010 (componentes); el enlace (T013) depende solo del contrato de la ruta.
+- **Aplicación (Phase 2)**: T005/T006 dependen del VO (T002), de los DTOs (T003) y del puerto (T004, que habilita la compilación del caso de uso).
+- **Persistencia (Phase 3)**: T007 tras T004 (extiende la batería del adaptador).
+- **UI (Phase 4)**: la ruta (T012) depende de T006 (caso de uso), T004 (repo) y T008/T010 (componentes); el enlace (T013) depende solo del contrato de la ruta.
 - **E2E (Phase 5)**: depende de T012/T013.
-- **Polish (Phase 6)**: T015/T016 pueden arrancar tras T002/T005 (decisiones ya materializadas); T017 requiere T014; T018 es siempre el último.
+- **Polish (Phase 6)**: T015/T016 pueden arrancar tras T002/T006 (decisiones ya materializadas); T017 requiere T014; T018 es siempre el último.
 
 ### Within User Story 1
 
-- TDD: T001 → T002; T004 → T005; T007 junto a T006 (el test del repo necesita la query); T009/T011 junto a sus implementaciones.
-- T003 (DTOs) antes de T004/T010 (ambos consumen los tipos).
-- T012 depende de T005, T006, T008 y T010; T014 depende de T012/T013.
+- TDD: T001 → T002; T005 (rojo) → T006 (verde); T007 junto a T004; en UI, tests co-localizados junto a su implementación (T009 tras T008, T011 tras T010).
+- T003 (DTOs) antes de T005/T010 (ambos consumen los tipos); T004 (puerto) antes de T006 (el caso de uso llama a `listByMonth`).
+- T012 depende de T004, T006, T008 y T010; T014 depende de T012/T013.
 
 ### Parallel Opportunities
 
@@ -132,8 +132,8 @@ Task: "T016 [P] overview.md + diagrams/domain-model.md + c4.md"
 ### MVP First (US1 = feature completa)
 
 1. Dominio con composición e invariantes protegidos (T001–T002).
-2. Aplicación con caso de uso autocontenido (T003–T005).
-3. Persistencia con la lectura completa del mes (T006–T007).
+2. Aplicación: DTOs, puerto `listByMonth` + Drizzle y caso de uso autocontenido (T003–T006).
+3. Persistencia: batería del adaptador para la lectura completa del mes (T007).
 4. UI + ruta `/summary` + enlace (T008–T013).
 5. **STOP y VALIDAR**: quickstart E1–E7 manualmente + gates en verde.
 6. Polish: ADR 0012, docs y verificación final (T015–T018).
@@ -152,7 +152,7 @@ Task: "T016 [P] overview.md + diagrams/domain-model.md + c4.md"
 
 - [P] tasks = different files, no dependencies
 - [US1] label mapea cada tarea a la user story para trazabilidad
-- Cada par test→implementación debe verse en rojo antes de implementar (TDD)
+- TDD en dominio y aplicación (los tests se escriben primero y se ven en rojo); en UI y adaptador Drizzle, tests co-localizados junto a la implementación (mismo criterio que 005)
 - Commit tras cada tarea o grupo lógico (Conventional Commits, en español si aporta claridad)
 - Verificar los checkpoints antes de avanzar de fase
 - La feature no crea migraciones ni dependencias: `db:migrate`/`db:seed` existentes bastan (FR-005)
