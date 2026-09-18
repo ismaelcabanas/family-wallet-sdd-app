@@ -122,6 +122,113 @@ describe("DrizzleMovementRepository", () => {
     expect(previousMonth.map((movement) => movement.concept)).toEqual(["Movimiento de otro mes"]);
   });
 
+  describe("listByMonth", () => {
+    it("devuelve los movimientos de todas las cuentas del mes con sus tags", async () => {
+      await testDb.db.insert(members).values({ id: 2, name: "Miembro B" });
+      await testDb.db.insert(accounts).values([
+        { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
+      ]);
+      await testDb.db.insert(tags).values([
+        { id: 1, name: "Coche", slug: "coche", status: "active" },
+      ]);
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-05", concept: "Hipoteca común" }));
+      await repository.create(
+        buildMovement({
+          accountId: AccountId(1),
+          date: "2026-09-10",
+          concept: "Gasolina",
+          nature: "personal",
+          tagIds: [TagId(1)],
+        }),
+      );
+      await repository.create(
+        buildMovement({
+          accountId: AccountId(2),
+          date: "2026-09-12",
+          concept: "Compra semanal",
+          amount: Money.fromCents(15_050),
+          tagIds: [TagId(2)],
+        }),
+      );
+
+      const result = await repository.listByMonth("2026-09");
+
+      expect(result.map((movement) => movement.concept)).toEqual([
+        "Compra semanal",
+        "Gasolina",
+        "Hipoteca común",
+      ]);
+      const gasolina = result.find((movement) => movement.concept === "Gasolina");
+      expect(gasolina?.tags).toEqual([{ id: 1, name: "Coche", slug: "coche" }]);
+      const hipoteca = result.find((movement) => movement.concept === "Hipoteca común");
+      expect(hipoteca?.tags).toEqual([
+        { id: 2, name: "Vivienda", slug: "vivienda" },
+        { id: 3, name: "Hipoteca", slug: "hipoteca" },
+      ]);
+    });
+
+    it("respeta el rango exacto del mes sin meses contiguos ni otros años", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-01", concept: "Primero" }));
+      await repository.create(buildMovement({ date: "2026-09-30", concept: "Último" }));
+      await repository.create(buildMovement({ date: "2026-10-01", concept: "Mes siguiente" }));
+      await repository.create(buildMovement({ date: "2026-08-31", concept: "Mes anterior" }));
+      await repository.create(buildMovement({ date: "2025-09-15", concept: "Otro año" }));
+
+      const result = await repository.listByMonth("2026-09");
+
+      expect(result.map((movement) => movement.concept)).toEqual(["Último", "Primero"]);
+    });
+
+    it("cruza correctamente el cambio de año (diciembre → enero)", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-12-31", concept: "Fin de año" }));
+      await repository.create(buildMovement({ date: "2027-01-01", concept: "Año nuevo" }));
+
+      const december = await repository.listByMonth("2026-12");
+      const january = await repository.listByMonth("2027-01");
+
+      expect(december.map((movement) => movement.concept)).toEqual(["Fin de año"]);
+      expect(january.map((movement) => movement.concept)).toEqual(["Año nuevo"]);
+    });
+
+    it("devuelve [] para un mes sin movimientos", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-15" }));
+
+      expect(await repository.listByMonth("2026-06")).toEqual([]);
+    });
+
+    it("la unión de los listados por cuenta equivale al listado global del mes", async () => {
+      await testDb.db.insert(members).values({ id: 2, name: "Miembro B" });
+      await testDb.db.insert(accounts).values([
+        { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
+      ]);
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-05", concept: "Común" }));
+      await repository.create(
+        buildMovement({ accountId: AccountId(1), date: "2026-09-10", concept: "Miembro A" }),
+      );
+      await repository.create(
+        buildMovement({ accountId: AccountId(2), date: "2026-09-12", concept: "Miembro B" }),
+      );
+
+      const global = await repository.listByMonth("2026-09");
+      const perAccount = (
+        await Promise.all(
+          [1, 2, 3].map((accountId) =>
+            repository.listByMonthAndAccount(AccountId(accountId), "2026-09"),
+          ),
+        )
+      ).flat();
+
+      const byId = (list: typeof global) => [...list].sort((a, b) => a.id - b.id);
+      expect(byId(global)).toEqual(byId(perAccount));
+      expect(global).toHaveLength(3);
+    });
+  });
+
   describe("findById", () => {
     it("rehidrata el movimiento con sus tags", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
