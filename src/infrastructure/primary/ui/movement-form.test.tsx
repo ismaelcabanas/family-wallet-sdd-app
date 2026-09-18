@@ -187,8 +187,8 @@ describe("MovementForm", () => {
 
 describe("MovementFormFields (modo edición)", () => {
   const accounts = [
-    { id: 1, name: "Cuenta de Miembro A", type: "personal" as const, memberName: "Miembro A" },
-    { id: 3, name: "Cuenta común", type: "shared" as const, memberName: null },
+    { id: 1, name: "Cuenta de Miembro A", type: "personal" as const, memberId: 1, memberName: "Miembro A" },
+    { id: 3, name: "Cuenta común", type: "shared" as const, memberId: null, memberName: null },
   ];
 
   const initialValues = {

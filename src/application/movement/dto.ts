@@ -46,6 +46,7 @@ export interface AccountDTO {
   id: number;
   name: string;
   type: "personal" | "shared";
+  memberId: number | null;
   memberName: string | null;
 }
 
@@ -68,4 +69,21 @@ export interface MonthlyClosureDTO {
   personalExpenseCents: number;
   monthBalanceCents: number;
   tagBreakdown: TagBreakdownEntryDTO[];
+}
+
+export interface MemberBreakdownEntryDTO {
+  memberId: number | null;
+  memberName: string | null;
+  personalCents: number;
+  sharedCents: number;
+}
+
+export interface GlobalMonthlySummaryDTO {
+  incomeTotalCents: number;
+  expenseTotalCents: number;
+  sharedExpenseCents: number;
+  personalExpenseCents: number;
+  monthBalanceCents: number;
+  tagBreakdown: TagBreakdownEntryDTO[];
+  memberBreakdown: MemberBreakdownEntryDTO[];
 }

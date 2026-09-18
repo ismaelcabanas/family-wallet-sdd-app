@@ -20,6 +20,7 @@ export class DrizzleAccountRepository implements AccountRepository {
         id: accounts.id,
         name: accounts.name,
         type: accounts.type,
+        memberId: accounts.memberId,
         memberName: members.name,
       })
       .from(accounts)

@@ -22,6 +22,7 @@ describe("ListMovements", () => {
     const repository = {
       create: vi.fn(),
       listByMonthAndAccount: vi.fn().mockResolvedValue(movements),
+      listByMonth: vi.fn(),
       findById: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       delete: vi.fn(),
@@ -38,6 +39,7 @@ describe("ListMovements", () => {
     const repository = {
       create: vi.fn(),
       listByMonthAndAccount: vi.fn(),
+      listByMonth: vi.fn(),
       findById: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       delete: vi.fn(),
