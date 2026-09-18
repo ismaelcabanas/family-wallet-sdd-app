@@ -67,6 +67,8 @@ Como familia, queremos ver, para el mes seleccionado, un resumen global que agre
 
 - Terminología alineada con 002/005: la naturaleza "propio/común" del maestro se muestra como "personal"/"compartido"; los KPIs "Gastos Comunes/Gastos Personales" se etiquetan "Gastos compartidos/Gastos personales".
 - El desglose por miembro atribuye cada gasto al dueño de la cuenta desde la que se pagó; los gastos de la cuenta común no se atribuyen a ningún miembro. El reparto de gastos comunes entre miembros queda diferido (decisión del usuario en el maestro).
+- La atribución por miembro usa la identidad del miembro, no su nombre: dos miembros homónimos generan filas distintas y varias cuentas personales del mismo miembro fusionan en una sola fila (decisión de revisión, 2026-09-15).
+- Se asume el catálogo de cuentas y miembros de 002 (al menos las tres cuentas): todo movimiento referencia una cuenta existente (no hay borrado de cuentas en el producto); la vista con la BD sin sembrar muestra KPIs a cero y desgloses vacíos sin error.
 - Reutilización íntegra del dominio y la aplicación de 002/005 (`Money`, `MonthlyClosure`, casos de uso y puertos de lectura); se prevé un caso de uso de resumen global sobre el puerto existente. Como en 005, es una proyección de solo lectura: sin escrituras ni migraciones.
 - La vista usa el selector de mes existente; los KPIs se calculan en la capa de aplicación/servidor y la UI solo formatea (principio VII).
 - El plan valora un e2e de consulta del resumen global, en línea con el que cubre el cierre mensual en 005 (constitución III); al no haber flujo de escritura nuevo, no hay flujo crítico adicional obligatorio.

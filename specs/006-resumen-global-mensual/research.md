@@ -13,12 +13,12 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 **Rationale**:
 - Ninguna de las reglas agregadas depende de la cuenta: naturaleza, totales y desglose por tag sobre la unión de movimientos del mes tienen exactamente la semántica de `MonthlyClosure` (FR-002 queda garantizado **estructuralmente**: cierre global = Σ cierres por cuenta, por asociatividad de las sumas en céntimos). Duplicar esos bucles en un segundo VO crearía riesgo de divergencia entre cierre y resumen (el bug que FR-002 prohíbe).
 - El desglose por miembro sí necesita `accountId` → cuenta → miembro, información que los cierres no llevan: se calcula en una pasada propia del VO global, con la misma disciplina (céntimos enteros, `Money`).
-- La atribución usa `memberName` (vía `AccountDTO.memberName`, ya cargado por `ListAccounts`): en el modelo una cuenta personal pertenece a un miembro; si un miembro llegara a tener varias cuentas personales, la agrupación por nombre las fusiona correctamente (caso teórico fuera del alcance actual).
+- La atribución usa la **identidad del miembro** (`memberId`), expuesta ampliando `AccountDTO` con `memberId: number | null` (el `findAll` ya hace el join de miembros para `memberName`): la fila es del miembro, no de su nombre — dos homónimos no fusionan y varias cuentas personales del mismo miembro sí — y `memberName` viaja al DTO solo para visualización (decisión del revisor, 2026-09-15).
 - Mes sin movimientos → VO a ceros y desgloses vacíos (`MonthlyClosure` ya lo garantiza para la parte agregada).
 
 **Reglas de implementación**:
 - Inputs de dominio (registros puros junto al VO; la aplicación los construye desde DTOs): `GlobalSummaryMovementInput = ClosureMovementInput + { accountId: number }` y `SummaryAccountRef = { id: number; type: 'personal' | 'shared'; memberName: string | null }`.
-- `memberBreakdown`: un registro por miembro con gastos en el mes `{ memberName: string | null; personal: Money; shared: Money }` (`null` = pagado desde la cuenta común, sin atribución); solo filas con datos; orden por total descendente, desempate por nombre ascendente (`localeCompare es`) y la fila sin atribución al final en empates (determinista para tests).
+- `memberBreakdown`: un registro por miembro con gastos en el mes `{ memberId: number | null; memberName: string | null; personal: Money; shared: Money }`, agrupado por `memberId` (`null` = pagado desde la cuenta común, sin atribución; `memberName` solo visualización); solo filas con datos; orden por total descendente, desempate por nombre ascendente (`localeCompare es`) y la fila sin atribución al final en empates (determinista para tests).
 - Los ingresos no computan en el desglose por miembro (FR-004) ni en el de tags (regla de 005).
 - Invariante de coherencia (test explícito): el VO global sobre la unión de movimientos del mes = suma de los `MonthlyClosure` por cuenta, KPI a KPI, y el desglose por tag global = fusión de los desgloses por cuenta.
 
@@ -75,7 +75,7 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 ## 4. Desglose por miembro: regla de atribución y presentación (FR-004)
 
-**Decision**: cada gasto se atribuye al **dueño de la cuenta desde la que se pagó**: cuentas personales → `memberName`; cuenta común → fila **"Cuenta común"** (bucket sin atribución, `memberName: null` en el DTO). La fila muestra los dos importes (gastos personales y compartidos de ese ámbito), solo si hay gastos; los ingresos no aparecen (llegan con 009).
+**Decision**: cada gasto se atribuye al **dueño de la cuenta desde la que se pagó**: cuentas personales → fila de su miembro (clave `memberId`); cuenta común → fila **"Cuenta común"** (bucket sin atribución, `memberId: null` en el DTO; la etiqueta vive en la UI). La fila muestra los dos importes (gastos personales y compartidos de ese ámbito), solo si hay gastos; los ingresos no aparecen (llegan con 009).
 
 **Rationale**:
 - Es la única atribución derivable del modelo sin inventar repartos: la regla de reparto de gastos comunes entre miembros está expresamente diferida (decisión del usuario en el maestro).
@@ -96,10 +96,10 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 
 **Decision**: cuatro niveles con los patrones de 002/005:
 
-1. **Dominio** (`GlobalMonthlySummary.test.ts`, node): happy path con movimientos de varias cuentas; atribución por miembro (personales y compartidos desde cuenta personal; cuenta común al bucket null); **invariante de coherencia** (global = Σ cierres por cuenta, KPI a KPI, y desglose por tag fusionado); multi-tag sin duplicar total; ingresos fuera de desgloses; mes vacío → ceros; orden y desempates de ambos desgloses; gastos con naturaleza personal pagados desde la común (caso teórico admitido por el modelo) al bucket null con su naturaleza.
+1. **Dominio** (`GlobalMonthlySummary.test.ts`, node): happy path con movimientos de varias cuentas; atribución por miembro (personales y compartidos desde cuenta personal; cuenta común al bucket null); **agrupación por identidad** (dos miembros homónimos → dos filas distintas; dos cuentas personales del mismo miembro → una fila); **invariante de coherencia** (global = Σ cierres por cuenta, KPI a KPI, y desglose por tag fusionado); multi-tag sin duplicar total; ingresos fuera de desgloses; mes vacío → ceros; orden y desempates de ambos desgloses; gastos con naturaleza personal pagados desde la común (caso teórico admitido por el modelo) al bucket null con su naturaleza.
 2. **Aplicación** (`GetGlobalMonthlySummary.test.ts`, node): doble en memoria de `MovementRepository` (con `listByMonth`) y de `AccountRepository`; validación de mes; mapeo DTO→dominio→DTO; resultados idénticos a los del VO.
 3. **Persistencia** (`DrizzleMovementRepository.test.ts`, ampliación): `listByMonth` contra libsql `:memory:` con migraciones: devuelve movimientos de todas las cuentas del mes (rango exacto, sin meses contiguos) con sus tags; mes vacío → [].
-4. **UI** (`global-summary-panel.test.tsx` y `month-selector.test.tsx`, ui jsdom + RTL): KPIs y desgloses con formato es-ES vía helpers, fila "Cuenta común" para `memberName: null`, estados vacíos, y navegación del selector a `/summary?month=`.
+4. **UI** (`global-summary-panel.test.tsx` y `month-selector.test.tsx`, ui jsdom + RTL): KPIs y desgloses con formato es-ES vía helpers, fila "Cuenta común" para `memberId: null` (homónimos como filas distintas), estados vacíos, y navegación del selector a `/summary?month=`.
 5. **E2E** (`e2e/resumen-global.spec.ts`): fichero nuevo, specs **en serie** dentro del fichero (convención de 002/005) y **mes propio sin colisión** (p. ej. 2026-06, libres 2026-07/2026-08): registra vía UI movimientos en las tres cuentas, abre `/summary?month=...` desde el enlace de la pantalla principal y verifica KPIs exactos (suma de cuentas, compartidos incluyendo pagados desde personales, desglose por tag fusionado y desglose por miembro con "Cuenta común"); después verifica mes vacío → ceros. El cambio de mes queda en verificación manual (quickstart), como en 005 (decisión del revisor 2026-09-10, misma línea).
 
 **Rationale**: el e2e protege el flujo completo registro→resumen global (la acción de la feature) sin repetir la casuística del formulario (ya cubierta por `e2e/registro-movimientos.spec.ts`); la coherencia con los cierres por cuenta queda clavada en el test de dominio (más barato y determinista que en e2e).
@@ -117,5 +117,5 @@ Investigación de Phase 0 para resolver las incógnitas del Technical Context de
 | Lectura de datos | Puerto `MovementRepository.listByMonth(month)`; cuentas vía `AccountRepository.findAll()` | 0012 |
 | Persistencia | Ninguna: vista derivada (FR-005, ADR 0009); sin índice nuevo (escala familiar, YAGNI) | 0009 → 0012 |
 | Vista | Ruta propia `/summary?month=` + panel servidor + selector de mes; enlace desde `/` | — |
-| Desglose por miembro | Atribución por dueño de la cuenta de pago; "Cuenta común" como fila sin atribución | — |
+| Desglose por miembro | Atribución por dueño de la cuenta de pago, agrupada por identidad (`memberId`); "Cuenta común" como fila sin atribución | — |
 | Tests | VO + use case + repo (libsql :memory:) + RTL + e2e nuevo en serie, mes propio | — |
