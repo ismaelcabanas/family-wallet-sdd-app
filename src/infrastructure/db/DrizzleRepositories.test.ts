@@ -47,14 +47,20 @@ function buildMovement(overrides: Partial<Parameters<typeof Movement.create>[0]>
 }
 
 describe("DrizzleAccountRepository", () => {
-  it("findAll devuelve las cuentas con el nombre de su miembro", async () => {
+  it("findAll devuelve las cuentas con la identidad y el nombre de su miembro", async () => {
     const repository = new DrizzleAccountRepository(testDb.db);
 
     const result = await repository.findAll();
 
     expect(result).toEqual([
-      { id: 1, name: "Cuenta de Miembro A", type: "personal", memberName: "Miembro A" },
-      { id: 3, name: "Cuenta común", type: "shared", memberName: null },
+      {
+        id: 1,
+        name: "Cuenta de Miembro A",
+        type: "personal",
+        memberId: 1,
+        memberName: "Miembro A",
+      },
+      { id: 3, name: "Cuenta común", type: "shared", memberId: null, memberName: null },
     ]);
   });
 

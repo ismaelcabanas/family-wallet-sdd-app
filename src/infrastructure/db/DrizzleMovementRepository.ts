@@ -43,7 +43,27 @@ export class DrizzleMovementRepository implements MovementRepository {
   }
 
   async listByMonthAndAccount(accountId: AccountId, month: string): Promise<MovementDTO[]> {
-    const rows = await this.db
+    const rows = await this.selectMonthRows(month).where(
+      and(
+        eq(movements.accountId, accountId as number),
+        gte(movements.date, `${month}-01`),
+        lt(movements.date, nextMonthFirstDay(month)),
+      ),
+    );
+
+    return mapJoinedRowsToMovementDTOs(rows);
+  }
+
+  async listByMonth(month: string): Promise<MovementDTO[]> {
+    const rows = await this.selectMonthRows(month).where(
+      and(gte(movements.date, `${month}-01`), lt(movements.date, nextMonthFirstDay(month))),
+    );
+
+    return mapJoinedRowsToMovementDTOs(rows);
+  }
+
+  private selectMonthRows(month: string) {
+    return this.db
       .select({
         id: movements.id,
         accountId: movements.accountId,
@@ -61,16 +81,8 @@ export class DrizzleMovementRepository implements MovementRepository {
       .from(movements)
       .leftJoin(movementTags, eq(movementTags.movementId, movements.id))
       .leftJoin(tags, eq(tags.id, movementTags.tagId))
-      .where(
-        and(
-          eq(movements.accountId, accountId as number),
-          gte(movements.date, `${month}-01`),
-          lt(movements.date, nextMonthFirstDay(month)),
-        ),
-      )
-      .orderBy(desc(movements.date), desc(movements.id));
-
-    return mapJoinedRowsToMovementDTOs(rows);
+      .orderBy(desc(movements.date), desc(movements.id))
+      .$dynamic();
   }
 
   async findById(id: MovementId): Promise<Movement | null> {

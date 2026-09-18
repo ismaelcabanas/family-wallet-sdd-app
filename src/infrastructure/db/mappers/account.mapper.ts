@@ -18,12 +18,14 @@ export function mapRowToAccountDTO(row: {
   id: number;
   name: string;
   type: string;
+  memberId: number | null;
   memberName: string | null;
 }): AccountDTO {
   return {
     id: row.id,
     name: row.name,
     type: row.type as AccountDTO["type"],
+    memberId: row.memberId,
     memberName: row.memberName,
   };
 }

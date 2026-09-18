@@ -9,8 +9,8 @@ import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto
 import { MovementList } from "./movement-list";
 
 const accounts: AccountDTO[] = [
-  { id: 1, name: "Cuenta de Miembro A", type: "personal", memberName: "Miembro A" },
-  { id: 3, name: "Cuenta común", type: "shared", memberName: null },
+  { id: 1, name: "Cuenta de Miembro A", type: "personal", memberId: 1, memberName: "Miembro A" },
+  { id: 3, name: "Cuenta común", type: "shared", memberId: null, memberName: null },
 ];
 
 const tags: TagDTO[] = [{ id: 1, name: "Alimentación", slug: "alimentacion" }];

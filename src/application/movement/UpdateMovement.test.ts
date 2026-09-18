@@ -41,6 +41,10 @@ class InMemoryMovementRepository implements MovementRepository {
     return [];
   }
 
+  async listByMonth(): Promise<MovementDTO[]> {
+    return [];
+  }
+
   async findById(id: number) {
     return this.stored?.id === id ? this.stored : null;
   }
