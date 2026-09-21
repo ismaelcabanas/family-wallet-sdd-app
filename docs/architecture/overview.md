@@ -25,6 +25,7 @@ src/
 │   │   ├── Movement.ts          <-- Factory create/recreate/rehydrate, inmutable (ADR 0011)
 │   │   ├── Money.ts             <-- VO céntimos enteros (ADR 0007)
 │   │   ├── MonthlyClosure.ts    <-- VO cierre mensual calculado (ADR 0010)
+│   │   ├── GlobalMonthlySummary.ts <-- VO resumen global del mes: compone MonthlyClosure + desglose por miembro (ADR 0012)
 │   │   ├── MovementId.ts · MovementType.ts · ExpenseNature.ts
 │   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError, MovementNotFoundError
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
@@ -40,8 +41,9 @@ src/
 │   │   ├── movement-inputs.ts   <-- Resolutores de naturaleza/tags compartidos por alta y edición
 │   │   ├── ListMovements.ts     <-- Query mes+cuenta
 │   │   ├── GetMonthlyClosure.ts <-- Query cierre del mes vía puerto + VO (ADR 0010)
-│   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO, TagDTO, MonthlyClosureDTO
-│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz)
+│   │   ├── GetGlobalMonthlySummary.ts <-- Query resumen global del mes: listByMonth + findAll vía puertos + VO (ADR 0012)
+│   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO (con memberId), TagDTO, MonthlyClosureDTO, GlobalMonthlySummaryDTO
+│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth, ADR 0012)
 │   ├── account/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance, ADR 0009)
 │   │   └── ListAccounts.ts
@@ -53,6 +55,7 @@ src/
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
 │   ├── page.tsx                 <-- Pantalla principal: valida searchParams (Zod) y delega en use cases
+│   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012)
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
@@ -77,6 +80,8 @@ src/
             ├── movement-list.tsx (client: acciones de fila + diálogos únicos de edición/borrado)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
             ├── account-month-selector.tsx · account-balance.tsx · empty-state.tsx
+            ├── month-selector.tsx        <-- Selector de mes cliente reutilizable (router.replace, ADR 0012)
+            ├── global-summary-panel.tsx  <-- Panel del resumen global: KPIs + desgloses por tag y por miembro (solo formatea)
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007)
 ```
@@ -109,7 +114,7 @@ src/
 
 * **Puertos de Salida (Interfaces)**:
   Ejemplo en `src/application/movement/MovementRepository.ts`:
-  - Interfaz `MovementRepository` con `create(movement)`, `listByMonthAndAccount(accountId, month)`, `findById(id)`, `update(movement)` y `delete(id)` (ADR 0011).
+  - Interfaz `MovementRepository` con `create(movement)`, `listByMonthAndAccount(accountId, month)`, `listByMonth(month)` (lectura global del mes, ADR 0012), `findById(id)`, `update(movement)` y `delete(id)` (ADR 0011).
   - Los puertos hablan el idioma del dominio (entidades/VOs) o DTOs simples (`dto.ts`), nunca tipos de Drizzle.
 * **Caso de Uso (Servicio de Aplicación)**:
   Recibe los puertos inyectados por constructor y orquesta la lógica (p. ej. `CreateMovement` aplica las reglas de naturaleza FR-005 y de tag por defecto FR-006).
@@ -158,4 +163,5 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 
 - [Diagramas C4 (contexto, contenedores, componentes)](./diagrams/c4.md)
 - [Secuencia del flujo crítico "registrar movimiento"](./diagrams/registro-movimiento-sequence.md) (ADR 0008)
+- [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)
