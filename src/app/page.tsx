@@ -3,6 +3,7 @@ import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
+import Link from "next/link";
 import { z } from "zod";
 
 import { db } from "@/infrastructure/db/client";
@@ -59,7 +60,15 @@ export default async function Home({
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">Family Wallet</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Family Wallet</h1>
+        <Link
+          href={`/summary?month=${month}`}
+          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+        >
+          Resumen global
+        </Link>
+      </div>
 
       <AccountMonthSelector
         accounts={accounts}
