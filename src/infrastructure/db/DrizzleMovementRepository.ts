@@ -43,7 +43,7 @@ export class DrizzleMovementRepository implements MovementRepository {
   }
 
   async listByMonthAndAccount(accountId: AccountId, month: string): Promise<MovementDTO[]> {
-    const rows = await this.selectMonthRows(month).where(
+    const rows = await this.selectMonthRows().where(
       and(
         eq(movements.accountId, accountId as number),
         gte(movements.date, `${month}-01`),
@@ -55,14 +55,14 @@ export class DrizzleMovementRepository implements MovementRepository {
   }
 
   async listByMonth(month: string): Promise<MovementDTO[]> {
-    const rows = await this.selectMonthRows(month).where(
+    const rows = await this.selectMonthRows().where(
       and(gte(movements.date, `${month}-01`), lt(movements.date, nextMonthFirstDay(month))),
     );
 
     return mapJoinedRowsToMovementDTOs(rows);
   }
 
-  private selectMonthRows(month: string) {
+  private selectMonthRows() {
     return this.db
       .select({
         id: movements.id,
