@@ -83,7 +83,7 @@
 - [X] T015 [P] Registrar el ADR en `docs/architecture/adr/0012-resumen-global-composicion-cierre.md`: resumen global por composición del cierre (única fuente de reglas agregadas; FR-002 como garantía estructural + test de invariante), lectura propia del mes vía nuevo método de puerto `listByMonth`, vista en ruta propia `/summary`; se rechazan el VO duplicado, la composición en aplicación, la agregación SQL y la sección global en `/` (plan.md §Complexity Tracking, research.md §1–§3)
 - [X] T016 [P] Actualizar la documentación de arquitectura en el mismo cambio reutilizando los diagramas del plan como base: `docs/architecture/overview.md` (ruta `/summary`, `GetGlobalMonthlySummary`, VO, `listByMonth`), `docs/architecture/diagrams/domain-model.md` (clase `GlobalMonthlySummary`, data-model.md §1.6) y `docs/architecture/diagrams/c4.md` (nueva vista en el contenedor web); valorar fichero de secuencia propio con el diagrama de plan.md §Diagramas
 - [ ] T017 Ejecutar la verificación manual completa de `specs/006-resumen-global-mensual/quickstart.md` (E1–E7 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada
-- [ ] T018 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
+- [X] T018 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
 
 ---
 
