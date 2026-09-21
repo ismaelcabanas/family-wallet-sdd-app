@@ -19,10 +19,10 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 | Feature hija | Agrupa historias | Contenido | Estado |
 |--------------|------------------|-----------|--------|
 | `002-registro-movimientos` | US1 (+US6 como restricción de uso) | Registro de gastos e ingresos con tags del catálogo precargado, cuentas preconfiguradas (2 personales + 1 común), listado por mes/cuenta, balance acumulado y uso sin login. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag) | Completada |
-| `003-edicion-movimientos` | FR-008 (refinamiento) | Edición y eliminación de movimientos desde el listado; balances, listado y cierres son vistas derivadas y se actualizan automáticamente | En curso (spec en borrador) |
+| `003-edicion-movimientos` | FR-008 (refinamiento) | Edición y eliminación de movimientos desde el listado; balances, listado y cierres son vistas derivadas y se actualizan automáticamente | Completada |
 | `004-gestion-tags` | US5 | Catálogo de tags: crear, renombrar, fusionar y desactivar tags sin perder el histórico | Futura |
 | `005-cierre-mensual` | US2 | Cierre mensual por cuenta con KPIs del Excel de Balance y balance acumulado | Completada |
-| `006-resumen-global-mensual` | US3 | Resumen mensual global que agrega las tres cuentas: totales de ingresos y gastos por naturaleza, saldo del mes y desgloses de gastos por tag y por miembro (incluidos los comunes pagados desde cuentas personales) | Futura |
+| `006-resumen-global-mensual` | US3 | Resumen mensual global que agrega las tres cuentas: totales de ingresos y gastos por naturaleza, saldo del mes y desgloses de gastos por tag y por miembro (incluidos los comunes pagados desde cuentas personales) | Completada |
 | `007-filtrado-busqueda` | FR-009 (refinamiento) | Filtrado y búsqueda de movimientos por mes, cuenta, tipo, naturaleza, tag y miembro | Futura |
 | `008-gestion-cuentas-miembros` | FR-001 (refinamiento) | Gestión de cuentas y miembros: añadir y renombrar | Futura |
 | `009-cuenta-resultados-anual` | US4 | Cuenta de resultados anual: por mes, ingresos por miembro, gasto real y saldo; desglose por tag en columnas mensuales con totales anuales, media mensual y total sin gastos personales | Futura |
