@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,6 +31,6 @@
 
 ## Notes
 
-- Pendiente de clarificación (Q1): FR-012 — forma del balance acumulado multimes diferido por 005/006 (global por mes / por cuenta / fuera de alcance).
+- Clarificada (2026-09-23): FR-012 — el balance acumulado multimes diferido por 005/006 queda como fila «Saldo acumulado» global (running total desde enero del año consultado); media mensual confirmada como total anual / 12 (réplica del Excel).
 - El resto de ítems pasan la validación: requisitos testables, criterios medibles y agnósticos, escenarios y edge cases cubiertos, alcance delimitado en Out of Scope y supuestos documentados.
 - Los ítems marcados incompletos requieren actualizar la spec antes de `/speckit.clarify` o `/speckit.plan`.
