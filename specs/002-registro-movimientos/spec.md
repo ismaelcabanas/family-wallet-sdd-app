@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-02
 
-**Status**: Draft
+**Status**: Completada
 
 **Input**: User description: "Feature `002-registro-movimientos` del roadmap maestro (US1, prioridad P1): registrar gastos e ingresos con tags. Incluye el modelo de datos base (Miembro, Cuenta, Movimiento, Tag), el scaffolding de la aplicación y la precarga de 3 cuentas (2 personales + 1 común) y del catálogo inicial de tags. Restricción US6: usuario único, sin login."
 

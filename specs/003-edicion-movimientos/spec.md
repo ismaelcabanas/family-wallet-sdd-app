@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-14
 
-**Status**: Draft
+**Status**: Completada
 
 **Input**: User description: "Feature `003-edicion-movimientos` del roadmap maestro (FR-008, refinamiento): editar y eliminar movimientos existentes, de forma que los resúmenes y balances afectados se actualicen automáticamente. Primera parte del split de la feature original `003-gestion-movimientos` (el filtrado/búsqueda pasó a `007-filtrado-busqueda` y la gestión de cuentas/miembros a `008-gestion-cuentas-miembros`)."
 
