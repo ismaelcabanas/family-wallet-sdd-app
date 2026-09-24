@@ -84,7 +84,7 @@
 
 - [X] T017 [P] Registrar el ADR en `docs/architecture/adr/0013-cuenta-resultados-anual-composicion-resumenes.md`: cuenta de resultados anual por composición de 12 resúmenes globales (FR-006 como garantía estructural + test de invariante), lectura propia del año vía nuevo método de puerto `listByYear`, atribución de ingresos por miembro, saldo acumulado desde enero (FR-012) y medias /12 con redondeo al céntimo (único punto de redondeo, ADR 0007); vista en ruta propia `/annual`; se rechazan el VO con bucles propios, la composición en aplicación (12 × `GetGlobalMonthlySummary`), la agregación SQL y 12 × `listByMonth` (plan.md §Complexity Tracking, research.md §1–§4)
 - [X] T018 [P] Actualizar la documentación de arquitectura en el mismo cambio reutilizando los diagramas del plan como base: `docs/architecture/overview.md` (ruta `/annual`, `GetAnnualIncomeStatement`, VO `AnnualIncomeStatement`, `listByYear`), `docs/architecture/diagrams/domain-model.md` (clase `AnnualIncomeStatement`, data-model.md §1.6), `docs/architecture/diagrams/c4.md` (nueva vista en el contenedor web) y fichero de secuencia `docs/architecture/diagrams/cuenta-anual-sequence.md` con el diagrama de plan.md §Diagramas
-- [ ] T019 Ejecutar la verificación manual completa de `specs/009-cuenta-resultados-anual/quickstart.md` (E1–E8 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada — **pendiente del propietario: la parte automatizable (gates, e2e con cifras exactas de E1–E3 y E5) está en verde; E6 (cambio de año con selector) y las verificaciones adicionales requieren revisión manual en `npm run dev`**
+- [X] T019 Ejecutar la verificación manual completa de `specs/009-cuenta-resultados-anual/quickstart.md` (E1–E8 + comprobación inicial + verificaciones adicionales) sobre `npm run dev` con BD migrada y sembrada — **verificado manualmente por el propietario (2026-09-24); la parte automatizable (gates, e2e con cifras exactas de E1–E3 y E5) en verde**
 - [X] T020 Verificar los gates finales: `npm run lint`, `npm run typecheck`, `npm run test` y `npm run test:e2e` en verde en local, y CI de GitHub Actions en verde tras push
 
 ---
@@ -163,3 +163,9 @@ Task: "T018 [P] overview.md + diagrams/domain-model.md + c4.md + cuenta-anual-se
 - Verificar los checkpoints antes de avanzar de fase
 - La feature no crea migraciones ni dependencias: `db:migrate`/`db:seed` existentes bastan (FR-008); el único cambio de persistencia es el método de lectura `listByYear`
 - **Gate previo a `/speckit.implement`**: resolver `checklists/financiera.md` (13 ítems pendientes, propiedad del revisador)
+
+---
+
+## Phase 7: Convergence
+
+- [ ] T021 Eliminar la línea duplicada `annual/page.tsx` en el árbol de estructura de `docs/architecture/overview.md` (las líneas 61–62 repiten la misma entrada del adaptador inbound) per T018 (partial)
