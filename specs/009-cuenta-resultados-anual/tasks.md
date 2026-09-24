@@ -168,4 +168,4 @@ Task: "T018 [P] overview.md + diagrams/domain-model.md + c4.md + cuenta-anual-se
 
 ## Phase 7: Convergence
 
-- [ ] T021 Eliminar la línea duplicada `annual/page.tsx` en el árbol de estructura de `docs/architecture/overview.md` (las líneas 61–62 repiten la misma entrada del adaptador inbound) per T018 (partial)
+- [X] T021 Eliminar la línea duplicada `annual/page.tsx` en el árbol de estructura de `docs/architecture/overview.md` (las líneas 61–62 repiten la misma entrada del adaptador inbound) per T018 (partial)

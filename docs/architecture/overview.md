@@ -59,7 +59,6 @@ src/
 │   ├── page.tsx                 <-- Pantalla principal: valida searchParams (Zod) y delega en use cases
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012)
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013)
-│   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013)
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
