@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-09
 
-**Status**: Draft
+**Status**: Completada
 
 **Input**: User description: "Feature `005-cierre-mensual` del roadmap maestro (US2, prioridad P2): consultar el cierre mensual por cuenta con los KPIs equivalentes al Excel de Balance — total de ingresos, gastos compartidos, gastos personales, saldo del mes, balance acumulado y desglose de gastos por tag — para cerrar el mes de cada cuenta sin cálculos manuales."
 

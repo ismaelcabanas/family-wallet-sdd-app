@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-15
 
-**Status**: Draft
+**Status**: Completada
 
 **Input**: User description: "Feature `006-resumen-global-mensual` del roadmap maestro (US3, prioridad P3): consultar un resumen mensual global que agregue todas las cuentas con desglose de gastos por naturaleza, tag y miembro, para conocer la situación financiera de la familia sin cruzar manualmente los cierres de cada cuenta. Primera parte del split de la feature original `006-analisis-agregado` (la cuenta de resultados anual pasó a `009-cuenta-resultados-anual`); el cuadre mensual con saldos declarados se separó después a `010-cuadre-mensual` aplicando el acuerdo de granularidad una feature = una US con valor propio (constitución v1.2.1)."
 

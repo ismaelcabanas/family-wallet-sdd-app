@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-23
 
-**Status**: Draft
+**Status**: Completada
 
 **Input**: User description: "Feature `009-cuenta-resultados-anual` del roadmap maestro (US4, prioridad P4): consultar la cuenta de resultados anual equivalente al Excel actual «Cuenta Resultados»: por cada mes, ingresos por miembro, gasto real y saldo; desglose de gastos por tag en columnas mensuales con totales anuales, media mensual y total sin gastos personales. Segunda parte del split de la feature original `006-analisis-agregado` (nota del roadmap, 2026-09-15)."
 
