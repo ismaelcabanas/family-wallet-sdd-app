@@ -37,9 +37,17 @@ export default async function GlobalSummaryPage({
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Family Wallet</h1>
-        <Link href="/" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-          Volver
-        </Link>
+        <nav className="flex items-center gap-4">
+          <Link href="/" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+            Volver
+          </Link>
+          <Link
+            href={`/annual?year=${month.slice(0, 4)}`}
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Cuenta de resultados
+          </Link>
+        </nav>
       </div>
 
       <MonthSelector month={month} />

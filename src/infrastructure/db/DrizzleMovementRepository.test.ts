@@ -229,6 +229,92 @@ describe("DrizzleMovementRepository", () => {
     });
   });
 
+  describe("listByYear", () => {
+    it("devuelve los movimientos de todas las cuentas del año con sus tags", async () => {
+      await testDb.db.insert(members).values({ id: 2, name: "Miembro B" });
+      await testDb.db.insert(accounts).values([
+        { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
+      ]);
+      await testDb.db.insert(tags).values([
+        { id: 1, name: "Coche", slug: "coche", status: "active" },
+      ]);
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(
+        buildMovement({ date: "2026-01-05", concept: "Hipoteca enero", tagIds: [TagId(2), TagId(3)] }),
+      );
+      await repository.create(
+        buildMovement({
+          accountId: AccountId(1),
+          date: "2026-07-10",
+          concept: "Gasolina julio",
+          nature: "personal",
+          tagIds: [TagId(1)],
+        }),
+      );
+      await repository.create(
+        buildMovement({
+          accountId: AccountId(2),
+          date: "2026-12-20",
+          concept: "Compra diciembre",
+          amount: Money.fromCents(15_050),
+        }),
+      );
+
+      const result = await repository.listByYear("2026");
+
+      expect(result.map((movement) => movement.concept)).toEqual([
+        "Compra diciembre",
+        "Gasolina julio",
+        "Hipoteca enero",
+      ]);
+      const gasolina = result.find((movement) => movement.concept === "Gasolina julio");
+      expect(gasolina?.tags).toEqual([{ id: 1, name: "Coche", slug: "coche" }]);
+      const hipoteca = result.find((movement) => movement.concept === "Hipoteca enero");
+      expect(hipoteca?.tags).toEqual([
+        { id: 2, name: "Vivienda", slug: "vivienda" },
+        { id: 3, name: "Hipoteca", slug: "hipoteca" },
+      ]);
+    });
+
+    it("respeta el rango exacto del año sin el 31-dic anterior ni el 1-ene siguiente", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-01-01", concept: "Primero" }));
+      await repository.create(buildMovement({ date: "2026-12-31", concept: "Último" }));
+      await repository.create(buildMovement({ date: "2027-01-01", concept: "Año siguiente" }));
+      await repository.create(buildMovement({ date: "2025-12-31", concept: "Año anterior" }));
+
+      const result = await repository.listByYear("2026");
+
+      expect(result.map((movement) => movement.concept)).toEqual(["Último", "Primero"]);
+    });
+
+    it("devuelve [] para un año sin movimientos", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-15" }));
+
+      expect(await repository.listByYear("2027")).toEqual([]);
+    });
+
+    it("la unión de las 12 llamadas mensuales equivale al listado por año", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-01-15", concept: "Enero" }));
+      await repository.create(buildMovement({ date: "2026-06-15", concept: "Junio" }));
+      await repository.create(buildMovement({ date: "2026-12-15", concept: "Diciembre" }));
+      await repository.create(buildMovement({ date: "2027-02-15", concept: "Año siguiente" }));
+
+      const year = await repository.listByYear("2026");
+      const months = await Promise.all(
+        Array.from({ length: 12 }, (_, month) =>
+          repository.listByMonth(`2026-${String(month + 1).padStart(2, "0")}`),
+        ),
+      );
+
+      const byId = (list: typeof year) => [...list].sort((a, b) => a.id - b.id);
+      expect(byId(year)).toEqual(byId(months.flat()));
+      expect(year).toHaveLength(3);
+    });
+  });
+
   describe("findById", () => {
     it("rehidrata el movimiento con sus tags", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);

@@ -62,12 +62,20 @@ export default async function Home({
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Family Wallet</h1>
-        <Link
-          href={`/summary?month=${month}`}
-          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-        >
-          Resumen global
-        </Link>
+        <nav className="flex items-center gap-4">
+          <Link
+            href={`/summary?month=${month}`}
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Resumen global
+          </Link>
+          <Link
+            href={`/annual?year=${month.slice(0, 4)}`}
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          >
+            Cuenta de resultados
+          </Link>
+        </nav>
       </div>
 
       <AccountMonthSelector

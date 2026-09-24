@@ -28,6 +28,10 @@ class InMemoryMovementRepository implements MovementRepository {
     return [];
   }
 
+  async listByYear(): Promise<MovementDTO[]> {
+    return [];
+  }
+
   async findById(): Promise<Movement | null> {
     return null;
   }
