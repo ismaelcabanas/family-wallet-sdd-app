@@ -60,6 +60,34 @@ export function monthYearLabel(month: string): string {
   return `${label.charAt(0).toUpperCase() + label.slice(1)} ${year}`;
 }
 
+export function currentYear(now: Date = new Date()): string {
+  return String(now.getFullYear()).padStart(4, "0");
+}
+
+export const MONTH_SHORT_LABELS = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+] as const;
+
+export function buildYearWindow(center: string, radius = 6): string[] {
+  const centerYear = Number(center);
+  const years: string[] = [];
+  for (let offset = -radius; offset <= radius; offset += 1) {
+    years.push(String(centerYear + offset).padStart(4, "0"));
+  }
+  return years;
+}
+
 export function buildMonthWindow(center: string, radius = 24): string[] {
   const [year, monthNumber] = center.split("-").map(Number);
   const months: string[] = [];

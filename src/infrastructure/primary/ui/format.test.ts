@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildMonthWindow,
+  buildYearWindow,
   currentMonth,
+  currentYear,
   formatAmountCents,
   formatCentsForInput,
   formatDate,
@@ -10,6 +12,7 @@ import {
   formatSignedCents,
   monthLabel,
   monthYearLabel,
+  MONTH_SHORT_LABELS,
   todayIsoDate,
 } from "./format";
 
@@ -110,5 +113,30 @@ describe("fechas y meses", () => {
   it("buildMonthWindow cruza el límite de año correctamente", () => {
     const window = buildMonthWindow("2027-01", 1);
     expect(window).toEqual(["2026-12", "2027-01", "2027-02"]);
+  });
+});
+
+describe("años y cabeceras de mes", () => {
+  it("currentYear devuelve el año actual YYYY", () => {
+    expect(currentYear(new Date(2026, 8, 24))).toBe("2026");
+    expect(currentYear(new Date(1999, 0, 1))).toBe("1999");
+  });
+
+  it("buildYearWindow genera una ventana de años alrededor del central", () => {
+    expect(buildYearWindow("2026", 2)).toEqual(["2024", "2025", "2026", "2027", "2028"]);
+  });
+
+  it("buildYearWindow usa radio 6 por defecto (13 años)", () => {
+    const window = buildYearWindow("2026");
+    expect(window).toHaveLength(13);
+    expect(window[0]).toBe("2020");
+    expect(window[12]).toBe("2032");
+  });
+
+  it("MONTH_SHORT_LABELS contiene las 12 abreviaturas de mes en español", () => {
+    expect(MONTH_SHORT_LABELS).toHaveLength(12);
+    expect(MONTH_SHORT_LABELS[0]).toBe("Ene");
+    expect(MONTH_SHORT_LABELS[6]).toBe("Jul");
+    expect(MONTH_SHORT_LABELS[11]).toBe("Dic");
   });
 });

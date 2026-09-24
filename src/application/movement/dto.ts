@@ -87,3 +87,41 @@ export interface GlobalMonthlySummaryDTO {
   tagBreakdown: TagBreakdownEntryDTO[];
   memberBreakdown: MemberBreakdownEntryDTO[];
 }
+
+export interface MemberIncomeRowDTO {
+  memberId: number | null;
+  memberName: string | null;
+  monthlyIncomeCents: number[];
+  totalCents: number;
+  averageCents: number;
+}
+
+export interface MonthlyTotalsRowDTO {
+  monthlyCents: number[];
+  totalCents: number;
+  averageCents: number;
+}
+
+export interface AccumulatedBalanceRowDTO {
+  monthlyCents: number[];
+  totalCents: number;
+}
+
+export interface AnnualTagRowDTO {
+  tagId: number;
+  tagName: string;
+  monthlyCents: number[];
+  totalCents: number;
+  averageCents: number;
+}
+
+export interface AnnualIncomeStatementDTO {
+  monthlySummaries: GlobalMonthlySummaryDTO[];
+  memberIncomeRows: MemberIncomeRowDTO[];
+  totalIncomeRow: MonthlyTotalsRowDTO;
+  expenseRealRow: MonthlyTotalsRowDTO;
+  noPersonalExpenseRow: MonthlyTotalsRowDTO;
+  balanceRow: MonthlyTotalsRowDTO;
+  accumulatedBalanceRow: AccumulatedBalanceRowDTO;
+  tagRows: AnnualTagRowDTO[];
+}
