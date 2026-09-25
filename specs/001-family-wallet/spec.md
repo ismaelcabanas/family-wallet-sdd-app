@@ -25,7 +25,7 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 | `006-resumen-global-mensual` | US3 | Resumen mensual global que agrega las tres cuentas: totales de ingresos y gastos por naturaleza, saldo del mes y desgloses de gastos por tag y por miembro (incluidos los comunes pagados desde cuentas personales) | Completada |
 | `007-filtrado-busqueda` | FR-009 (refinamiento) | Filtrado y búsqueda de movimientos por mes, cuenta, tipo, naturaleza, tag y miembro | Futura |
 | `008-gestion-cuentas-miembros` | FR-001 (refinamiento) | Gestión de cuentas y miembros: añadir y renombrar | Futura |
-| `009-cuenta-resultados-anual` | US4 | Cuenta de resultados anual: por mes, ingresos por miembro, gasto real y saldo; desglose por tag en columnas mensuales con totales anuales, media mensual y total sin gastos personales | Futura |
+| `009-cuenta-resultados-anual` | US4 | Cuenta de resultados anual: por mes, ingresos por miembro, gasto real y saldo; desglose por tag en columnas mensuales con totales anuales, media mensual y total sin gastos personales | Completada |
 | `010-cuadre-mensual` | FR-012 (refinamiento de US3) | Cuadre mensual: declaración manual de saldos reales por cuenta (clarificación 2026-09-15) y comparación automática con la variación calculada (ingresos − gastos), por cuenta y global, señalando descuadres sin bloquear | Futura |
 
 > **Nota (2026-09-14)**: la feature `003-gestion-movimientos` original (FR-001/FR-008/FR-009) se dividió por tamaño y cohesión en tres features: `003-edicion-movimientos` (FR-008), `007-filtrado-busqueda` (FR-009) y `008-gestion-cuentas-miembros` (FR-001). Los números 004 y 006 estaban ya reservados en este roadmap.
