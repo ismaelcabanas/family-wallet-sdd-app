@@ -195,7 +195,7 @@ classDiagram
         +shared Money
     }
 
-    Movement "*..>" Account : pertenece a
+    Movement "1" *-- "*" Account : pertenece a
     Movement "1" *-- "1" Money : amount (céntimos enteros)
     Movement "1" *-- "1" MovementType : type
     Movement "1" o-- "0..1" ExpenseNature : solo si expense
