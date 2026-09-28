@@ -43,6 +43,20 @@ export function currentMonth(now: Date = new Date()): string {
   return `${year}-${month}`;
 }
 
+export function monthEndIsoDate(month: string): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const lastDay = new Date(year, monthNumber, 0).getDate();
+  return `${year}-${String(monthNumber).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+}
+
+export function shiftMonth(month: string, delta: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const totalMonths = year * 12 + (monthNumber - 1) + delta;
+  const shiftedYear = Math.floor(totalMonths / 12);
+  const shiftedMonth = (totalMonths % 12) + 1;
+  return `${shiftedYear}-${String(shiftedMonth).padStart(2, "0")}`;
+}
+
 export function monthLabel(month: string): string {
   const [year, monthNumber] = month.split("-").map(Number);
   const label = new Intl.DateTimeFormat("es-ES", {

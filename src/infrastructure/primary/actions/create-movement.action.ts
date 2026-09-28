@@ -80,6 +80,7 @@ export async function createMovement(
     });
 
     revalidatePath("/");
+    revalidatePath("/accounts/[accountId]", "page");
     return { status: "success", message: "Movimiento guardado" };
   } catch (error) {
     return { status: "error", errors: mapDomainErrors(error), values: toMovementFormValues(raw) };

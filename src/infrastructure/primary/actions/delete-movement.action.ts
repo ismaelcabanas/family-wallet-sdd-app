@@ -35,10 +35,12 @@ export async function deleteMovement(
     await deleteMovementUseCase.execute(parsed.data.movementId);
 
     revalidatePath("/");
+    revalidatePath("/accounts/[accountId]", "page");
     return { status: "success", message: "Movimiento eliminado" };
   } catch (error) {
     if (error instanceof MovementNotFoundError) {
       revalidatePath("/");
+      revalidatePath("/accounts/[accountId]", "page");
       return { status: "error", message: error.message };
     }
     return { status: "error", message: UNEXPECTED_ERROR };

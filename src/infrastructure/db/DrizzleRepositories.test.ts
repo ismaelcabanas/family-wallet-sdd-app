@@ -105,6 +105,75 @@ describe("DrizzleAccountRepository", () => {
     const repository = new DrizzleAccountRepository(testDb.db);
     expect(await repository.getBalance(AccountId(3))).toBe(0);
   });
+
+  it("getBalance con asOf incluye el movimiento fechado exactamente el corte (inclusive)", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+    const create = async (overrides: Partial<Parameters<typeof Movement.create>[0]>) => {
+      const movement = buildMovement(overrides);
+      await testDb.db.insert(movements).values({
+        accountId: movement.accountId as number,
+        type: movement.type,
+        date: movement.date,
+        concept: movement.concept,
+        description: movement.description,
+        amountCents: movement.amount.amountCents,
+        nature: movement.nature,
+        createdAt: movement.createdAt,
+      });
+    };
+
+    await create({ type: "income", nature: null, amount: Money.fromCents(100_000), date: "2026-03-31" });
+    await create({ amount: Money.fromCents(5_000), date: "2026-04-30" });
+    await create({ amount: Money.fromCents(2_500), date: "2026-05-01" });
+
+    const balance = await repository.getBalance(AccountId(1), "2026-04-30");
+
+    expect(balance).toBe(100_000 - 5_000);
+  });
+
+  it("getBalance con asOf excluye los movimientos posteriores al corte", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+    const create = async (overrides: Partial<Parameters<typeof Movement.create>[0]>) => {
+      const movement = buildMovement(overrides);
+      await testDb.db.insert(movements).values({
+        accountId: movement.accountId as number,
+        type: movement.type,
+        date: movement.date,
+        concept: movement.concept,
+        description: movement.description,
+        amountCents: movement.amount.amountCents,
+        nature: movement.nature,
+        createdAt: movement.createdAt,
+      });
+    };
+
+    await create({ amount: Money.fromCents(1_000), date: "2026-01-15" });
+    await create({ amount: Money.fromCents(9_999), date: "2026-06-01" });
+
+    const balance = await repository.getBalance(AccountId(1), "2026-05-31");
+
+    expect(balance).toBe(-1_000);
+  });
+
+  it("getBalance con asOf devuelve 0 (no null ni NaN) si no hay movimientos ≤ corte", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+    const movement = buildMovement({ date: "2026-09-15", concept: "Futuro" });
+    await testDb.db.insert(movements).values({
+      accountId: movement.accountId as number,
+      type: movement.type,
+      date: movement.date,
+      concept: movement.concept,
+      description: movement.description,
+      amountCents: movement.amount.amountCents,
+      nature: movement.nature,
+      createdAt: movement.createdAt,
+    });
+
+    const balance = await repository.getBalance(AccountId(1), "2025-12-31");
+
+    expect(balance).toBe(0);
+    expect(Number.isNaN(balance)).toBe(false);
+  });
 });
 
 describe("DrizzleTagRepository", () => {
