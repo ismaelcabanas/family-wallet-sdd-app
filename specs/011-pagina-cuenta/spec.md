@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-27
 
-**Status**: Draft
+**Status**: Aprobada
 
 **Input**: User description: "Feature `011-pagina-cuenta` del roadmap maestro (rediseño UX, nota 2026-09-27): página propia por cuenta (`/accounts/[id]`) con el listado de movimientos del mes actual agrupado por fecha (fila con tags prominentes, nota en pequeño e importe a la derecha —rojo gasto/verde ingreso—), edición y eliminación por movimiento, selector ‹ mes/año › y cierre mensual visible. `/` conserva su selector de cuenta como pasarela hasta `012-panel-cuentas`."
 
@@ -17,6 +17,10 @@
 - Q: ¿Qué balance debe mostrar la página de cuenta: el histórico total actual o el acumulado hasta el mes consultado? → A: Acumulado hasta el mes consultado (solo movimientos con fecha ≤ último día del mes; extiende el puerto de balance con corte de fecha, sin cambios de dominio ni migraciones).
 - Q: ¿Qué debe hacer `/accounts/[id]` con un id de cuenta inválido o inexistente? → A: 404 explícito (`notFound()`); una URL inválida nunca muestra otra cuenta. El mes inválido/ausente sí hace fallback a mes actual.
 - Q: ¿Debe poder navegarse a meses futuros sin movimientos con el selector ‹ ›? → A: No: › se desactiva en el mes actual; nunca se navega al futuro (URL directa a mes futuro sigue siendo válida).
+
+### Session 2026-09-28
+
+- Q: ¿El tope de navegación al futuro aplica solo a › o también al picker de salto directo? → A: A todos los controles de la UI (‹ › y picker): el picker no ofrece meses futuros entre sus opciones; una URL directa a un mes futuro sigue siendo válida (estado vacío + balance heredado, › deshabilitado desde él).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -33,7 +37,7 @@ Como usuario, quiero entrar a una página propia de la cuenta (`/accounts/[id]`)
 1. **Given** una cuenta con movimientos en el mes actual, **When** abro su página, **Then** veo los movimientos del mes agrupados por fecha, con el grupo de fecha más reciente arriba y, dentro de cada día, el último movimiento registrado primero.
 2. **Given** un gasto y un ingreso en el listado, **When** los miro, **Then** cada fila muestra sus tags como elemento prominente, la nota en pequeño debajo y el importe a la derecha —en rojo si es gasto, en verde si es ingreso— y los gastos llevan un distintivo sutil de naturaleza (Personal/Común).
 3. **Given** un movimiento con concepto y descripción, **When** se renderiza su fila, **Then** la nota muestra el concepto y, si existe descripción, se concatena a continuación (p. ej. "Mercadona · compra semanal").
-4. **Given** la página de una cuenta, **When** pulso ‹ o › en el selector de mes, **Then** la página navega al mes anterior/siguiente de la misma cuenta (URL incluida) sin cambiar de vista, el salto directo a un mes/año arbitrario sigue disponible y › está deshabilitado cuando el mes mostrado es el actual (nunca navega al futuro).
+4. **Given** la página de una cuenta, **When** pulso ‹ o › en el selector de mes, **Then** la página navega al mes anterior/siguiente de la misma cuenta (URL incluida) sin cambiar de vista, el salto directo a un mes/año arbitrario sigue disponible acotado al mes actual y › está deshabilitado cuando el mes mostrado es el actual (ningún control de la UI navega al futuro).
 5. **Given** un movimiento del listado, **When** pulso editar o eliminar en su fila, **Then** se abre el diálogo correspondiente de 003 y, tras confirmar, el listado y el cierre se recalculan en la nueva vista.
 6. **Given** la página de una cuenta, **When** la consulto, **Then** el cierre mensual de esa cuenta y mes (panel de 005) y el balance acumulado de la cuenta están visibles.
 7. **Given** la ruta `/`, **When** la abro, **Then** mantiene su comportamiento actual (selector de cuenta y mes, alta de movimientos): es la pasarela hasta `012-panel-cuentas`.
@@ -43,7 +47,7 @@ Como usuario, quiero entrar a una página propia de la cuenta (`/accounts/[id]`)
 - Mes sin movimientos: la página muestra el estado vacío **dentro del propio listado** (no como sustitución condicional en la página), para que los diálogos montados a nivel del listado no pierdan el estado (convención de `movement-list.tsx`).
 - Movimiento con la etiqueta «Sin Clasificar» como única tag: la fila la muestra como cualquier otra tag.
 - Navegación a meses anteriores al primer movimiento: listado vacío y cierre con balance heredado del mes anterior (comportamiento de 005), sin errores.
-- Mes actual visible: la flecha › del selector está deshabilitada; nunca se navega a meses futuros desde la UI (una URL directa a mes futuro sigue resolviendo con estado vacío + balance heredado).
+- Mes actual visible: la flecha › del selector está deshabilitada y el picker no ofrece meses futuros; nunca se navega a meses futuros desde la UI (una URL directa a mes futuro sigue resolviendo con estado vacío + balance heredado).
 - URL con `accountId` inválido o inexistente (bookmark caducado, error de tecleo): la página devuelve 404 explícito (`notFound()`), nunca un fallback a otra cuenta; `month` inválido cae al mes actual.
 - Movimientos registrados el mismo día en distinto orden: el orden dentro del grupo es por registro más reciente primero (`id DESC`), no por ningún campo visible.
 - Agrupación por **fecha del movimiento** (campo fecha), no por fecha de registro (`createdAt`): un movimiento editado y cambiado de mes desaparece del grupo y aparece en el mes de su nueva fecha (recálculo de 003 ya garantizado).
@@ -58,11 +62,11 @@ Como usuario, quiero entrar a una página propia de la cuenta (`/accounts/[id]`)
 - **FR-002**: El listado MUST mostrar los movimientos del mes de la cuenta agrupados por fecha del movimiento en orden descendente; dentro de cada día, por orden de registro más reciente primero. El orden proviene de `ListMovements` (`date DESC, id DESC`); la agrupación es presentación, sin nueva query ni lógica de dominio.
 - **FR-003**: Cada fila MUST mostrar: las tags como elemento identificador prominente (píldoras), la nota en texto pequeño debajo —concepto, concatenando la descripción si existe (hasta la fusión de campos de `014-formulario-nota-tags`)— y el importe a la derecha con color semántico: rojo para gasto, verde para ingreso. Los gastos MUST llevar un distintivo sutil de naturaleza (Personal/Común); los ingresos no muestran naturaleza.
 - **FR-004**: Cada movimiento MUST poder editarse y eliminarse desde su fila, reutilizando los diálogos de 003. Los diálogos MUST montarse a nivel del componente listado (nunca dentro de la fila) y el estado vacío MUST renderizarse dentro del propio listado, conforme a la convención existente.
-- **FR-005**: La página MUST incluir un selector de mes/año con navegación al mes anterior y siguiente (‹ ›) y salto directo a un mes arbitrario (picker), manteniendo la cuenta activa en la URL. La navegación hacia adelante MUST estar acotada en el mes actual: › se deshabilita en el mes actual y nunca navega a meses futuros; hacia atrás es libre. Un acceso directo por URL a un mes futuro sigue siendo válido (misma regla que `/` actual).
+- **FR-005**: La página MUST incluir un selector de mes/año con navegación al mes anterior y siguiente (‹ ›) y salto directo a un mes arbitrario (picker), manteniendo la cuenta activa en la URL. La navegación hacia adelante MUST estar acotada en el mes actual en **todos los controles de la UI**: › se deshabilita en el mes actual y el picker no ofrece meses futuros; nunca se navega a meses futuros desde la UI; hacia atrás es libre. Un acceso directo por URL a un mes futuro sigue siendo válido (misma regla que `/` actual).
 - **FR-006**: La página MUST mostrar el cierre mensual de la cuenta y mes visibles (panel de 005 sin cambios funcionales) y el balance acumulado de la cuenta **hasta el fin del mes consultado** (solo movimientos con fecha ≤ último día del mes), no el histórico total actual. El puerto de balance y su adaptador Drizzle MUST extenderse con un corte de fecha opcional (p. ej. `getBalance(accountId, asOf?)`); sin cambios de modelo de dominio, sin migraciones.
 - **FR-007**: La ruta `/` MUST conservar intacto su comportamiento actual (selector de cuenta y mes, alta, edición, eliminación, cierre): la sustitución de `/` por la landing de tarjetas es `012-panel-cuentas`.
 - **FR-008**: El alta de movimientos en esta fase se mantiene con el formulario embebido actual en la página de cuenta (el CTA en diálogo llega con `013-formulario-dialogo`).
-- **FR-009**: Sin cambios de dominio, aplicación ni persistencia de esquema: read-only sobre `ListMovements` y `GetMonthlyClosure`; sin migraciones ni dependencias nuevas. Única excepción: el corte de fecha del puerto de balance para FR-006 (firma del puerto y su adaptador Drizzle; sin tocar dominio). La UI nunca calcula (constitución VII): agrupa y formatea.
+- **FR-009**: Sin cambios de dominio, aplicación ni persistencia de esquema: read-only sobre `ListMovements` y `GetMonthlyClosure`; sin migraciones ni dependencias nuevas. Dos excepciones declaradas: (1) el corte de fecha del puerto de balance para FR-006 (firma del puerto y su adaptador Drizzle; sin tocar dominio) y (2) la revalidación de la ruta nueva en las Server Actions de 002/003 para FR-004 (añadir `revalidatePath` del patrón `/accounts/[accountId]`; adaptadores inbound, sin lógica). La UI nunca calcula (constitución VII): agrupa y formatea.
 - **FR-010**: Interfaz en español; importes en formato EUR es-ES con dos decimales y cifras tabulares, reutilizando los helpers de formateo existentes (`format.ts`).
 
 ### Key Entities

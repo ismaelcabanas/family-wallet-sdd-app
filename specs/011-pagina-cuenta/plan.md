@@ -30,7 +30,7 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 **Project Type**: web-app (monolito Next.js, App Router); sin proyectos ni paquetes nuevos; una ruta dinámica nueva.
 
-**Performance Goals**: SC-003 — página de cuenta con hasta 300 movimientos del mes < 3 s; mismas 4 lecturas paralelas que `/` hoy (cuentas, movimientos del mes, balance con corte, tags, cierre), la agrupación es O(n) en cliente sobre datos ya ordenados.
+**Performance Goals**: SC-003 — página de cuenta con hasta 300 movimientos del mes < 3 s; mismas 5 lecturas paralelas que `/` hoy (cuentas, movimientos del mes, balance con corte, tags, cierre), la agrupación es O(n) en cliente sobre datos ya ordenados.
 
 **Constraints**: aritmética en céntimos enteros sin cambios (ADR 0007); UI en español; sin migraciones ni cambios de dominio/aplicación salvo la firma del puerto de balance (FR-009); `/` intacta (FR-007); nunca navegación a meses futuros desde la UI (FR-005).
 
@@ -95,7 +95,7 @@ specs/011-pagina-cuenta/
 │               ├── format.ts                         # AMPLIADO: monthEndIsoDate, shiftMonth
 │               ├── format.test.ts                    # AMPLIADO
 │               ├── account-balance.tsx               # AMPLIADO: subtítulo como prop («Acumulado hasta …»)
-│               ├── account-balance.test.tsx          # AMPLIADO (si no existe: NUEVO)
+│               ├── account-balance.test.tsx          # NUEVO (jsdom + RTL; no existe batería previa)
 │               ├── grouped-movement-list.tsx         # NUEVO: listado agrupado por fecha + diálogos + vacío
 │               ├── grouped-movement-list.test.tsx    # NUEVO (jsdom + RTL)
 │               ├── month-stepper.tsx                 # NUEVO: ‹ › + picker con tope de futuro

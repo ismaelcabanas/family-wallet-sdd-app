@@ -88,7 +88,7 @@ getBalance(id: AccountId, asOf?: string): Promise<number>
 **Decision**: componente cliente nuevo **`month-stepper.tsx`** (`MonthStepper({ accountId, month })`), espejo de los selectores existentes (`month-selector.tsx` de 006, `account-month-selector.tsx` de 002):
 
 - **‹** (`aria-label="Mes anterior"`) siempre activo; **›** (`aria-label="Mes siguiente"`) con `disabled={month >= currentMonth()}` (comparación léxica `YYYY-MM` válida): nunca se navega al futuro desde la UI, incluida una URL directa a un mes futuro (de ahí `>=` y no `===`).
-- **Picker** de salto directo: `Select` shadcn con `aria-label="Mes visible"`, opciones `buildMonthWindow(month, 24)` con `monthLabel`, como en `/`.
+- **Picker** de salto directo: `Select` shadcn con `aria-label="Mes visible"`, opciones `buildMonthWindow(month, 24)` **truncadas en el mes actual real** (p. ej. `buildMonthWindow(month, 24).filter((m) => m <= currentMonth())`) con `monthLabel`: el tope de futuro aplica a todos los controles de la UI (clarificación 2026-09-28); una URL directa a un mes futuro sigue resolviendo (vacío + balance heredado, › deshabilitado desde él).
 - Navegación: `router.replace(\`/accounts/${accountId}?month=${next}\`)` dentro de `startTransition` (mismo patrón y feedback `isPending` de los selectores existentes): la URL cambia (bookmarkable, SC-001) sin cambiar de vista.
 - Helper puro nuevo `shiftMonth(month, delta)` en `format.ts` para mes anterior/siguiente (cruce de año incluido), testeado junto a `monthEndIsoDate`.
 
@@ -150,7 +150,7 @@ Patrón de ruta dinámica + `type: "page"` (documentado en Next 16): invalida **
 
 1. **Helpers** (`format.test.ts`, ampliación): `monthEndIsoDate` (mes de 30/31, febrero bisiesto, diciembre) y `shiftMonth` (cruce de año en ambas direcciones, borde enero/diciembre).
 2. **Persistencia** (`DrizzleRepositories.test.ts`, ampliación): `getBalance` con `asOf` contra libsql `:memory:` — corte inclusive (movimiento fechado exactamente el `asOf` computa), movimientos posteriores excluidos, sin `asOf` = histórico total (regresión).
-3. **UI jsdom + RTL**: `grouped-movement-list.test.tsx` (agrupación y orden de grupos/filas, nota concatenada con « · », badge de naturaleza solo en gastos, colores por tipo, diálogos al nivel del listado, estado vacío interno — Server Actions mockeadas con `vi.mock`, patrón de `movement-list.test.tsx`) y `month-stepper.test.tsx` (‹ navega al mes anterior en la URL de la cuenta, › deshabilitado en el mes actual y en meses futuros, picker salta al mes elegido).
+3. **UI jsdom + RTL**: `grouped-movement-list.test.tsx` (agrupación y orden de grupos/filas, nota concatenada con « · », badge de naturaleza solo en gastos, colores por tipo, diálogos al nivel del listado, estado vacío interno — Server Actions mockeadas con `vi.mock`, patrón de `movement-list.test.tsx`) y `month-stepper.test.tsx` (‹ navega al mes anterior en la URL de la cuenta, › deshabilitado en el mes actual y en meses futuros, picker salta al mes elegido sin ofrecer meses futuros).
 4. **Acciones** (ampliación): aserciones de `revalidatePath` esperando `("/")` **y** `("/accounts/[accountId]", "page")` en los caminos de éxito (§5).
 5. **E2E** (`e2e/pagina-cuenta.spec.ts`, nueva): fichero nuevo, serie dentro del fichero (convención del repo). **Aislamiento**: opera sobre **Cuenta de Miembro B en abril 2026** (`2026-04`), combinación propia:
    - `registro-movimientos.spec.ts` afirma **balances históricos absolutos** de Cuenta común (−850,00) y de Miembro A (1379,50) → esta spec **no escribe** en esas cuentas (ningún mes).
