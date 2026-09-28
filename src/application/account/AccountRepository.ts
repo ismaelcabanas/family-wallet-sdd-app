@@ -6,5 +6,5 @@ import type { AccountDTO } from "../movement/dto";
 export interface AccountRepository {
   findAll(): Promise<AccountDTO[]>;
   findById(id: AccountId): Promise<Account | null>;
-  getBalance(id: AccountId): Promise<number>;
+  getBalance(id: AccountId, asOf?: string): Promise<number>;
 }

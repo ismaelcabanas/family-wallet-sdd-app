@@ -3,9 +3,11 @@ import { formatAmountCents } from "./format";
 export function AccountBalance({
   accountName,
   balanceCents,
+  subtitle = "Histórico completo de la cuenta (ingresos − gastos)",
 }: {
   accountName: string;
   balanceCents: number;
+  subtitle?: string;
 }) {
   const isNegative = balanceCents < 0;
 
@@ -22,9 +24,7 @@ export function AccountBalance({
       >
         {formatAmountCents(balanceCents)}
       </p>
-      <p className="text-xs text-muted-foreground">
-        Histórico completo de la cuenta (ingresos − gastos)
-      </p>
+      <p className="text-xs text-muted-foreground">{subtitle}</p>
     </section>
   );
 }

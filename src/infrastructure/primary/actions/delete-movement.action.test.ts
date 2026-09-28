@@ -37,7 +37,8 @@ describe("deleteMovement (Server Action)", () => {
 
     expect(state).toEqual({ status: "success", message: "Movimiento eliminado" });
     expect(deleteExecuteMock).toHaveBeenCalledExactlyOnceWith(7);
-    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
   });
 
   it.each(["abc", "0", "-1", ""])(`rechaza movementId inválido (%s)`, async (movementId) => {
@@ -61,7 +62,8 @@ describe("deleteMovement (Server Action)", () => {
     if (state.status === "error") {
       expect(state.message).toBe("El movimiento ya no existe.");
     }
-    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
   });
 
   it("mapea una excepción inesperada al mensaje de error del contrato", async () => {

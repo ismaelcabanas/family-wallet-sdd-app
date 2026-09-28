@@ -10,9 +10,11 @@ import {
   formatDate,
   formatSignedAmountCents,
   formatSignedCents,
+  monthEndIsoDate,
   monthLabel,
   monthYearLabel,
   MONTH_SHORT_LABELS,
+  shiftMonth,
   todayIsoDate,
 } from "./format";
 
@@ -93,6 +95,28 @@ describe("fechas y meses", () => {
   it("currentMonth devuelve el mes actual YYYY-MM", () => {
     expect(currentMonth(new Date(2026, 0, 15))).toBe("2026-01");
     expect(currentMonth(new Date(2026, 11, 15))).toBe("2026-12");
+  });
+
+  it("monthEndIsoDate devuelve el último día de meses de 30 y 31 días", () => {
+    expect(monthEndIsoDate("2026-04")).toBe("2026-04-30");
+    expect(monthEndIsoDate("2026-01")).toBe("2026-01-31");
+    expect(monthEndIsoDate("2026-12")).toBe("2026-12-31");
+  });
+
+  it("monthEndIsoDate resuelve febrero bisiesto y no bisiesto", () => {
+    expect(monthEndIsoDate("2024-02")).toBe("2024-02-29");
+    expect(monthEndIsoDate("2026-02")).toBe("2026-02-28");
+  });
+
+  it("shiftMonth avanza y retrocede meses cruzando el año en ambas direcciones", () => {
+    expect(shiftMonth("2026-04", -1)).toBe("2026-03");
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2027-01", -2)).toBe("2026-11");
+  });
+
+  it("shiftMonth con delta 0 es la identidad", () => {
+    expect(shiftMonth("2026-04", 0)).toBe("2026-04");
   });
 
   it("monthLabel muestra el nombre del mes en español capitalizado", () => {

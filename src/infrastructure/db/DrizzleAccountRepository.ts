@@ -2,7 +2,7 @@ import type { AccountDTO } from "@/application/movement/dto";
 import type { AccountRepository } from "@/application/account/AccountRepository";
 import { AccountId } from "@/domain/account/AccountId";
 import { Money } from "@/domain/movement/Money";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, lte, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import { mapRowToAccount, mapRowToAccountDTO } from "./mappers/account.mapper";
@@ -40,13 +40,17 @@ export class DrizzleAccountRepository implements AccountRepository {
     return rows.length > 0 ? mapRowToAccount(rows[0]) : null;
   }
 
-  async getBalance(id: AccountId): Promise<number> {
+  async getBalance(id: AccountId, asOf?: string): Promise<number> {
     const [row] = await this.db
       .select({
         balance: sql<number>`coalesce(sum(case when ${movements.type} = 'income' then ${movements.amountCents} else -${movements.amountCents} end), 0)`,
       })
       .from(movements)
-      .where(eq(movements.accountId, id as number));
+      .where(
+        asOf !== undefined
+          ? and(eq(movements.accountId, id as number), lte(movements.date, asOf))
+          : eq(movements.accountId, id as number),
+      );
 
     return Money.fromCentsOrZero(row?.balance ?? 0).amountCents;
   }

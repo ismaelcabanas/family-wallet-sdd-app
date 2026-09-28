@@ -81,7 +81,8 @@ describe("updateMovement (Server Action)", () => {
       nature: "personal",
       tagIds: [2, 3],
     });
-    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
   });
 
   it("compone el aviso de mes movido (misma cuenta)", async () => {
@@ -171,7 +172,8 @@ describe("updateMovement (Server Action)", () => {
     if (state.status === "error") {
       expect(state.errors._form).toEqual(["El movimiento ya no existe."]);
     }
-    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
   });
 
   it("mapea una excepción inesperada a error de formulario", async () => {

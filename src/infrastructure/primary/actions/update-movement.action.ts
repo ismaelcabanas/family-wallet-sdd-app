@@ -126,6 +126,7 @@ export async function updateMovement(
       accounts.find((account) => account.id === data.accountId)?.name ?? "otra cuenta";
 
     revalidatePath("/");
+    revalidatePath("/accounts/[accountId]", "page");
     return {
       status: "success",
       message: buildMovedNotice(
@@ -139,6 +140,7 @@ export async function updateMovement(
   } catch (error) {
     if (error instanceof MovementNotFoundError) {
       revalidatePath("/");
+      revalidatePath("/accounts/[accountId]", "page");
     }
     return { status: "error", errors: mapDomainErrors(error), values: toMovementFormValues(raw) };
   }

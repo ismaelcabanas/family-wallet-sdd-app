@@ -64,7 +64,8 @@ describe("createMovement (Server Action)", () => {
       nature: "shared",
       tagIds: [2, 3],
     });
-    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
   });
 
   it.each([
