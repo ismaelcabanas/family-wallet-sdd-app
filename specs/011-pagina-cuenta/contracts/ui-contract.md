@@ -16,7 +16,7 @@ Página propia por cuenta sobre la funcionalidad de 002/003/005; `/` queda intac
 | `month` (query) | `/^\d{4}-(0[1-9]|1[0-2])$/` | Ausente o inválido → **mes actual** (mismo fallback que `/`) |
 
 - URL estable y bookmarkable: refrescar/navegar meses no cambia de página (`router.replace`).
-- URL directa a mes futuro o anterior al primer movimiento: **válida** (estado vacío + balance heredado; edge cases de la spec).
+- URL directa a mes futuro o anterior al primer movimiento: **válida** (estado vacío + balance heredado; edge cases de la spec); ningún control de la UI navega al futuro (› y picker acotados al mes actual real).
 
 ### 1.2 Estructura de la página (orden vertical)
 
@@ -113,7 +113,7 @@ La página de cuenta **no tiene selector de cuenta**: la identidad es la URL. El
 
 - **‹** («Mes anterior»): siempre activo; navega a `/accounts/{id}?month={shiftMonth(month, -1)}`.
 - **›** («Mes siguiente»): navega a `shiftMonth(month, +1)`; **`disabled` cuando `month >= currentMonth()`** (mes actual real → nunca futuro desde la UI; también deshabilitado si se llegó por URL a un mes futuro — desde él solo se retrocede).
-- **Picker**: `Select` con `aria-label="Mes visible"`, opciones `buildMonthWindow(month, 24)` etiquetadas con `monthLabel` («Abril de 2026») — salto directo a un mes arbitrario, incluidos futuros (misma regla que `/` actual: URL directa válida).
+- **Picker**: `Select` con `aria-label="Mes visible"`, opciones `buildMonthWindow(month, 24)` **truncadas en el mes actual real** (nunca ofrece meses futuros — clarificación 2026-09-28; mismo tope que `›`: ningún control de la UI navega al futuro) etiquetadas con `monthLabel` («Abril de 2026») — salto directo a un mes arbitrario pasado.
 - Navegación con `router.replace` + `startTransition` (feedback `opacity-60` en `isPending`), preservando `accountId`; la cuenta nunca cambia al navegar meses.
 
 ## 5. Accesibilidad y responsive

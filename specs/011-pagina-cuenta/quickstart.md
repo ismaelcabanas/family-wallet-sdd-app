@@ -60,7 +60,7 @@ Con E1 en el mes actual:
 
 1. En `/accounts/{id}` del mes actual: **› está deshabilitado**; ‹ navega al mes anterior (URL `/accounts/{id}?month=...`) sin cambiar de página.
 2. Navega a un mes anterior al primer movimiento: listado vacío (estado vacío dentro del listado), cierre a `0,00 €`/«Sin gastos este mes.» y balance `0,00 €`, sin errores.
-3. Picker «Mes visible»: salto directo a un mes arbitrario de la ventana, incluido uno futuro.
+3. Picker «Mes visible»: salto directo a un mes arbitrario de la ventana; **ninguna opción futura aparece** (ventana truncada en el mes actual real, clarificación 2026-09-28).
 
 - ✅ Mes futuro por URL directa: página válida con estado vacío y balance heredado; › deshabilitado también desde él; ‹ permite retroceder. La cuenta activa nunca cambia al navegar.
 
