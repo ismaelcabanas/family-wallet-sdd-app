@@ -1,6 +1,6 @@
-# Checklist de Calidad de Requisitos (Gate pre-tasks): Página de Cuenta
+# Checklist de Revisión de Diseño: Página de Cuenta
 
-**Purpose**: Validación integral de la calidad de los requisitos de `011-pagina-cuenta` (UX/UI, casos límite, trazabilidad FR→contrato) como gate del revisor antes de `/speckit.tasks`.
+**Purpose**: Revisión de calidad de los requisitos de `011-pagina-cuenta` en toda su huella documental (spec + plan + data-model + contracts + quickstart) —UX/UI, casos límite, trazabilidad FR→contrato— como gate del revisor antes de `/speckit.tasks`.
 **Created**: 2026-09-28
 **Feature**: [spec.md](../spec.md) · [plan.md](../plan.md) · [contracts/ui-contract.md](../contracts/ui-contract.md)
 
