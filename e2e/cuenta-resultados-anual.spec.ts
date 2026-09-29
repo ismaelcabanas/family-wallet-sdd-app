@@ -4,16 +4,10 @@ const YEAR = "2027";
 
 const EUR = "[\\s\\u00A0\\u202F]€";
 
-async function selectAccount(page: Page, accountName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Cuenta activa" }).click();
-  await page.getByRole("option", { name: accountName }).click();
-  await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
-}
-
-async function selectMonth(page: Page, optionName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Mes visible" }).click();
-  await page.getByRole("option", { name: optionName }).click();
-  await expect(page.getByRole("combobox", { name: "Mes visible" })).toContainText(optionName);
+async function openAccount(page: Page, accountName: string): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
 async function registerMovement(
@@ -68,16 +62,17 @@ test.describe("cuenta de resultados anual", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
+    await openAccount(page, "Cuenta de Miembro B");
   });
 
   test("E1-E3: tabla mensual con atribución de ingresos, saldo acumulado y desglose por tag del año 2027", async ({
     page,
   }) => {
-    await selectMonth(page, "Enero de 2027");
+    await page.goto(`/accounts/2?month=2027-01`);
+    await expect(
+      page.getByRole("heading", { name: "Cuenta de Miembro B", exact: true }),
+    ).toBeVisible();
 
-    await selectAccount(page, "Cuenta de Miembro B");
     await registerMovement(page, {
       concept: "Nómina B enero",
       amount: "1600,00",
@@ -99,7 +94,10 @@ test.describe("cuenta de resultados anual", () => {
       tags: ["Alimentación"],
     });
 
-    await selectMonth(page, "Julio de 2027");
+    await page.goto(`/accounts/2?month=2027-07`);
+    await expect(
+      page.getByRole("heading", { name: "Cuenta de Miembro B", exact: true }),
+    ).toBeVisible();
     await registerMovement(page, {
       concept: "Nómina B julio",
       amount: "1600,00",

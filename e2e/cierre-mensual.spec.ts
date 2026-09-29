@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function selectAccount(page: Page, accountName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Cuenta activa" }).click();
-  await page.getByRole("option", { name: accountName }).click();
-  await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
+async function openAccount(page: Page, accountName: string): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
 async function registerMovement(
@@ -48,9 +48,7 @@ test.describe("cierre mensual (cuenta de Miembro B)", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
-    await selectAccount(page, "Cuenta de Miembro B");
+    await openAccount(page, "Cuenta de Miembro B");
     await expect(page.getByText("Cierre de")).toBeVisible();
   });
 

@@ -1,5 +1,4 @@
 import { GetGlobalMonthlySummary } from "@/application/movement/GetGlobalMonthlySummary";
-import Link from "next/link";
 import { z } from "zod";
 
 import { db } from "@/infrastructure/db/client";
@@ -7,6 +6,7 @@ import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepo
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { GlobalSummaryPanel } from "@/infrastructure/primary/ui/global-summary-panel";
 import { currentMonth } from "@/infrastructure/primary/ui/format";
+import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { MonthSelector } from "@/infrastructure/primary/ui/month-selector";
 
 const monthParamSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
@@ -37,17 +37,7 @@ export default async function GlobalSummaryPage({
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Family Wallet</h1>
-        <nav className="flex items-center gap-4">
-          <Link href="/" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-            Volver
-          </Link>
-          <Link
-            href={`/annual?year=${month.slice(0, 4)}`}
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Cuenta de resultados
-          </Link>
-        </nav>
+        <GlobalNav active="summary" month={month} />
       </div>
 
       <MonthSelector month={month} />

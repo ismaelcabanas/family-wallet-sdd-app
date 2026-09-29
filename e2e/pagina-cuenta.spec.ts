@@ -228,12 +228,4 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await expect(page.getByRole("heading", { name: ACCOUNT_B_NAME, exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Mes siguiente" })).toBeDisabled();
   });
-
-  test("P8: /accounts/2 mantiene la pasarela / sin cambios (FR-007)", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Mes visible" }).first()).toBeVisible();
-  });
 });

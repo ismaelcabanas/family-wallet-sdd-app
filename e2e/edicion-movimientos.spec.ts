@@ -8,10 +8,10 @@ function closurePanel(page: Page) {
   return page.getByRole("region").filter({ hasText: "Cierre de" }).first();
 }
 
-async function selectAccount(page: Page, accountName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Cuenta activa" }).click();
-  await page.getByRole("option", { name: accountName }).click();
-  await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
+async function openAccount(page: Page, accountName: string): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
 async function selectMonth(page: Page, monthLabel: string): Promise<void> {
@@ -66,9 +66,7 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
   test.describe.configure({ mode: "serial" });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
-    await selectAccount(page, "Cuenta de Miembro B");
+    await openAccount(page, "Cuenta de Miembro B");
     await selectMonth(page, "Agosto de 2026");
   });
 
