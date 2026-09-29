@@ -10,6 +10,12 @@
 
 **Fuente**: Refinamiento del rediseño UX (roadmap maestro, nota 2026-09-27): la fila `013-formulario-dialogo` anticipaba una «página de cuenta list-first»; esta feature entrega esa parte por separado y antes. Da por construidas `011-pagina-cuenta` y `012-panel-cuentas` (Completadas): la página de cuenta `/accounts/[id]?month=` muestra hoy, en este orden, el selector de mes/año, el balance acumulado, el formulario de alta embebido, el cierre mensual y el listado agrupado por fecha. Es una feature de presentación pura: reordenar bloques existentes, sin cambios de dominio, aplicación, persistencia ni datos.
 
+## Clarifications
+
+### Session 2026-09-29
+
+- Q: ¿Cuál debe ser el orden de los bloques por debajo del listado de movimientos? → A: Balance acumulado → formulario de alta embebido → cierre mensual (orden relativo actual, confirmado por el propietario).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Leer el mes de la cuenta sin desplazarme (Priority: P1)
@@ -62,7 +68,7 @@ Como usuario, quiero que en la página de una cuenta el listado de movimientos d
 
 ## Assumptions
 
-- El orden resultante de la página es: cabecera de cuenta → selector de mes/año → **listado de movimientos** → balance acumulado → formulario de alta embebido → cierre mensual. Los bloques restantes conservan su orden relativo actual debajo del listado; otra composición (p. ej. cierre pegado al listado) se decide en clarificación/plan si el propietario lo pide.
+- El orden resultante de la página es: cabecera de cuenta → selector de mes/año → **listado de movimientos** → balance acumulado → formulario de alta embebido → cierre mensual, confirmado en clarificación (2026-09-29): los bloques restantes conservan su orden relativo actual debajo del listado.
 - El formulario de alta permanece embebido en la página hasta `013-formulario-dialogo`, que lo convierte en CTA con diálogo; esta feature no lo toca más allá de su posición.
 - Escritorio primero (decisión del propietario, 2026-09-27): usable en móvil, sin optimización específica.
 - No se añaden pruebas e2e nuevas por defecto: al no haber flujo nuevo ni escritura adicional, los e2e existentes de la página de cuenta cubren la operativa; si el plan lo considera oportuno, se ajustan selectores/orden en los existentes antes que añadir specs.
