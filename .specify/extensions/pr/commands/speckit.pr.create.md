@@ -19,5 +19,5 @@ Pushes the current feature branch to `origin` and opens a GitHub pull request ag
 ## Pull request content
 
 - **Base**: `main`
-- **Title**: `{NNN}: {spec title}` — number from the branch name (`feature/NNN-slug`), title from the `# Feature Specification:` heading of `specs/NNN-slug/spec.md`
+- **Title**: `feat: {spec title}` — from the `# Feature Specification:` heading of `specs/NNN-slug/spec.md`
 - **Body**: the spec's `## Summary` section (if present), plus links to the feature's spec, plan and tasks.
