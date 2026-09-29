@@ -1,5 +1,6 @@
 installed:
 - git
+- pr
 settings:
   auto_execute_hooks: true
 hooks:
@@ -137,6 +138,14 @@ hooks:
     priority: 10
     prompt: Commit implementation changes?
     description: Auto-commit after implementation
+    condition: null
+  - extension: pr
+    command: speckit.pr.create
+    enabled: true
+    optional: false
+    priority: 20
+    prompt: Create pull request after implementation?
+    description: Push feature branch and open pull request to main after implementation
     condition: null
   after_checklist:
   - extension: git

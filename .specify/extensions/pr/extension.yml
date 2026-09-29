@@ -1,0 +1,30 @@
+schema_version: "1.0"
+
+extension:
+  id: pr
+  name: "Pull Request Automation"
+  version: "1.0.0"
+  description: "Pushes the feature branch and opens a GitHub pull request after implementation completes"
+  author: family-wallet
+  license: MIT
+
+requires:
+  speckit_version: ">=0.2.0"
+  tools:
+    - name: git
+      required: false
+    - name: gh
+      required: false
+
+provides:
+  commands:
+    - name: speckit.pr.create
+      file: commands/speckit.pr.create.md
+      description: "Push feature branch and create pull request to main"
+
+hooks:
+  after_implement:
+    command: speckit.pr.create
+    optional: false
+    priority: 20
+    description: "Push and open pull request after implementation"
