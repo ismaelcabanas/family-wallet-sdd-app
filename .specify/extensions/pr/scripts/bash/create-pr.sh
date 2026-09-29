@@ -50,14 +50,14 @@ SPEC_NUMBER="${SPEC_NUMBER%%-*}"
 SPEC_DIR="${REPO_ROOT}/specs/${SPEC_NUMBER}-*"
 SPEC_FILE="$(ls ${SPEC_DIR}/spec.md 2>/dev/null | head -n 1 || true)"
 
-TITLE="${SPEC_NUMBER}: feature ${SPEC_NUMBER}"
+TITLE="feat: feature ${SPEC_NUMBER}"
 SUMMARY=""
 LINKS=""
 if [[ -n "${SPEC_FILE}" ]]; then
   SPEC_SLUG="$(basename "$(dirname "${SPEC_FILE}")")"
   SPEC_TITLE="$(awk '/^# Feature Specification:/{sub(/^# Feature Specification:[[:space:]]*/, ""); print; exit}' "${SPEC_FILE}")"
   if [[ -n "${SPEC_TITLE}" ]]; then
-    TITLE="${SPEC_NUMBER}: ${SPEC_TITLE}"
+    TITLE="feat: ${SPEC_TITLE}"
   fi
   SUMMARY="$(awk '/^## Summary/{flag=1; next} /^## /{flag=0} flag' "${SPEC_FILE}" | sed '/^[[:space:]]*$/d')"
   if [[ -z "${SUMMARY}" ]]; then
