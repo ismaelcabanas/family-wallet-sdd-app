@@ -1,5 +1,4 @@
 import { GetAnnualIncomeStatement } from "@/application/movement/GetAnnualIncomeStatement";
-import Link from "next/link";
 import { z } from "zod";
 
 import { db } from "@/infrastructure/db/client";
@@ -8,6 +7,7 @@ import { DrizzleMemberRepository } from "@/infrastructure/db/DrizzleMemberReposi
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { AnnualStatementPanel } from "@/infrastructure/primary/ui/annual-statement-panel";
 import { currentYear } from "@/infrastructure/primary/ui/format";
+import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { YearSelector } from "@/infrastructure/primary/ui/year-selector";
 
 const yearParamSchema = z.string().regex(/^\d{4}$/);
@@ -36,20 +36,7 @@ export default async function AnnualStatementPage({
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Family Wallet</h1>
-        <nav className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Volver
-          </Link>
-          <Link
-            href={`/summary?month=${year}-01`}
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Resumen global
-          </Link>
-        </nav>
+        <GlobalNav active="annual" month={`${year}-01`} />
       </div>
 
       <YearSelector year={year} />

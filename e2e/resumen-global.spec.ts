@@ -8,10 +8,10 @@ function summaryPanel(page: Page) {
   return page.getByRole("region", { name: `Resumen global de Junio de 2026` });
 }
 
-async function selectAccount(page: Page, accountName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Cuenta activa" }).click();
-  await page.getByRole("option", { name: accountName }).click();
-  await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
+async function openAccount(page: Page, accountName: string): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
 async function selectMonth(page: Page, optionName: string): Promise<void> {
@@ -71,9 +71,8 @@ test.describe("resumen global mensual", () => {
   test("E1-E3: KPIs exactos del global tras registrar en las tres cuentas y desgloses por tag y miembro", async ({
     page,
   }) => {
+    await openAccount(page, "Cuenta común");
     await selectMonth(page, "Junio de 2026");
-
-    await selectAccount(page, "Cuenta común");
     await registerMovement(page, {
       concept: "Hipoteca",
       amount: "850,00",
@@ -81,7 +80,8 @@ test.describe("resumen global mensual", () => {
       tags: ["Vivienda", "Hipoteca"],
     });
 
-    await selectAccount(page, "Cuenta de Miembro A");
+    await openAccount(page, "Cuenta de Miembro A");
+    await selectMonth(page, "Junio de 2026");
     await registerMovement(page, {
       concept: "Nómina",
       amount: "2100,00",
@@ -96,7 +96,8 @@ test.describe("resumen global mensual", () => {
       tags: ["Coche"],
     });
 
-    await selectAccount(page, "Cuenta de Miembro B");
+    await openAccount(page, "Cuenta de Miembro B");
+    await selectMonth(page, "Junio de 2026");
     await registerMovement(page, {
       concept: "Compra semanal",
       amount: "150,50",

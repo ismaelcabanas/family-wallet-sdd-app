@@ -56,10 +56,10 @@ src/
 │       └── MemberRepository.ts  <-- PUERTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
-│   ├── page.tsx                 <-- Pantalla principal: valida searchParams (Zod) y delega en use cases
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008)
-│   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012)
-│   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013)
+│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts → GlobalNav + AccountCardGrid (sin searchParams, feature 012)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"
+│   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
+│   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
@@ -80,11 +80,12 @@ src/
         │   └── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
+            ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
+            ├── account-card-grid.tsx <-- Rejilla server de tarjetas-Link del panel de cuentas (/ lanzador puro: nombre+tipo, feature 012)
             ├── movement-form.tsx (MovementFormFields con modo edición: cuenta Select, naturaleza dinámica)
-            ├── movement-list.tsx (client: acciones de fila + diálogos únicos de edición/borrado; solo '/', congelado hasta 012)
-            ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, diálogos de 003 al nivel del listado, vacío interno)
+            ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, diálogos de 003 al nivel del listado, vacío interno; único listado tras 012)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
-            ├── account-month-selector.tsx · account-balance.tsx (subtitle prop: «Acumulado hasta …» en la página de cuenta) · empty-state.tsx
+            ├── account-balance.tsx (subtitle prop: «Acumulado hasta …» en la página de cuenta) · empty-state.tsx
             ├── month-selector.tsx        <-- Selector de mes cliente reutilizable (router.replace, ADR 0012)
             ├── month-stepper.tsx         <-- Selector ‹ › + picker de la página de cuenta (router.replace preservando accountId; › y picker acotados al mes actual real)
             ├── year-selector.tsx         <-- Selector de año cliente reutilizable (router.replace, ADR 0013)
@@ -172,6 +173,7 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Diagramas C4 (contexto, contenedores, componentes)](./diagrams/c4.md)
 - [Secuencia del flujo crítico "registrar movimiento"](./diagrams/registro-movimiento-sequence.md) (ADR 0008)
 - [Secuencia de la página de cuenta](./diagrams/pagina-cuenta-sequence.md) (feature 011: apertura con balance acumulado a fin de mes)
+- [Secuencia del panel de cuentas](./diagrams/panel-cuentas-sequence.md) (feature 012: `/` como lanzador de cuentas)
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)

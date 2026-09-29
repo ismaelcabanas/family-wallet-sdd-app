@@ -3,7 +3,6 @@ import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
@@ -12,6 +11,7 @@ import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepo
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
+import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { GroupedMovementList } from "@/infrastructure/primary/ui/grouped-movement-list";
 import { currentMonth, monthEndIsoDate, monthLabel } from "@/infrastructure/primary/ui/format";
 import { MonthStepper } from "@/infrastructure/primary/ui/month-stepper";
@@ -67,20 +67,7 @@ export default async function AccountPage({
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{account.name}</h1>
-        <nav className="flex items-center gap-4">
-          <Link
-            href={`/summary?month=${month}`}
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Resumen global
-          </Link>
-          <Link
-            href={`/annual?year=${month.slice(0, 4)}`}
-            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-          >
-            Cuenta de resultados
-          </Link>
-        </nav>
+        <GlobalNav active="panel" month={month} />
       </div>
       <p className="text-sm text-muted-foreground">
         {account.type === "shared"

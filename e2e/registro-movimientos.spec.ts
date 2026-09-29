@@ -4,10 +4,10 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
-async function selectAccount(page: Page, accountName: string): Promise<void> {
-  await page.getByRole("combobox", { name: "Cuenta activa" }).click();
-  await page.getByRole("option", { name: accountName }).click();
-  await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toContainText(accountName);
+async function openAccount(page: Page, accountName: string): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("link", { name: accountName }).click();
+  await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
 async function registerMovement(
@@ -41,16 +41,10 @@ async function registerMovement(
 test.describe("registro de movimientos (flujo crítico)", () => {
   test.describe.configure({ mode: "serial" });
 
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Family Wallet" })).toBeVisible();
-  });
-
   test("E1: gasto compartido de 850,00 € con tags Vivienda+Hipoteca en la cuenta común", async ({
     page,
   }) => {
-    await selectAccount(page, "Cuenta común");
-    await expect(page.getByText("Balance de Cuenta común")).toBeVisible();
+    await openAccount(page, "Cuenta común");
 
     await registerMovement(page, {
       concept: "Hipoteca",
@@ -63,8 +57,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
     const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Hipoteca" }).first();
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("−850,00");
-    await expect(movementItem).toContainText("Gasto");
-    await expect(movementItem).toContainText("Compartido");
+    await expect(movementItem).toContainText("Común");
     await expect(movementItem).toContainText("Vivienda");
     await expect(movementItem).toContainText("Hipoteca");
 
@@ -74,7 +67,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
   });
 
   test("E2: gasto compartido pagado desde cuenta personal", async ({ page }) => {
-    await selectAccount(page, "Cuenta de Miembro A");
+    await openAccount(page, "Cuenta de Miembro A");
 
     await registerMovement(page, {
       concept: "Compra semanal",
@@ -87,13 +80,13 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Compra semanal" }).first();
     await expect(movementItem).toBeVisible();
-    await expect(movementItem).toContainText("Compartido");
+    await expect(movementItem).toContainText("Común");
     await expect(movementItem).toContainText("Alimentación");
     await expect(page.getByText(/^-120,50/)).toBeVisible();
   });
 
   test("E3: ingreso nómina 1.500,00 € actualiza el balance acumulado", async ({ page }) => {
-    await selectAccount(page, "Cuenta de Miembro A");
+    await openAccount(page, "Cuenta de Miembro A");
 
     await registerMovement(page, { concept: "Nómina", amount: "1500,00", type: "income" });
 
@@ -101,7 +94,6 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Nómina" }).first();
     await expect(movementItem).toBeVisible();
-    await expect(movementItem).toContainText("Ingreso");
     await expect(movementItem).toContainText("+1500,00");
 
     await expect(page.getByText(/^1379,50/)).toBeVisible();
@@ -110,7 +102,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
   test("E3 encadenado: ingreso seleccionable sin recarga tras un registro exitoso", async ({
     page,
   }) => {
-    await selectAccount(page, "Cuenta de Miembro A");
+    await openAccount(page, "Cuenta de Miembro A");
 
     await registerMovement(page, { concept: "Gasto previo", amount: "10,00" });
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
@@ -125,12 +117,11 @@ test.describe("registro de movimientos (flujo crítico)", () => {
       .getByRole("listitem")
       .filter({ hasText: "Nómina encadenada" })
       .first();
-    await expect(movementItem).toContainText("Ingreso");
     await expect(movementItem).toContainText("+1500,00");
   });
 
   test("E4: importe inválido no guarda nada y conserva el resto de valores", async ({ page }) => {
-    await selectAccount(page, "Cuenta común");
+    await openAccount(page, "Cuenta común");
 
     for (const invalidAmount of ["", "0", "abc"]) {
       await registerMovement(page, { concept: "Inválido", amount: invalidAmount });
