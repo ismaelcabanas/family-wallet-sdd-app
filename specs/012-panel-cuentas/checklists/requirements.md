@@ -32,5 +32,6 @@
 ## Notes
 
 - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
-- Validación de 2026-09-29 (iteración 1): todos los items en verde. La spec referencia casos de uso/puertos existentes (`ListAccounts`, `getBalance`, `GetMonthlyClosure`, `format.ts`, `revalidatePath`) como hechos probados del repo que delimitan el alcance read-only (misma convención que la spec aprobada de 011), no como decisiones de implementación nuevas.
+- Validación de 2026-09-29 (iteración 1): todos los items en verde. La spec referencia casos de uso/puertos existentes (`ListAccounts`, `revalidatePath`) como hechos probados del repo que delimitan el alcance read-only (misma convención que la spec aprobada de 011), no como decisiones de implementación nuevas.
+- Validación de 2026-09-29 (iteración 2): revisada tras la decisión del propietario de tarjeta lanzador puro (sin balance ni gasto del mes). Todos los items siguen en verde; la reducción de alcance elimina requisitos y asunciones obsoletos sin dejar huecos (la consulta financiera sigue cubierta por 011 y 006).
 - Sin marcadores [NEEDS CLARIFICATION]: las decisiones abiertas menores (ubicación técnica de la nav global, propagación de mes/año en la nav, etiquetas exactas, layout de rejilla) tienen default razonable y quedan explícitamente delegadas al plan, sin impacto en alcance.
