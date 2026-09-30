@@ -1,0 +1,28 @@
+schema_version: "1.0"
+
+extension:
+  id: finish
+  name: "Finish Feature Workflow"
+  version: "1.0.0"
+  description: "Merges the feature PR (rebase) after verifying CI and roadmap state, deletes local and remote branches, and deactivates the active feature pointer"
+  author: family-wallet
+  license: MIT
+
+requires:
+  speckit_version: ">=0.2.0"
+  tools:
+    - name: git
+      required: false
+    - name: gh
+      required: false
+
+provides:
+  commands:
+    - name: speckit.finish
+      file: commands/speckit.finish.md
+      description: "Merge the feature PR (rebase), clean up branches, and deactivate the feature"
+
+tags:
+  - "git"
+  - "github"
+  - "workflow"

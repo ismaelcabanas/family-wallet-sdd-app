@@ -52,11 +52,13 @@ El proyecto sigue desarrollo dirigido por especificaciones. Comandos (en este or
 /speckit.plan       # genera plan.md, research.md, data-model.md, contracts/, quickstart.md
 /speckit.tasks      # genera tasks.md a partir del plan
 /speckit.implement  # ejecuta las tareas
+/speckit.finish     # cierra el ciclo: mergea la PR (rebase), borra ramas y desactiva la feature
 ```
 
 - El directorio de feature activo se resuelve desde `.specify/feature.json`.
 - **Auto-commits por fase**: los hooks de la extensión git (`before_*`/`after_*` → `speckit.git.commit` en `.specify/extensions.yml`) están habilitados como automáticos; commitean los artefactos de cada fase con mensaje Conventional Commit generado al efecto (`commit_style: conventional` en `.specify/extensions/git/git-config.yml`).
 - **PR automática tras implementar**: el hook `after_implement` de la extensión `pr` (`.specify/extensions/pr/`, prioridad 20 — corre tras el auto-commit) hace `git push -u origin feature/NNN-…` y crea con `gh` una PR a `main` (título `feat: <título de la spec>` — Conventional Commit, cuerpo con el Summary de la spec y enlaces a spec/plan/tasks). Es idempotente (si ya existe la PR, muestra su URL) y degrada sin error si no hay rama feature, remote, `gh` o autenticación.
+- **Cierre de feature (`/speckit.finish`, extensión `finish`)**: tras revisar la PR, cierra el ciclo con `gh pr merge --rebase --delete-branch`. Guardas: PR abierta, CI verde (`gh pr checks`, una PR sin checks continúa con aviso), fila de la feature marcada «Completada» en el roadmap maestro, árbol limpio y rama sincronizada con su upstream. Después: borra rama local y remota, limpia `.specify/feature.json` (a `{}`, dejando la siguiente feature arrancar limpio) y lo commitea/pushea en `main` como `chore(NNN)`. Aborta con error claro si cualquier guarda falla; nunca fuerza el merge.
 - `specs/001-family-wallet/` es el **roadmap maestro**: NO se implementa directamente; las features hijas (`002-...`, `003-...`) desarrollan sus historias.
 - Cada `/speckit.plan` valida contra la constitución y justifica desviaciones en Complexity Tracking.
 - **Granularidad** (constitución II, v1.2.1): una feature hija comprende por defecto una única US pequeña que entrega valor por sí sola; si una spec termina agrupando varias USs con valor independiente, se divide en features separadas. Agrupar historias en una misma spec es una excepción que decide y justifica el propietario (p. ej. 003: edición y eliminación comparten formulario y recorrido UI).

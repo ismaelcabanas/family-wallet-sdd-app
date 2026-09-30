@@ -1,6 +1,7 @@
 installed:
 - git
 - pr
+- finish
 settings:
   auto_execute_hooks: true
 hooks:
