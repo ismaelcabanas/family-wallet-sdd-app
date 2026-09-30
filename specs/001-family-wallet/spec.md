@@ -32,7 +32,7 @@ Este documento es la **especificación maestra (roadmap)** del producto Family W
 | `013-formulario-dialogo` | Rediseño UX (2026-09-27) | CTA «Nuevo movimiento» que abre el formulario actual en diálogo | Futura |
 | `014-formulario-nota-tags` | Rediseño UX (2026-09-27) | Formulario rediseñado para alta y edición: chips Gasto/Ingreso y Personal/Común (oculto en ingresos), selector de fecha, nota única (fusión de concepto y descripción), selector de tags por chips multiselección e importe; tags opcionales en ingresos | Futura |
 | `015-anual-agrupada` | Rediseño UX (2026-09-27) | Cuenta de resultados anual con filas agrupadas por grupos genéricos fijos (rollup de las tags del catálogo, sin expansión) | Futura |
-| `016-movimientos-bajo-selector-fechas` | Rediseño UX (2026-09-29, petición del propietario) | Página de detalle de cuenta list-first: el listado de movimientos pasa a ocupar la posición inmediatamente inferior al selector de mes/año (antes del balance, formulario y cierre); absorbe el «list-first» previsto originalmente en 013 | Futura |
+| `016-movimientos-bajo-selector-fechas` | Rediseño UX (2026-09-29, petición del propietario) | Página de detalle de cuenta list-first: el listado de movimientos pasa a ocupar la posición inmediatamente inferior al selector de mes/año (antes del balance, formulario y cierre); absorbe el «list-first» previsto originalmente en 013 | Completada |
 
 > **Nota (2026-09-14)**: la feature `003-gestion-movimientos` original (FR-001/FR-008/FR-009) se dividió por tamaño y cohesión en tres features: `003-edicion-movimientos` (FR-008), `007-filtrado-busqueda` (FR-009) y `008-gestion-cuentas-miembros` (FR-001). Los números 004 y 006 estaban ya reservados en este roadmap.
 >

@@ -1,6 +1,6 @@
 # Secuencia: Página de Cuenta (`/accounts/[accountId]?month=YYYY-MM`)
 
-Feature 011 (`specs/011-pagina-cuenta/`). Adaptador inbound fino que resuelve la cuenta por URL con 404 explícito y calcula el balance acumulado hasta el fin del mes consultado (corte `asOf` inclusive del puerto `AccountRepository.getBalance`, ADR 0009).
+Feature 011 (`specs/011-pagina-cuenta/`); composición list-first desde la feature 016 (`specs/016-movimientos-bajo-selector-fechas/`). Adaptador inbound fino que resuelve la cuenta por URL con 404 explícito y calcula el balance acumulado hasta el fin del mes consultado (corte `asOf` inclusive del puerto `AccountRepository.getBalance`, ADR 0009).
 
 ```mermaid
 sequenceDiagram
@@ -26,8 +26,8 @@ sequenceDiagram
     DB-->>R: céntimos (acumulado a fin de mes)
     R->>GMC: execute(accountId, month)
     GMC-->>R: MonthlyClosureDTO
-    R->>R: render: h1 + subtítulo, MonthStepper, balance «Acumulado hasta …», MovementForm, cierre, listado
-    R->>U: HTML del mes (GroupedMovementList agrupa por fecha en cliente)
+    R->>R: render: h1 + subtítulo, MonthStepper, listado, balance «Acumulado hasta …», MovementForm, cierre
+    R->>U: HTML del mes, list-first (GroupedMovementList justo bajo el selector, agrupa por fecha en cliente)
 ```
 
 Notas:
