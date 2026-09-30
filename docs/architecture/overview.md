@@ -57,7 +57,7 @@ src/
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
 │   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts → GlobalNav + AccountCardGrid (sin searchParams, feature 012)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first: MonthStepper → GroupedMovementList → AccountBalance → MovementForm → MonthlyClosurePanel (feature 016)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── layout.tsx · globals.css
@@ -172,7 +172,7 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 
 - [Diagramas C4 (contexto, contenedores, componentes)](./diagrams/c4.md)
 - [Secuencia del flujo crítico "registrar movimiento"](./diagrams/registro-movimiento-sequence.md) (ADR 0008)
-- [Secuencia de la página de cuenta](./diagrams/pagina-cuenta-sequence.md) (feature 011: apertura con balance acumulado a fin de mes)
+- [Secuencia de la página de cuenta](./diagrams/pagina-cuenta-sequence.md) (feature 011: apertura con balance acumulado a fin de mes; 016: composición list-first)
 - [Secuencia del panel de cuentas](./diagrams/panel-cuentas-sequence.md) (feature 012: `/` como lanzador de cuentas)
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)

@@ -28,7 +28,7 @@ description: "Task list for feature 016 implementation"
 
 **Purpose**: Confirmar línea base verde antes de tocar código (FR-005 parte de suites en verde).
 
-- [ ] T001 Verificar línea base verde ejecutando `npm run lint && npm run typecheck && npm run test` (todo debe pasar antes de cualquier cambio)
+- [x] T001 Verificar línea base verde ejecutando `npm run lint && npm run typecheck && npm run test` (todo debe pasar antes de cualquier cambio)
 
 **Checkpoint**: Repositorio en verde; se puede empezar US1.
 
@@ -54,14 +54,14 @@ description: "Task list for feature 016 implementation"
 
 > **NOTE: Escribir la aserción PRIMERO y verificar que FALLA contra el orden actual** (balance, formulario y cierre hoy intermedios entre selector y listado). Refuerza FR-001; no debilitar ninguna aserción existente (FR-005).
 
-- [ ] T002 [US1] Añadir aserción de adyacencia y viewport a P1 en `e2e/pagina-cuenta.spec.ts`: sobre los hijos directos de `main`, verificar que entre `MonthStepper` (`combobox "Mes visible"`) y `region "Movimientos del mes"` no se interpone ningún bloque (balance/formulario/cierre), y que el primer `heading level 3` del listado está en el mismo viewport que el stepper (`toBeInViewport`, SC-002); ejecutarla y confirmar que falla (roja) contra la composición actual
+- [x] T002 [US1] Añadir aserción de adyacencia y viewport a P1 en `e2e/pagina-cuenta.spec.ts`: sobre los hijos directos de `main`, verificar que entre `MonthStepper` (`combobox "Mes visible"`) y `region "Movimientos del mes"` no se interpone ningún bloque (balance/formulario/cierre), y que el primer `heading level 3` del listado está en el mismo viewport que el stepper (`toBeInViewport`, SC-002); ejecutarla y confirmar que falla (roja) contra la composición actual
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Reordenar el JSX de `src/app/accounts/[accountId]/page.tsx`: mover el bloque `<GroupedMovementList …>` (líneas 95-101 actuales) a la posición inmediatamente posterior a `<MonthStepper … />`, dejando el orden `h1`+`GlobalNav` → subtítulo de tipo → `MonthStepper` → `GroupedMovementList` → `AccountBalance` → `MovementForm` → `MonthlyClosurePanel`; sin cambiar props, componentes hijos, acciones ni consultas (FR-003/FR-004)
-- [ ] T004 [US1] Ejecutar `npm run lint && npm run typecheck && npm run test` y verificar todo en verde (suites unitarias/RTL intactas: no dependen del orden de la página)
-- [ ] T005 [US1] Ejecutar `npm run test:e2e` y verificar todas las specs existentes en verde, incluida la nueva aserción de adyacencia de P1 (T002 ahora verde sobre el orden list-first)
-- [ ] T006 [US1] Validar manualmente los escenarios Q1–Q5 de `specs/016-movimientos-bajo-selector-fechas/quickstart.md` con `npm run dev` (orden de bloques, cambio de mes, alta/edición/eliminación operativas, mes vacío dentro del listado, `/`+`/summary`+`/annual` intactas)
+- [x] T003 [US1] Reordenar el JSX de `src/app/accounts/[accountId]/page.tsx`: mover el bloque `<GroupedMovementList …>` (líneas 95-101 actuales) a la posición inmediatamente posterior a `<MonthStepper … />`, dejando el orden `h1`+`GlobalNav` → subtítulo de tipo → `MonthStepper` → `GroupedMovementList` → `AccountBalance` → `MovementForm` → `MonthlyClosurePanel`; sin cambiar props, componentes hijos, acciones ni consultas (FR-003/FR-004)
+- [x] T004 [US1] Ejecutar `npm run lint && npm run typecheck && npm run test` y verificar todo en verde (suites unitarias/RTL intactas: no dependen del orden de la página)
+- [x] T005 [US1] Ejecutar `npm run test:e2e` y verificar todas las specs existentes en verde, incluida la nueva aserción de adyacencia de P1 (T002 ahora verde sobre el orden list-first)
+- [x] T006 [US1] Validar manualmente los escenarios Q1–Q5 de `specs/016-movimientos-bajo-selector-fechas/quickstart.md` con `npm run dev` (orden de bloques, cambio de mes, alta/edición/eliminación operativas, mes vacío dentro del listado, `/`+`/summary`+`/annual` intactas)
 
 **Checkpoint**: Página de cuenta list-first funcional con el 100 % de la operativa previa y pruebas en verde (SC-001–SC-004).
 
@@ -71,9 +71,9 @@ description: "Task list for feature 016 implementation"
 
 **Purpose**: Documentación viva y roadmap actualizados en el mismo cambio (constitución III, DoD; research §4).
 
-- [ ] T007 [P] Actualizar la línea de render (línea 29) en `docs/architecture/diagrams/pagina-cuenta-sequence.md` al nuevo orden (h1 + subtítulo, MonthStepper, GroupedMovementList, AccountBalance, MovementForm, cierre), reutilizando como base el diagrama de secuencia de `specs/016-movimientos-bajo-selector-fechas/plan.md`
-- [ ] T008 [P] Actualizar la composición de la página de cuenta (bloque UI de `/accounts/[id]`) en `docs/architecture/overview.md` para reflejar el orden list-first (selector → listado → balance → formulario → cierre)
-- [ ] T009 [P] Marcar la fila `016-movimientos-bajo-selector-fechas` como «Completada» en la tabla de features de `specs/001-family-wallet/spec.md` (la fila 013 ya está reducida al CTA con diálogo; sin cambios de texto en ella)
+- [x] T007 [P] Actualizar la línea de render (línea 29) en `docs/architecture/diagrams/pagina-cuenta-sequence.md` al nuevo orden (h1 + subtítulo, MonthStepper, GroupedMovementList, AccountBalance, MovementForm, cierre), reutilizando como base el diagrama de secuencia de `specs/016-movimientos-bajo-selector-fechas/plan.md`
+- [x] T008 [P] Actualizar la composición de la página de cuenta (bloque UI de `/accounts/[id]`) en `docs/architecture/overview.md` para reflejar el orden list-first (selector → listado → balance → formulario → cierre)
+- [x] T009 [P] Marcar la fila `016-movimientos-bajo-selector-fechas` como «Completada» en la tabla de features de `specs/001-family-wallet/spec.md` (la fila 013 ya está reducida al CTA con diálogo; sin cambios de texto en ella)
 
 **Checkpoint**: Documentación viva y roadmap sincronizados con la implementación.
 

@@ -77,6 +77,14 @@ export default async function AccountPage({
 
       <MonthStepper accountId={account.id} month={month} />
 
+      <GroupedMovementList
+        movements={movements}
+        accounts={accounts}
+        tags={tags}
+        currentAccountId={account.id}
+        currentMonth={month}
+      />
+
       <AccountBalance
         accountName={account.name}
         balanceCents={balanceCents}
@@ -91,14 +99,6 @@ export default async function AccountPage({
       />
 
       <MonthlyClosurePanel closure={closure} month={month} />
-
-      <GroupedMovementList
-        movements={movements}
-        accounts={accounts}
-        tags={tags}
-        currentAccountId={account.id}
-        currentMonth={month}
-      />
     </main>
   );
 }
