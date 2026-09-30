@@ -143,7 +143,7 @@ flowchart LR
     AccPage --> GNav
     AccPage --> LA
     AccPage --> LM
-    AccPage --> PortAcc : "getBalance(id, fin de mes)"
+    AccPage -->|"getBalance(id, fin de mes)"| PortAcc
     AccPage --> GMC
     AccPage --> LAT
     LA --> PortAcc
@@ -175,7 +175,7 @@ sequenceDiagram
     participant DB as Drizzle repos + libSQL
 
     U->>R: GET /accounts/2?month=2026-04
-    R->>R: Zod: accountId válido + cuenta existe (si no → notFound() 404); month válido (si no → actual)
+    R->>R: Zod: accountId válido + cuenta existe (si no → notFound() 404), month válido (si no → actual)
     R->>LA: execute()
     LA-->>R: AccountDTO[]
     par lecturas del mes
