@@ -19,6 +19,12 @@
 
 **Excepción de granularidad** (constitución II): la spec agrupa dos historias con valor por separado (simplificación del formulario y captación continua). La agrupación la decide el propietario: ambas nacen de la misma necesidad —agilizar la captación por lotes que hace 2-3 veces al mes—, comparten formulario y recorrido UI, y la simplificación carece de sentido de entrega sin el modo continuo que la motiva (mismo criterio que la fusión edición/eliminación de 003).
 
+## Clarifications
+
+### Session 2026-10-01
+
+- Q: ¿Cómo se tratan los datos de movimientos existentes en la migración (p. ej. ingresos sin tag)? → A: Son datos de prueba: se eliminan todos los movimientos (y sus relaciones con tags) en lugar de migrarlos; cuentas, miembros y catálogo de tags permanecen.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Registrar varios movimientos seguidos sin cerrar el diálogo (Priority: P1)
@@ -51,16 +57,15 @@ Como usuario, quiero un formulario de alta (y de edición) con menos campos y de
 2. **Given** un gasto sin tag seleccionada, **When** envío, **Then** la validación falla con un error claro que señala la tag y no se guarda; el mensaje actual «Sin selección, el movimiento se guarda con la etiqueta Sin Clasificar» desaparece de la UI.
 3. **Given** un ingreso, **When** lo guardo sin tag, **Then** se guarda correctamente (tag opcional en ingresos) y sin naturaleza, como hoy.
 4. **Given** el diálogo de edición de un movimiento, **When** lo recorro, **Then** presenta los mismos campos simplificados que el alta (nota única, tag única) y **sin selector de cuenta**: editar ya no permite mover un movimiento entre cuentas.
-5. **Given** un movimiento existente con concepto y descripción, **When** se ejecuta la migración, **Then** queda una sola nota que no pierde información: sin descripción, la nota es el concepto; con descripción, la nota las fusiona en un único texto.
-6. **Given** un movimiento existente con varias tags, **When** se ejecuta la migración, **Then** conserva exactamente una (la de menor id); y uno sin tags queda con la tag «Sin Clasificar».
-7. **Given** cualquier vista que muestre el movimiento (listado agrupado, edición), **When** lo consulto, **Then** muestra la nota única y la tag única; ninguna vista muestra ya concepto y descripción por separado ni múltiples tags por movimiento.
+5. **Given** la base de datos con movimientos existentes (datos de prueba), **When** se ejecuta la migración, **Then** todos los movimientos existentes (y sus relaciones con tags) se eliminan; cuentas, miembros y catálogo de tags permanecen.
+6. **Given** cualquier vista que muestre el movimiento (listado agrupado, edición), **When** lo consulto, **Then** muestra la nota única y la tag única; ninguna vista muestra ya concepto y descripción por separado ni múltiples tags por movimiento.
 
 ### Edge Cases
 
 - Guardado con la vista en un mes distinto al del movimiento: comportamiento actual; la revalidación existente actualiza las vistas afectadas y el diálogo continúa la tanda.
 - Nota vacía o de solo espacios: se rechaza con error de campo (misma regla que hoy aplica al concepto), con el mensaje renombrado a «nota».
 - Tag inexistente o desactivada enviada al servidor: la validación de frontera (Zod) la rechaza; la UI solo ofrece tags activas.
-- Movimientos históricos tras la migración: los desgloses por tag (cierre mensual, resumen global, cuenta de resultados anual) computan cada gasto exactamente en una tag; desaparece el reparto de un gasto entre varias tags.
+- Movimientos históricos: no hay migración de datos de movimientos; la migración elimina los movimientos de prueba existentes (decisión del propietario 2026-10-01). Los desgloses por tag (cierre mensual, resumen global, cuenta de resultados anual) computan cada gasto exactamente en una tag; desaparece el reparto de un gasto entre varias tags.
 - Doble envío y cierre con datos a medias: comportamiento actual (botones deshabilitados durante el envío; descarte sin confirmación).
 - Naturaleza en captación continua: si el lote alterna tipos, cambiar Gasto↔Ingreso oculta/muestra naturaleza y la tag pasa de obligatoria a opcional según el tipo actual del formulario, no del movimiento anterior.
 - Validación de tag en ingresos: ausente (0 tags válido); si el usuario seleccionó una y cambia a ingreso, la selección se conserva como válida (máximo 1).
@@ -70,13 +75,13 @@ Como usuario, quiero un formulario de alta (y de edición) con menos campos y de
 ### Functional Requirements
 
 - **FR-001 (captación continua)**: Tras un guardado con éxito en el diálogo de alta, el diálogo MUST permanecer abierto con confirmación visible del guardado, los campos variables (nota, importe, tag) MUST vaciarse, los campos estables (fecha, tipo, naturaleza cuando aplique) MUST conservar el último valor guardado y el foco MUST situarse en el primer campo vacío. Debe existir una acción secundaria «Guardar y cerrar» que guarde la entrada en curso y cierre el diálogo. Cancelar/cerrar MUST descartar únicamente la entrada en curso. Ante error de validación, el diálogo MUST permanecer abierto con errores y valores, igual que el comportamiento actual.
-- **FR-002 (nota única)**: El formulario de alta y el de edición MUST sustituir los campos concepto y descripción por un único campo «Nota», obligatorio (no vacío tras trim), con trim al guardarse. La entidad `Movement`, los DTOs y la persistencia MUST reflejar un único atributo nota; la columna(s) actual(es) de concepto/descripción MUST migrarse sin pérdida de información (fusión). Todas las vistas que muestren el movimiento MUST renderizar la nota.
-- **FR-003 (tag única)**: Los formularios de alta y edición MUST limitar la selección de tags a exactamente una como máximo (selección simple, sin checkboxes múltiples). En gastos la tag MUST ser obligatoria (validación de frontera y de dominio con error claro); en ingresos MUST ser opcional. El modelo de persistencia MUST garantizar como máximo una tag por movimiento; la migración de datos existentes MUST conservar la tag de menor id para movimientos con varias, y asignar «Sin Clasificar» a los que no tengan ninguna. El texto de ayuda sobre «Sin Clasificar» automático MUST eliminarse de la UI.
+- **FR-002 (nota única)**: El formulario de alta y el de edición MUST sustituir los campos concepto y descripción por un único campo «Nota», obligatorio (no vacío tras trim), con trim al guardarse. La entidad `Movement`, los DTOs y la persistencia MUST reflejar un único atributo nota. Todas las vistas que muestren el movimiento MUST renderizar la nota.
+- **FR-003 (tag única)**: Los formularios de alta y edición MUST limitar la selección de tags a exactamente una como máximo (selección simple, sin checkboxes múltiples). En gastos la tag MUST ser obligatoria (validación de frontera y de dominio con error claro); en ingresos MUST ser opcional. El modelo de persistencia MUST garantizar como máximo una tag por movimiento. El texto de ayuda sobre «Sin Clasificar» automático MUST eliminarse de la UI.
 - **FR-004 (sin campo cuenta)**: El diálogo de alta MUST eliminar el bloque informativo de cuenta (la cuenta es implícitamente la de la página). El diálogo de edición MUST eliminar el selector de cuenta: la edición no permite cambiar un movimiento de cuenta. Los casos de uso `CreateMovement`/`UpdateMovement` y sus Server Actions MUST continuar validando que la cuenta del movimiento es la de la página.
 - **FR-005 (revalidación en vivo)**: Cada guardado con éxito de la tanda MUST revalidar las vistas afectadas (listado, balance, cierre) mediante el mecanismo existente, de modo que la página quede actualizada al cerrar el diálogo sin refresco manual.
 - **FR-006 (solo alta es continua)**: El modo de captación continua aplica exclusivamente al diálogo de alta. El diálogo de edición MUST mantener el comportamiento actual: cerrarse tras el guardado con éxito.
 - **FR-007 (adaptación de tests)**: Los tests existentes (dominio, aplicación, componentes, e2e) MUST adaptarse al nuevo modelo (nota única, tag única, sin cuenta en edición) manteniendo lo que verifican; el flujo crítico de registro MUST seguir cubierto por e2e incluida la captación continua (varios movimientos seguidos) y el error por tag ausente en un gasto (constitución III).
-- **FR-008 (actualización del roadmap maestro)**: Al completar la feature, el roadmap maestro MUST registrar las enmiendas: FR-004 (tag única obligatoria en gastos/opcional en ingresos en sustitución de múltiples tags), asunción «Concepto/Descripción» (nota única), edge case de edición entre cuentas (ya no posible) y la fila 014 pasa a «Completada».
+- **FR-008 (actualización del roadmap maestro)**: Al completar la feature, el roadmap maestro MUST registrar las enmiendas: FR-004 (tag única obligatoria en gastos/opcional en ingresos en sustitución de múltiples tags), asunción «Concepto/Descripción» (nota única), edge case de edición entre cuentas (ya no posible), eliminación de los movimientos de prueba en la migración (sin migración de datos) y la fila 014 pasa a «Completada».
 - **FR-009 (resto intacto)**: La estructura de la página de cuenta (selector, listado con CTA, balance, cierre), `/`, `/summary`, `/annual`, la navegación y los diálogos de edición/eliminación en cuanto a montaje a nivel del listado MUST permanecer conforme a las convenciones del proyecto. Interfaz en español; importes EUR es-ES con dos decimales.
 
 ### Key Entities
@@ -90,13 +95,13 @@ Como usuario, quiero un formulario de alta (y de edición) con menos campos y de
 
 - **SC-001**: Registrar N movimientos en una tanda requiere exactamente 1 apertura de diálogo y N envíos (frente a N aperturas antes); ningún clic adicional entre guardado y siguiente captura.
 - **SC-002**: El formulario de alta muestra 6 controles como máximo (fecha, importe, nota, tipo, naturaleza cuando aplique, tag) frente a los ~9 actuales, y ninguno redundante para la cuenta.
-- **SC-003**: El 100 % de los gastos existentes queda, tras la migración, con exactamente 1 tag (menor id o «Sin Clasificar») y con una nota que no pierde la información de concepto/descripción; verificado por tests de migración.
+- **SC-003**: La migración elimina el 100 % de los movimientos existentes (datos de prueba) y sus relaciones con tags, preservando cuentas, miembros y catálogo de tags; verificado por tests de migración.
 - **SC-004**: Las suites (unit, componentes, e2e) quedan en verde tras la adaptación y el flujo crítico de registro sigue cubierto end-to-end, incluida la tanda continua.
 - **SC-005**: Ninguna vista de la aplicación muestra concepto y descripción por separado ni más de una tag por movimiento tras la feature.
 
 ## Assumptions
 
-- La fusión migratoria de nota es `concepto — descripción` cuando existe descripción, y `concepto` en caso contrario (formato exacto afinable en el plan; requisito: sin pérdida de información).
+- La migración elimina los movimientos existentes (datos de prueba, decisión del propietario 2026-10-01): no hay fusión de concepto/descripción ni deduplicación de tags; el esquema puede evolucionar con libertad de forma en la migración (p. ej. recrear tablas), siempre versionada.
 - En la captación continua la tag se limpia tras cada guardado (obliga a elegir conscientemente en cada gasto, siendo obligatoria); si el plan justifica mantenerla pegada por agilidad, se documenta la desviación.
 - La confirmación por guardado es un feedback discreto dentro/ junto al diálogo (toast o contador de tanda); la forma exacta se decide en el plan.
 - «Guardar y cerrar» es acción secundaria; la acción primaria guarda y continúa la tanda. Los literales exactos se refinan en el plan.
