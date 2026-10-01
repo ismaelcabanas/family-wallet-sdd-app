@@ -14,15 +14,15 @@ Congela los literales y comportamientos de la feature. Extiende los contratos de
 │  Nota [                                      ]  │  ← obligatoria; placeholder «Mercadona»
 │  Tipo: (•) Gasto  ( ) Ingreso                   │
 │  Naturaleza del gasto: (•) Personal ( ) Compartido │ ← solo con Gasto; fija «Compartido (fijo en la cuenta común)»
-│  Etiqueta: ( ) Alimentación (•) Hogar ( ) …     │  ← RadioGroup simple (exactamente 1 como máximo)
-│                                                 │     con Ingreso: añade opción ( ) Sin etiqueta
+│  Etiqueta: [ Selecciona etiqueta              ▼] │  ← Select simple (exactamente 1 como máximo)
+│                                                 │     con Ingreso: añade la opción «Sin etiqueta»
 │              [ Cancelar ] [ Guardar y cerrar ] [ Guardar y seguir ] │
 └─────────────────────────────────────────────────┘
 ```
 
 - **Campos (orden congelado)**: fecha, importe, **Nota**, tipo, naturaleza (solo gastos), **etiqueta**. Máximo 6 controles visibles (SC-002). **No existe** campo descripción, bloque informativo de cuenta (alta) ni selector de cuenta (edición) — FR-004.
-- Labels: **«Nota»** (`name="note"`), **«Etiqueta»** (`name="tagId"`, radio). Naturaleza y tipo conservan sus literales. La etiqueta no es «(opcional)» en el literal: su obligatoriedad depende del tipo visible.
-- **Tag única**: `RadioGroup` con una opción por tag activa del catálogo; sin opción marcada por defecto. Con **Ingreso** aparece además la opción **«Sin etiqueta»** (`value=""`); con **Gasto** no existe y el envío sin selección falla. Cambiar Gasto→Ingreso conservando una tag marcada es válido (máximo 1, edge case).
+- Labels: **«Nota»** (`name="note"`), **«Etiqueta»** (`name="tagId"`, select). Naturaleza y tipo conservan sus literales. La etiqueta no es «(opcional)» en el literal: su obligatoriedad depende del tipo visible.
+- **Tag única**: `Select` (combobox shadcn) con placeholder **«Selecciona etiqueta»** y una opción por tag activa del catálogo; sin opción marcada por defecto. Con **Ingreso** aparece además la opción **«Sin etiqueta»** (`value=""`); con **Gasto** no existe y el envío sin selección falla. Cambiar Gasto→Ingreso conservando una tag marcada es válido (máximo 1, edge case). Tras cada guardado de la tanda, el remonte devuelve el select a su placeholder (tag vacía por captura, asunción de la spec).
 - Mensajes de error nuevos/renombrados: «La nota es obligatoria.» (nota vacía/solo espacios), «Selecciona una etiqueta para el gasto.» (gasto sin tag, frontera Zod y dominio), «Una de las etiquetas seleccionadas ya no está disponible.» (tag inexistente/inactiva — se mantiene), «El movimiento ya no pertenece a esta cuenta.» (edición con cuenta inesperada). El resto de mensajes (fecha, importe, tipo, naturaleza) sin cambios.
 - **Desaparece** el texto «Sin selección, el movimiento se guarda con la etiqueta «Sin Clasificar».» (FR-003).
 - Hidden inputs: alta `accountId` (cuenta de la página); edición `movementId`, `currentAccountId`, `currentMonth`.
@@ -85,7 +85,7 @@ Botonera (orden congelado): `[Cancelar] [Guardar y cerrar] [Guardar y seguir]` �
 
 ## 7. Accesibilidad
 
-- RadioGroup de etiqueta: labels asociados por opción (`Label htmlFor`), mensaje de error con `role="alert"`; los radios comparten `name="tagId"`.
+- Select de etiqueta: `Label` asociado al trigger (`combobox` con nombre accesible «Etiqueta»), placeholder «Selecciona etiqueta» cuando no hay selección, mensaje de error con `role="alert"` bajo el control.
 - Foco tras guardado continuo: el primer campo vacío (Nota) recibe `.focus()` programático tras el remonte; el diálogo Radix conserva foco atrapado/Escape/`aria-modal` (003/013 sin cambios).
 - Contador «Guardados: N» como texto del header del diálogo (fuera del `DialogTitle`, que sigue siendo «Nuevo movimiento»).
 

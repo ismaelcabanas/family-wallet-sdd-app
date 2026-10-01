@@ -22,7 +22,7 @@ Abrir `http://localhost:3000`, entrar a una cuenta (p. ej. «Cuenta común») y 
 
 ### Q1 — Formulario simplificado (FR-002/FR-003/FR-004, US2-1, SC-002)
 
-1. Pulsar «Nuevo movimiento»: el diálogo muestra exactamente fecha, importe, **Nota**, tipo, naturaleza (en cuenta personal) y **Etiqueta** (radios, una como máximo). Sin campo descripción, sin bloque de cuenta; el título sigue siendo «Nuevo movimiento».
+1. Pulsar «Nuevo movimiento»: el diálogo muestra exactamente fecha, importe, **Nota**, tipo, naturaleza (en cuenta personal) y **Etiqueta** (selector con placeholder «Selecciona etiqueta», una como máximo). Sin campo descripción, sin bloque de cuenta; el título sigue siendo «Nuevo movimiento».
 2. Verificar que no aparece el texto «Sin Clasificar» automático ni opción «Sin etiqueta» con Gasto marcado.
 3. Cambiar a **Ingreso**: naturaleza desaparece y aparece la opción «Sin etiqueta».
 
@@ -56,7 +56,7 @@ npm run lint && npm run typecheck && npm run test
 npm run test:e2e
 ```
 
-Esperado: todo en verde (SC-004). `registro-movimientos.spec.ts` cubre la tanda continua y el error por gasto sin tag (FR-007, constitución III); el resto de specs usan los helpers adaptados a Nota + radio de etiqueta.
+Esperado: todo en verde (SC-004). `registro-movimientos.spec.ts` cubre la tanda continua y el error por gasto sin tag (FR-007, constitución III); el resto de specs usan los helpers adaptados a Nota + selector de etiqueta.
 
 ## Resultado esperado
 

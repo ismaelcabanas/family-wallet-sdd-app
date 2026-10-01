@@ -24,7 +24,7 @@ A diferencia de 013 (presentación pura), esta feature **modifica dominio, aplic
 
 **Storage**: SQLite (dev) / Turso (prod) vía Drizzle. Esquema `movements` modificado (`note`, `tag_id` FK RESTRICT; fuera `concept`/`description`), tabla `movement_tags` **eliminada**; migración versionada `drizzle/0002_*` que borra los movimientos existentes (SC-003). Repositorio simplificado (sin junction ni `db.batch` de tags, `leftJoin` único).
 
-**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`Movement`, cierres con fixtures de tag única), aplicación (`resolveTagId`, `expectedAccountId`), repositorio (esquema nuevo, `createTestDb` migra), actions (`note`/`tagId`/`intent`, notice de edición) y componentes (tanda continua, errores, edición sin cuenta). Playwright e2e — helpers con «Nota» + radio de etiqueta; `registro-movimientos` cubre tanda + gasto sin tag (FR-007, constitución III); aislamiento cuenta/mes y `workers: 1` intactos.
+**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`Movement`, cierres con fixtures de tag única), aplicación (`resolveTagId`, `expectedAccountId`), repositorio (esquema nuevo, `createTestDb` migra), actions (`note`/`tagId`/`intent`, notice de edición) y componentes (tanda continua, errores, edición sin cuenta). Playwright e2e — helpers con «Nota» + selector de etiqueta; `registro-movimientos` cubre tanda + gasto sin tag (FR-007, constitución III); aislamiento cuenta/mes y `workers: 1` intactos.
 
 **Target Platform**: Web (escritorio primero; usable en móvil), Vercel + Turso; sin cambios.
 
@@ -42,7 +42,7 @@ A diferencia de 013 (presentación pura), esta feature **modifica dominio, aplic
 
 | # | Principio | Estado pre-diseño | Notas |
 |---|-----------|-------------------|-------|
-| I | Simplicidad Primero | ✅ PASS | Simplificación neta del modelo (una columna en lugar de concept+description+junction), reutiliza el patrón de remonte de 002 y los RadioGroup existentes; sin proyectos, librerías ni capas nuevas. La complejidad de la tanda se resuelve con HTML estándar (`intent` en botones submit). |
+| I | Simplicidad Primero | ✅ PASS | Simplificación neta del modelo (una columna en lugar de concept+description+junction), reutiliza el patrón de remonte de 002, los RadioGroup existentes (tipo/naturaleza) y el Select shadcn ya en el repo para la etiqueta; sin proyectos, librerías ni capas nuevas. La complejidad de la tanda se resuelve con HTML estándar (`intent` en botones submit). |
 | II | Spec-Driven Development | ✅ PASS | Este plan deriva de `specs/014-formulario-nota-tags/spec.md` (fila 014 del maestro, refundida por el propietario 2026-10-01). Agrupa 2 US por decisión del propietario documentada en la spec (excepción de granularidad, mismo criterio que 003). Las enmiendas al maestro quedan registradas como FR-008. |
 | III | Calidad Verificada | ✅ PASS | Lógica de negocio nueva (tag por tipo, cuenta inmutable) cubierta por tests de dominio/aplicación; flujo crítico de registro sigue e2e **incluida la tanda continua y el error por tag ausente** (FR-007, exigencia explícita de constitución III); migración destructiva verificada por tests de repositorio (SC-003/SC-004). |
 | IV | TypeScript Estricto + Zod | ✅ PASS | Frontera `movementFormSchema` actualizada (`note`, `tagId` 0..1, `superRefine` de tag en gastos, `intent`); DTOs tipados sin `any`; sin fronteras nuevas más allá de las existentes. |
@@ -106,7 +106,7 @@ specs/014-formulario-nota-tags/
 │           │   ├── create-movement.action.ts (+test)  # MODIFICADO: DTO nuevo, success con intent, revalidate intacto
 │           │   └── update-movement.action.ts (+test)  # MODIFICADO: expectedAccountId, notice sin rama de cuenta
 │           └── ui/
-│               ├── movement-form.tsx        # MODIFICADO: campo Nota, RadioGroup Etiqueta (con «Sin etiqueta» en ingresos), sin bloque/selector de cuenta, focus tras remonte, carry
+│               ├── movement-form.tsx        # MODIFICADO: campo Nota, Select Etiqueta (placeholder «Selecciona etiqueta», con «Sin etiqueta» en ingresos), sin bloque/selector de cuenta, focus tras remonte, carry
 │               ├── movement-form.test.tsx   # ADAPTADO/AMPLIADO
 │               ├── create-movement-dialog.tsx      # MODIFICADO: captación continua (savedCount, carry, intent, no cierre en «seguir»)
 │               ├── create-movement-dialog.test.tsx # AMPLIADO: tanda, guardar y cerrar, errores
@@ -121,8 +121,8 @@ specs/014-formulario-nota-tags/
 │   └── meta/_journal.json               # ACTUALIZADO (idx 2)
 ├── e2e/
 │   ├── registro-movimientos.spec.ts     # AMPLIADO: tanda continua (1 apertura, N guardados), «Guardar y cerrar», gasto sin tag (error), ingreso sin tag
-│   ├── edicion-movimientos.spec.ts      # ADAPTADO: helpers Nota/radio; sin cambio de cuenta (recorrido retirado)
-│   ├── cierre-mensual.spec.ts, resumen-global.spec.ts, cuenta-resultados-anual.spec.ts, pagina-cuenta.spec.ts  # ADAPTADOS: helpers Nota + radio única
+│   ├── edicion-movimientos.spec.ts      # ADAPTADO: helpers Nota/selector de etiqueta; sin cambio de cuenta (recorrido retirado)
+│   ├── cierre-mensual.spec.ts, resumen-global.spec.ts, cuenta-resultados-anual.spec.ts, pagina-cuenta.spec.ts  # ADAPTADOS: helpers Nota + selector de etiqueta única
 │   └── panel-cuentas.spec.ts            # INTACTO (verificar literales)
 ├── scripts/seed.ts, src/infrastructure/db/seed-data.ts  # INTACTOS (catálogo; «Sin Clasificar» permanece)
 ├── specs/001-family-wallet/spec.md      # ACTUALIZADO (implementación, FR-008): enmiendas + fila 014 «Completada»
@@ -151,7 +151,7 @@ flowchart LR
         AccPage["/accounts/[accountId] page.tsx (server)"]
         List["GroupedMovementList (client; fila: nota + tag única)"]
         CreateDlg["CreateMovementDialog (client; MODIFICADO: captación continua — savedCount/carry/intent)"]
-        Fields["MovementFormFields (client; MODIFICADO: Nota, RadioGroup Etiqueta, sin cuenta)"]
+        Fields["MovementFormFields (client; MODIFICADO: Nota, Select Etiqueta, sin cuenta)"]
         EditDlg["EditMovementDialog (client; MODIFICADO: sin selector de cuenta)"]
         DelDlg["DeleteMovementDialog (client; «Nota: …»)"]
         Panels["Cierre / Resumen / Anual (server; sin TAG_NOTE)"]
@@ -281,7 +281,7 @@ Re-evaluación tras generar [research.md](./research.md), [data-model.md](./data
 
 | # | Principio | Estado post-diseño | Notas |
 |---|-----------|--------------------|-------|
-| I | Simplicidad Primero | ✅ PASS | El diseño elimina más de lo que añade: 2 columnas + tabla junction fuera, un campo y un checkbox-multi→radio dentro; la tanda usa estado local + HTML estándar, sin librerías ni abstracciones nuevas (research §1–§5). |
+| I | Simplicidad Primero | ✅ PASS | El diseño elimina más de lo que añade: 2 columnas + tabla junction fuera, un campo y un checkbox-multi→select dentro; la tanda usa estado local + HTML estándar, sin librerías ni abstracciones nuevas (research §1–§5). |
 | II | Spec-Driven Development | ✅ PASS | Cada FR traza a artefacto: FR-001 → ui-contract §3/§4 + research §4; FR-002 → data-model §1.2/§2.1 + ui-contract §1; FR-003 → data-model §1.2/§3 + ui-contract §1/§2; FR-004 → data-model §1.2/§4 + research §3; FR-005 → research §4 (revalidate intacto); FR-006 → ui-contract §2; FR-007 → research §6 + quickstart gates; FR-008 → research §7 + Project Structure; FR-009 → ui-contract §8. |
 | III | Calidad Verificada | ✅ PASS | Quickstart con 5 escenarios + gates; suites adaptadas manteniendo lo verificado y cobertura nueva donde la feature arriesga (tanda, tag obligatoria, `intent`, migración destructiva); el flujo crítico sigue e2e con tanda y error por tag ausente (SC-004, constitución III). |
 | IV | TypeScript Estricto + Zod | ✅ PASS | `movementFormSchema` redefinido con las reglas nuevas (`note`, `tagId` 0..1, superRefine de tag, `intent`); DTOs y estados tipados; sin `any`; todas las fronteras validadas (data-model §3, ui-contract §5). |
