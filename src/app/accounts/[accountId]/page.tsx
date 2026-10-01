@@ -16,7 +16,6 @@ import { GroupedMovementList } from "@/infrastructure/primary/ui/grouped-movemen
 import { currentMonth, monthEndIsoDate, monthLabel } from "@/infrastructure/primary/ui/format";
 import { MonthStepper } from "@/infrastructure/primary/ui/month-stepper";
 import { MonthlyClosurePanel } from "@/infrastructure/primary/ui/monthly-closure-panel";
-import { MovementForm } from "@/infrastructure/primary/ui/movement-form";
 
 const accountIdParamSchema = z
   .string()
@@ -83,19 +82,14 @@ export default async function AccountPage({
         tags={tags}
         currentAccountId={account.id}
         currentMonth={month}
+        accountName={account.name}
+        accountType={account.type}
       />
 
       <AccountBalance
         accountName={account.name}
         balanceCents={balanceCents}
         subtitle={`Acumulado hasta ${monthLabel(month)}`}
-      />
-
-      <MovementForm
-        accountId={account.id}
-        accountName={account.name}
-        accountType={account.type}
-        tags={tags}
       />
 
       <MonthlyClosurePanel closure={closure} month={month} />

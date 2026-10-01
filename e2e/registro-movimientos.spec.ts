@@ -10,7 +10,14 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
   await expect(page.getByRole("heading", { name: accountName, exact: true })).toBeVisible();
 }
 
-async function registerMovement(
+async function openCreateDialog(page: Page): Promise<void> {
+  const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+  if (await dialog.isVisible()) return;
+  await page.getByRole("button", { name: "Nuevo movimiento" }).click();
+  await expect(dialog).toBeVisible();
+}
+
+async function fillMovementFields(
   page: Page,
   fields: {
     concept: string;
@@ -34,8 +41,33 @@ async function registerMovement(
   for (const tagName of fields.tags ?? []) {
     await page.getByRole("checkbox", { name: tagName, exact: true }).check();
   }
+}
 
+async function registerMovement(
+  page: Page,
+  fields: {
+    concept: string;
+    amount: string;
+    type?: "expense" | "income";
+    nature?: "personal" | "shared";
+    tags?: string[];
+  },
+): Promise<void> {
+  await openCreateDialog(page);
+  await fillMovementFields(page, fields);
   await page.getByRole("button", { name: "Registrar" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+  await expect
+    .poll(
+      async () => {
+        const dialogVisible = await dialog.isVisible();
+        const alertVisible = await page.getByRole("alert").first().isVisible();
+        return !dialogVisible || alertVisible;
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
 }
 
 test.describe("registro de movimientos (flujo crítico)", () => {
@@ -63,7 +95,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
 
     await expect(page.getByText(/^-850,00/)).toBeVisible();
 
-    await expect(page.getByLabel("Concepto", { exact: true })).toHaveValue("");
+    await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toHaveCount(0);
   });
 
   test("E2: gasto compartido pagado desde cuenta personal", async ({ page }) => {
@@ -107,10 +139,14 @@ test.describe("registro de movimientos (flujo crítico)", () => {
     await registerMovement(page, { concept: "Gasto previo", amount: "10,00" });
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
+    await openCreateDialog(page);
+    await expect(page.getByLabel("Concepto", { exact: true })).toHaveValue("");
     await page.getByRole("radio", { name: "Ingreso" }).check();
     await expect(page.getByRole("radio", { name: "Ingreso" })).toBeChecked();
 
-    await registerMovement(page, { concept: "Nómina encadenada", amount: "1500,00" });
+    await page.getByLabel("Concepto", { exact: true }).fill("Nómina encadenada");
+    await page.getByLabel("Importe (€)").fill("1500,00");
+    await page.getByRole("button", { name: "Registrar" }).click();
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
     const movementItem = movementList(page)

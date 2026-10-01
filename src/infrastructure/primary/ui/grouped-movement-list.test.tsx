@@ -1,9 +1,10 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../actions/update-movement.action", () => ({ updateMovement: vi.fn() }));
 vi.mock("../actions/delete-movement.action", () => ({ deleteMovement: vi.fn() }));
+vi.mock("../actions/create-movement.action", () => ({ createMovement: vi.fn() }));
 
 import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
 import { groupMovementsByDate, GroupedMovementList } from "./grouped-movement-list";
@@ -39,6 +40,8 @@ function renderList(movements: MovementDTO[]) {
       tags={tags}
       currentAccountId={2}
       currentMonth="2026-04"
+      accountName="Cuenta de Miembro B"
+      accountType="personal"
     />,
   );
 }
@@ -178,10 +181,49 @@ describe("GroupedMovementList", () => {
         tags={tags}
         currentAccountId={2}
         currentMonth="2026-04"
+        accountName="Cuenta de Miembro B"
+        accountType="personal"
       />,
     );
 
     expect(screen.getByRole("alertdialog", { name: "Eliminar movimiento" })).toBeInTheDocument();
     expect(screen.getByText(/Aún no hay movimientos en este mes/)).toBeInTheDocument();
+  });
+
+  it("muestra el CTA «Nuevo movimiento» con movimientos y también en estado vacío", () => {
+    renderList([buildMovement({ id: 7 })]);
+    expect(screen.getByRole("button", { name: "Nuevo movimiento" })).toBeInTheDocument();
+
+    cleanup();
+    renderList([]);
+    expect(screen.getByRole("button", { name: "Nuevo movimiento" })).toBeInTheDocument();
+  });
+
+  it("el estado vacío ya no menciona el formulario superior y guía al CTA", () => {
+    renderList([]);
+
+    expect(screen.queryByText(/formulario superior/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Pulsa «Nuevo movimiento» para registrar el primero/)).toBeInTheDocument();
+  });
+
+  it("pulsar el CTA abre el diálogo de alta y cerrarlo lo desmonta", async () => {
+    const user = userEvent.setup();
+    renderList([buildMovement({ id: 7 })]);
+
+    await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
+    expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("el CTA abre el diálogo de alta también desde el estado vacío", async () => {
+    const user = userEvent.setup();
+    renderList([]);
+
+    await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
+    expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
   });
 });
