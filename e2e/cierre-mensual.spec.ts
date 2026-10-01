@@ -16,6 +16,9 @@ async function registerMovement(
     tags?: string[];
   },
 ): Promise<void> {
+  await page.getByRole("button", { name: "Nuevo movimiento" }).click();
+  await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toBeVisible();
+
   await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
@@ -34,6 +37,9 @@ async function registerMovement(
   }
 
   await page.getByRole("button", { name: "Registrar" }).click();
+  await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).not.toBeVisible({
+    timeout: 10_000,
+  });
 
   await expect(
     page

@@ -19,7 +19,8 @@ vi.mock("sonner", async (importOriginal) => {
   };
 });
 
-import { MovementForm, MovementFormFields } from "./movement-form";
+import { CreateMovementDialog } from "./create-movement-dialog";
+import { MovementFormFields } from "./movement-form";
 import { todayIsoDate } from "./format";
 import type { CreateMovementState } from "../actions/create-movement.action";
 
@@ -59,14 +60,28 @@ function errorState(overrides: Partial<Extract<CreateMovementState, { status: "e
   };
 }
 
+function renderCreateDialog(
+  account: typeof personalAccount | typeof sharedAccount = personalAccount,
+) {
+  return render(
+    <CreateMovementDialog
+      accountId={account.accountId}
+      accountName={account.accountName}
+      accountType={account.accountType}
+      tags={tags}
+      onClose={vi.fn()}
+    />,
+  );
+}
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
 
-describe("MovementForm", () => {
+describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
   it("renderiza los defaults: fecha hoy, tipo gasto y naturaleza personal editable", () => {
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     const dateInput = screen.getByLabelText("Fecha");
     expect(dateInput).toHaveValue(todayIsoDate());
@@ -76,7 +91,7 @@ describe("MovementForm", () => {
   });
 
   it("en la cuenta común la naturaleza es compartido y no editable", () => {
-    render(<MovementForm {...sharedAccount} tags={tags} />);
+    renderCreateDialog(sharedAccount);
 
     const personal = screen.getByRole("radio", { name: /Personal/ });
     const shared = screen.getByRole("radio", { name: /Compartido \(fijo/ });
@@ -88,7 +103,7 @@ describe("MovementForm", () => {
 
   it("oculta la naturaleza al seleccionar ingreso", async () => {
     const user = userEvent.setup();
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.click(screen.getByRole("radio", { name: "Ingreso" }));
 
@@ -106,7 +121,7 @@ describe("MovementForm", () => {
         },
       }),
     );
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
@@ -120,7 +135,7 @@ describe("MovementForm", () => {
   it("conserva los valores introducidos tras un fallo", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce(errorState());
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
@@ -132,10 +147,10 @@ describe("MovementForm", () => {
     expect(screen.getByLabelText("Vivienda")).toBeChecked();
   });
 
-  it("en éxito muestra el toast y resetea el formulario a los defaults", async () => {
+  it("en éxito tuesta, cierra el diálogo y al reabrir encuentra el formulario limpio", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento guardado" });
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.type(screen.getByLabelText("Concepto"), "Mercadona");
     await user.click(screen.getByRole("button", { name: "Registrar" }));
@@ -144,21 +159,25 @@ describe("MovementForm", () => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
     });
     await waitFor(() => {
-      expect(screen.getByLabelText("Concepto")).toHaveValue("");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+
+    renderCreateDialog();
+    expect(screen.getByLabelText("Concepto")).toHaveValue("");
     expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
   });
 
-  it("permite seleccionar ingreso después de un registro exitoso (regresión E3)", async () => {
+  it("permite seleccionar ingreso tras reabrir el diálogo después de un registro exitoso (regresión E3)", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento guardado" });
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.click(screen.getByRole("button", { name: "Registrar" }));
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
     });
 
+    renderCreateDialog();
     await user.click(screen.getByRole("radio", { name: "Ingreso" }));
 
     expect(screen.getByRole("radio", { name: "Ingreso" })).toBeChecked();
@@ -173,7 +192,7 @@ describe("MovementForm", () => {
         errors: { _form: ["No se ha podido guardar el movimiento. Inténtalo de nuevo."] },
       }),
     );
-    render(<MovementForm {...personalAccount} tags={tags} />);
+    renderCreateDialog();
 
     await user.click(screen.getByRole("button", { name: "Registrar" }));
 
@@ -182,6 +201,7 @@ describe("MovementForm", () => {
         screen.getByText("No se ha podido guardar el movimiento. Inténtalo de nuevo."),
       ).toBeInTheDocument();
     });
+    expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
   });
 });
 

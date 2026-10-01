@@ -4,10 +4,12 @@ import { useState } from "react";
 
 import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
 
+import { CreateMovementDialog } from "./create-movement-dialog";
 import { DeleteMovementDialog } from "./delete-movement-dialog";
 import { EditMovementDialog } from "./edit-movement-dialog";
 import { EmptyState } from "./empty-state";
 import { formatDate, formatSignedAmountCents } from "./format";
+import { Button } from "./components/ui/button";
 
 interface DateGroup {
   date: string;
@@ -36,6 +38,8 @@ interface GroupedMovementListProps {
   tags: TagDTO[];
   currentAccountId: number;
   currentMonth: string;
+  accountName: string;
+  accountType: "personal" | "shared";
 }
 
 export function GroupedMovementList({
@@ -44,21 +48,33 @@ export function GroupedMovementList({
   tags,
   currentAccountId,
   currentMonth,
+  accountName,
+  accountType,
 }: GroupedMovementListProps) {
   const [editing, setEditing] = useState<MovementDTO | null>(null);
   const [deleting, setDeleting] = useState<MovementDTO | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const groups = groupMovementsByDate(movements);
 
   return (
     <>
       {movements.length === 0 ? (
-        <EmptyState />
+        <EmptyState>
+          <Button type="button" size="sm" onClick={() => setCreating(true)}>
+            Nuevo movimiento
+          </Button>
+        </EmptyState>
       ) : (
         <section aria-labelledby="movement-list-title">
-          <h2 id="movement-list-title" className="mb-2 text-lg font-semibold">
-            Movimientos del mes
-          </h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 id="movement-list-title" className="text-lg font-semibold">
+              Movimientos del mes
+            </h2>
+            <Button type="button" size="sm" onClick={() => setCreating(true)}>
+              Nuevo movimiento
+            </Button>
+          </div>
           <div className="flex flex-col gap-4">
             {groups.map((group) => (
               <div key={group.date} className="rounded-lg border">
@@ -130,6 +146,16 @@ export function GroupedMovementList({
           </div>
         </section>
       )}
+
+      {creating ? (
+        <CreateMovementDialog
+          accountId={currentAccountId}
+          accountName={accountName}
+          accountType={accountType}
+          tags={tags}
+          onClose={() => setCreating(false)}
+        />
+      ) : null}
 
       {editing ? (
         <EditMovementDialog

@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { useState, type ReactNode } from "react";
 
 import type { AccountDTO, TagDTO } from "@/application/movement/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
@@ -18,23 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import {
-  createMovement,
-  type CreateMovementState,
-} from "../actions/create-movement.action";
 import type {
   MovementFieldErrors,
   MovementFieldKey,
   MovementFormValues,
 } from "../actions/movement-form.schema";
 import { formatCentsForInput, todayIsoDate } from "./format";
-
-interface MovementFormProps {
-  accountId: number;
-  accountName: string;
-  accountType: "personal" | "shared";
-  tags: TagDTO[];
-}
 
 export type MovementFormState =
   | { status: "idle" }
@@ -50,43 +38,6 @@ export interface MovementFormInitialValues {
   type: "expense" | "income";
   nature: ExpenseNature | null;
   tagIds: number[];
-}
-
-export function MovementForm(props: MovementFormProps) {
-  const [state, formAction, isPending] = useActionState(createMovement, {
-    status: "idle",
-  } satisfies CreateMovementState);
-
-  const [successCount, setSuccessCount] = useState(0);
-  const [lastSeenState, setLastSeenState] = useState(state);
-  if (lastSeenState !== state) {
-    setLastSeenState(state);
-    if (state.status === "success") {
-      setSuccessCount((count) => count + 1);
-    }
-  }
-  const formKey = state.status === "success" ? `success-${successCount}` : "form";
-
-  useEffect(() => {
-    if (state.status === "success") {
-      toast.success("Movimiento guardado");
-    }
-  }, [state]);
-
-  return (
-    <section aria-labelledby="movement-form-title" className="rounded-lg border p-4">
-      <h2 id="movement-form-title" className="mb-4 text-lg font-semibold">
-        Registrar movimiento
-      </h2>
-      <MovementFormFields
-        key={formKey}
-        state={state}
-        formAction={formAction}
-        isPending={isPending}
-        {...props}
-      />
-    </section>
-  );
 }
 
 interface MovementFormFieldsProps {

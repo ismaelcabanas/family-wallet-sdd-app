@@ -40,6 +40,10 @@ async function registerMovement(
     description?: string;
   },
 ): Promise<void> {
+  await page.getByRole("button", { name: "Nuevo movimiento" }).click();
+  const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+  await expect(dialog).toBeVisible();
+
   await page.getByLabel("Fecha", { exact: true }).fill(fields.date);
   await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
   await page.getByLabel("Importe (€)").fill(fields.amount);
@@ -64,6 +68,7 @@ async function registerMovement(
 
   await page.getByRole("button", { name: "Registrar" }).click();
   await expect(page.getByText("Movimiento guardado").last()).toBeVisible({ timeout: 10_000 });
+  await expect(dialog).not.toBeVisible();
 
   const item = movementList(page)
     .getByRole("listitem")
@@ -84,6 +89,8 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await expect(
       page.getByRole("region").filter({ hasText: "Acumulado hasta Abril de 2026" }).first(),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Registrar movimiento" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Nuevo movimiento" })).toBeVisible();
 
     await registerMovement(page, {
       concept: "Mercadona",
