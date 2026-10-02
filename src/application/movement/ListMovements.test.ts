@@ -9,11 +9,10 @@ const movements: MovementDTO[] = [
     accountId: 1,
     type: "expense",
     date: "2026-09-03",
-    concept: "Hipoteca",
-    description: null,
+    note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tags: [{ id: 2, name: "Vivienda", slug: "vivienda" }],
+    tag: { id: 2, name: "Vivienda", slug: "vivienda" },
   },
 ];
 

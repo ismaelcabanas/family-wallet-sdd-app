@@ -79,7 +79,7 @@ describe("GlobalSummaryPanel", () => {
     ).toHaveTextContent(`Gastos personales: ${normalizedAmount(6_000)}`);
   });
 
-  it("muestra el desglose por tag en orden de importe con la nota multi-tag", () => {
+  it("muestra el desglose por tag en orden de importe sin nota multi-tag (tag única)", () => {
     render(<GlobalSummaryPanel summary={summaryDTO()} month="2026-09" />);
 
     const rows = screen.getAllByRole("listitem");
@@ -91,10 +91,10 @@ describe("GlobalSummaryPanel", () => {
     ]);
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.",
       ),
-    ).toBeVisible();
+    ).toBeNull();
   });
 
   it("renderiza el desglose por miembro como tabla semántica con cabeceras de columna", () => {

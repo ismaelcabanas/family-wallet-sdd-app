@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import type { AccountDTO, TagDTO } from "@/application/movement/dto";
+import type { TagDTO } from "@/application/movement/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
+import type { MovementType } from "@/domain/movement/MovementType";
 
 import { Button } from "./components/ui/button";
-import { Checkbox } from "./components/ui/checkbox";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
@@ -31,13 +31,17 @@ export type MovementFormState =
 
 export interface MovementFormInitialValues {
   date: string;
-  concept: string;
-  description: string;
+  note: string;
   amountCents: number;
-  accountId: number;
-  type: "expense" | "income";
+  type: MovementType;
   nature: ExpenseNature | null;
-  tagIds: number[];
+  tagId: number | null;
+}
+
+export interface CarryOverValues {
+  date: string;
+  type: MovementType;
+  nature: ExpenseNature | null;
 }
 
 interface MovementFormFieldsProps {
@@ -46,14 +50,16 @@ interface MovementFormFieldsProps {
   isPending: boolean;
   tags: TagDTO[];
   submitLabel?: string;
+  primaryIntent?: "continue";
   secondaryActions?: ReactNode;
   children?: ReactNode;
   accountId?: number;
-  accountName?: string;
   accountType?: "personal" | "shared";
-  accounts?: AccountDTO[];
   initialValues?: MovementFormInitialValues;
+  carry?: CarryOverValues;
 }
+
+const NO_TAG_VALUE = "__no_tag__";
 
 export function MovementFormFields({
   state,
@@ -61,70 +67,79 @@ export function MovementFormFields({
   isPending,
   tags,
   submitLabel = "Registrar",
+  primaryIntent,
   secondaryActions,
   children,
   accountId,
-  accountName,
   accountType,
-  accounts,
   initialValues,
+  carry,
 }: MovementFormFieldsProps) {
-  const isEditMode = Boolean(accounts && initialValues);
+  const isEditMode = Boolean(initialValues && !carry);
 
-  const [chosenType, setChosenType] = useState<"expense" | "income">(
+  const initialType =
     state.status === "error" && state.values.type === "income"
-      ? "income"
-      : (initialValues?.type ?? "expense"),
-  );
-  const [chosenNature, setChosenNature] = useState<ExpenseNature>(
-    initialValues?.nature ?? "personal",
-  );
-  const [chosenAccountId, setChosenAccountId] = useState<number>(
-    initialValues?.accountId ?? 0,
+      ? ("income" as const)
+      : (initialValues?.type ?? carry?.type ?? ("expense" as const));
+  const initialNature =
+    initialValues?.nature ??
+    (carry?.type === "expense" ? carry.nature : null) ??
+    "personal";
+
+  const [chosenType, setChosenType] = useState<MovementType>(initialType);
+  const [chosenNature, setChosenNature] = useState<ExpenseNature>(initialNature);
+  const [selectedTagId, setSelectedTagId] = useState<string>(
+    initialValues?.tagId != null ? String(initialValues.tagId) : "",
   );
 
-  const isSharedAccount = isEditMode
-    ? (accounts?.find((account) => account.id === effectiveAccountId())?.type ?? "personal") ===
-      "shared"
-    : accountType === "shared";
+  const noteRef = useRef<HTMLInputElement>(null);
 
-  const selectedTagIds =
-    state.status === "error"
-      ? state.values.tagIds
-      : (initialValues?.tagIds.map(String) ?? []);
-  const defaultNature = isSharedAccount
-    ? "shared"
-    : state.status === "error" && state.values.nature !== ""
-      ? state.values.nature
-      : "personal";
+  useEffect(() => {
+    if (carry && noteRef.current) {
+      noteRef.current.focus();
+    }
+  }, [carry]);
+
+  const isSharedAccount = accountType === "shared" && !isEditMode;
+
+  const errorTagId =
+    state.status === "error" && state.values.tagId !== "" ? state.values.tagId : undefined;
 
   const fieldError = (field: MovementFieldKey): string | undefined =>
     state.status === "error" ? state.errors[field]?.[0] : undefined;
 
-  const fieldValue = (field: "date" | "concept" | "description" | "amount", fallback: string) =>
+  const fieldValue = (field: "date" | "note" | "amount", fallback: string) =>
     state.status === "error" ? (state.values[field] ?? fallback) : fallback;
 
   const natureError = fieldError("nature");
   const idPrefix = isEditMode ? "edit-" : "";
 
-  function effectiveAccountId(): number {
-    if (state.status === "error") return Number(state.values.accountId);
-    return chosenAccountId;
+  function defaultDate(): string {
+    if (initialValues) return initialValues.date;
+    if (carry) return carry.date;
+    return todayIsoDate();
   }
 
-  function editFallback(field: "date" | "concept" | "description" | "amount"): string {
-    if (!initialValues) return field === "date" ? todayIsoDate() : "";
-    switch (field) {
-      case "date":
-        return initialValues.date;
-      case "concept":
-        return initialValues.concept;
-      case "description":
-        return initialValues.description;
-      case "amount":
-        return formatCentsForInput(initialValues.amountCents);
-    }
+  function defaultAmount(): string {
+    if (initialValues) return formatCentsForInput(initialValues.amountCents);
+    return "";
   }
+
+  function defaultNature(): ExpenseNature {
+    if (isSharedAccount) return "shared";
+    if (state.status === "error" && state.values.nature !== "") {
+      return state.values.nature as ExpenseNature;
+    }
+    if (carry?.type === "expense" && carry.nature !== null) return carry.nature;
+    return "personal";
+  }
+
+  const selectValue =
+    state.status === "error" && errorTagId !== undefined
+      ? errorTagId
+      : selectedTagId === ""
+        ? undefined
+        : selectedTagId;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -138,7 +153,7 @@ export function MovementFormFields({
             id={`${idPrefix}movement-date`}
             name="date"
             type="date"
-            defaultValue={fieldValue("date", editFallback("date"))}
+            defaultValue={fieldValue("date", defaultDate())}
             aria-describedby={fieldError("date") ? `${idPrefix}movement-date-error` : undefined}
           />
           {fieldError("date") ? (
@@ -155,7 +170,7 @@ export function MovementFormFields({
             name="amount"
             inputMode="decimal"
             placeholder="0,00"
-            defaultValue={fieldValue("amount", editFallback("amount"))}
+            defaultValue={fieldValue("amount", defaultAmount())}
             aria-describedby={fieldError("amount") ? `${idPrefix}movement-amount-error` : undefined}
           />
           {fieldError("amount") ? (
@@ -167,70 +182,28 @@ export function MovementFormFields({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor={`${idPrefix}movement-concept`}>Concepto</Label>
+        <Label htmlFor={`${idPrefix}movement-note`}>Nota</Label>
         <Input
-          id={`${idPrefix}movement-concept`}
-          name="concept"
+          ref={noteRef}
+          id={`${idPrefix}movement-note`}
+          name="note"
           placeholder="Mercadona"
-          defaultValue={fieldValue("concept", editFallback("concept"))}
-          aria-describedby={fieldError("concept") ? `${idPrefix}movement-concept-error` : undefined}
+          defaultValue={fieldValue("note", initialValues?.note ?? "")}
+          aria-describedby={fieldError("note") ? `${idPrefix}movement-note-error` : undefined}
         />
-        {fieldError("concept") ? (
-          <p role="alert" id={`${idPrefix}movement-concept-error`} className="text-sm text-red-600">
-            {fieldError("concept")}
+        {fieldError("note") ? (
+          <p role="alert" id={`${idPrefix}movement-note-error`} className="text-sm text-red-600">
+            {fieldError("note")}
           </p>
         ) : null}
       </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={`${idPrefix}movement-description`}>Descripción (opcional)</Label>
-        <Input
-          id={`${idPrefix}movement-description`}
-          name="description"
-          defaultValue={fieldValue("description", editFallback("description"))}
-        />
-      </div>
-
-      {isEditMode ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`${idPrefix}movement-account`}>Cuenta</Label>
-          <Select
-            name="accountId"
-            value={String(effectiveAccountId())}
-            onValueChange={(value) => setChosenAccountId(Number(value))}
-          >
-            <SelectTrigger id={`${idPrefix}movement-account`} className="w-full" aria-label="Cuenta">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts?.map((account) => (
-                <SelectItem key={account.id} value={String(account.id)}>
-                  {account.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {fieldError("accountId") ? (
-            <p role="alert" className="text-sm text-red-600">
-              {fieldError("accountId")}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <Label>Cuenta</Label>
-          <p className="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">
-            {accountName} (se cambia con el selector superior)
-          </p>
-        </div>
-      )}
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Tipo</legend>
         <RadioGroup
           name="type"
           value={chosenType}
-          onValueChange={(value) => setChosenType(value as "expense" | "income")}
+          onValueChange={(value) => setChosenType(value as MovementType)}
           className="flex gap-6"
         >
           <div className="flex items-center gap-2">
@@ -268,7 +241,7 @@ export function MovementFormFields({
                 </div>
               </RadioGroup>
             </>
-          ) : isEditMode ? (
+          ) : isEditMode || state.status === "error" ? (
             <RadioGroup
               name="nature"
               value={
@@ -289,7 +262,7 @@ export function MovementFormFields({
               </div>
             </RadioGroup>
           ) : (
-            <RadioGroup name="nature" defaultValue={defaultNature} className="flex gap-6">
+            <RadioGroup name="nature" defaultValue={defaultNature()} className="flex gap-6">
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="personal" id={`${idPrefix}movement-nature-personal`} />
                 <Label htmlFor={`${idPrefix}movement-nature-personal`}>Personal</Label>
@@ -308,36 +281,34 @@ export function MovementFormFields({
         </fieldset>
       ) : null}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Etiquetas (opcional)</legend>
-        <div className="flex flex-wrap gap-3">
-          {tags.map((tag) => {
-            const checked = selectedTagIds.includes(String(tag.id));
-            return (
-              <div key={tag.id} className="flex items-center gap-2">
-                <Checkbox
-                  id={`${idPrefix}movement-tag-${tag.id}`}
-                  key={`${tag.id}-${checked ? "on" : "off"}`}
-                  name="tagIds"
-                  value={String(tag.id)}
-                  defaultChecked={checked}
-                />
-                <Label htmlFor={`${idPrefix}movement-tag-${tag.id}`} className="font-normal">
-                  {tag.name}
-                </Label>
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Sin selección, el movimiento se guarda con la etiqueta «Sin Clasificar».
-        </p>
-        {fieldError("tagIds") ? (
-          <p role="alert" className="text-sm text-red-600">
-            {fieldError("tagIds")}
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={`${idPrefix}movement-tag`}>Etiqueta</Label>
+        <input
+          type="hidden"
+          name="tagId"
+          value={selectValue === NO_TAG_VALUE ? "" : (selectValue ?? "")}
+        />
+        <Select value={selectValue} onValueChange={(value) => setSelectedTagId(value)}>
+          <SelectTrigger id={`${idPrefix}movement-tag`} className="w-full" aria-label="Etiqueta">
+            <SelectValue placeholder="Selecciona etiqueta" />
+          </SelectTrigger>
+          <SelectContent>
+            {chosenType === "income" ? (
+              <SelectItem value={NO_TAG_VALUE}>Sin etiqueta</SelectItem>
+            ) : null}
+            {tags.map((tag) => (
+              <SelectItem key={tag.id} value={String(tag.id)}>
+                {tag.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {fieldError("tagId") ? (
+          <p role="alert" id={`${idPrefix}movement-tag-error`} className="text-sm text-red-600">
+            {fieldError("tagId")}
           </p>
         ) : null}
-      </fieldset>
+      </div>
 
       {state.status === "error" && state.errors._form ? (
         <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-600">
@@ -347,7 +318,11 @@ export function MovementFormFields({
 
       <div className="flex items-center gap-2 self-start">
         {secondaryActions}
-        <Button type="submit" disabled={isPending}>
+        <Button
+          type="submit"
+          disabled={isPending}
+          {...(primaryIntent === "continue" ? { name: "intent", value: "continue" } : {})}
+        >
           {isPending ? "Guardando…" : submitLabel}
         </Button>
       </div>

@@ -29,11 +29,10 @@ const movement: MovementDTO = {
   accountId: 1,
   type: "expense",
   date: "2026-09-14",
-  concept: "Mercadona",
-  description: null,
+  note: "Mercadona",
   amountCents: 8_500,
   nature: "personal",
-  tags: [{ id: 2, name: "Vivienda", slug: "vivienda" }],
+  tag: { id: 2, name: "Vivienda", slug: "vivienda" },
 };
 
 const onCloseMock = vi.fn();
@@ -50,11 +49,12 @@ afterEach(() => {
 });
 
 describe("DeleteMovementDialog", () => {
-  it("muestra concepto, importe con signo y fecha larga del movimiento", () => {
+  it("muestra nota, importe con signo y fecha larga del movimiento", () => {
     renderDialog();
 
     const dialog = screen.getByRole("alertdialog", { name: "Eliminar movimiento" });
     expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText("Nota:")).toBeInTheDocument();
     expect(within(dialog).getByText("Mercadona")).toBeInTheDocument();
     expect(within(dialog).getByText(/−85,00[\s\u00A0]€/u)).toBeInTheDocument();
     expect(within(dialog).getByText(formatDate("2026-09-14"))).toBeInTheDocument();

@@ -7,8 +7,6 @@ import { InactiveTagError, TagNotFoundError } from "@/domain/tag/TagErrors";
 
 import type { TagRepository } from "../tag/TagRepository";
 
-export const DEFAULT_TAG_SLUG = "sin-clasificar";
-
 export interface MovementNatureInput {
   type: MovementType;
   nature: ExpenseNature | null;
@@ -36,27 +34,21 @@ export function resolveNature(
   );
 }
 
-export async function resolveTagIds(
+export async function resolveTagId(
   tags: TagRepository,
-  rawTagIds: number[],
-): Promise<TagId[]> {
-  const uniqueIds = [...new Set(rawTagIds)];
-
-  if (uniqueIds.length === 0) {
-    const defaultTag = await tags.findBySlug(DEFAULT_TAG_SLUG);
-    if (!defaultTag || defaultTag.status !== "active" || defaultTag.id === null) {
-      throw new TagNotFoundError();
-    }
-    return [defaultTag.id];
+  rawTagId: number | null,
+): Promise<TagId | null> {
+  if (rawTagId === null) {
+    return null;
   }
 
-  const tagIds = uniqueIds.map((id) => TagId(id));
-  const found = await tags.findByIds(tagIds);
-  if (found.length !== tagIds.length) {
+  const tagId = TagId(rawTagId);
+  const found = await tags.findByIds([tagId]);
+  if (found.length !== 1) {
     throw new TagNotFoundError();
   }
-  if (found.some((tag) => tag.status !== "active")) {
+  if (found[0].status !== "active") {
     throw new InactiveTagError();
   }
-  return tagIds;
+  return tagId;
 }

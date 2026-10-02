@@ -1,6 +1,7 @@
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import { accounts } from "./accounts";
+import { tags } from "./tags";
 
 export const movements = sqliteTable(
   "movements",
@@ -11,10 +12,10 @@ export const movements = sqliteTable(
       .references(() => accounts.id),
     type: text("type").notNull(),
     date: text("date").notNull(),
-    concept: text("concept").notNull(),
-    description: text("description"),
+    note: text("note").notNull(),
     amountCents: integer("amount_cents").notNull(),
     nature: text("nature"),
+    tagId: integer("tag_id").references(() => tags.id, { onDelete: "restrict" }),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at"),
   },

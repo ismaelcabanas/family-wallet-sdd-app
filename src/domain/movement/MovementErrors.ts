@@ -8,12 +8,12 @@ export class InvalidMoneyError extends DomainError {
 
 export type MovementField =
   | "date"
-  | "concept"
+  | "note"
   | "amount"
   | "accountId"
   | "type"
   | "nature"
-  | "tagIds";
+  | "tagId";
 
 export class InvalidMovementError extends DomainError {
   constructor(

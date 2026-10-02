@@ -19,7 +19,7 @@ export class GetMonthlyClosure {
       type: dto.type,
       nature: dto.nature,
       amountCents: dto.amountCents,
-      tags: dto.tags.map((tag) => ({ id: tag.id, name: tag.name })),
+      tag: dto.tag ? { id: dto.tag.id, name: dto.tag.name } : null,
     }));
 
     const closure = MonthlyClosure.fromMovements(inputs);

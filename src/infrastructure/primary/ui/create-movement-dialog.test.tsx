@@ -50,32 +50,37 @@ afterEach(() => {
 });
 
 describe("CreateMovementDialog", () => {
-  it("abre con los defaults de alta: fecha hoy, Gasto y cuenta fijada como texto", () => {
+  it("abre con los defaults de alta: fecha hoy, Gasto, naturaleza personal y sin contador", () => {
     renderDialog();
 
     expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
     expect(screen.getByLabelText("Fecha")).toHaveValue(todayIsoDate());
     expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
-    expect(
-      screen.getByText("Cuenta de Miembro A (se cambia con el selector superior)"),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Guardados:/)).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Cuenta" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Registrar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar y seguir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Guardar y cerrar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
   });
 
-  it("submit válido llama a la action con la cuenta fijada, cierra y tuesta «Movimiento guardado»", async () => {
+  it("submit con «Guardar y cerrar» llama a la action con intent=close, cierra y tuesta", async () => {
     const user = userEvent.setup();
-    actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento guardado" });
+    actionMock.mockResolvedValueOnce({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "close",
+    });
     renderDialog();
 
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
 
     await waitFor(() => {
       expect(actionMock).toHaveBeenCalledTimes(1);
     });
     const formData = actionMock.mock.calls[0][1] as FormData;
     expect(formData.get("accountId")).toBe("1");
+    expect(formData.get("intent")).toBe("close");
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
     });
@@ -91,31 +96,30 @@ describe("CreateMovementDialog", () => {
       status: "error",
       errors: {
         amount: ["El importe es obligatorio."],
-        concept: ["El concepto es obligatorio."],
+        note: ["La nota es obligatoria."],
       },
       values: {
         date: "2026-09-03",
-        concept: "Hipoteca",
-        description: "",
+        note: "Hipoteca",
         amount: "850,00",
         accountId: "1",
         type: "expense",
         nature: "personal",
-        tagIds: ["2"],
+        tagId: "2",
       },
     });
     renderDialog();
 
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
 
     await waitFor(() => {
       expect(screen.getByText("El importe es obligatorio.")).toBeInTheDocument();
     });
-    expect(screen.getByText("El concepto es obligatorio.")).toBeInTheDocument();
+    expect(screen.getByText("La nota es obligatoria.")).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Hipoteca")).toBeInTheDocument();
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("850,00");
-    expect(screen.getByLabelText("Vivienda")).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
   });
 
   it("Cancelar cierra el diálogo sin llamar a la action", async () => {
@@ -139,5 +143,137 @@ describe("CreateMovementDialog", () => {
 
     expect(screen.queryByRole("radio", { name: "Personal" })).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "Compartido" })).not.toBeInTheDocument();
+  });
+});
+
+describe("CreateMovementDialog (captación continua)", () => {
+  it("«Guardar y seguir» deja el diálogo abierto, incrementa el contador y prepara la siguiente captura", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValue({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "continue",
+    });
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Nota"), "Mercadona");
+    await user.type(screen.getByLabelText("Importe (€)"), "85,00");
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Vivienda" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    const formData = actionMock.mock.calls[0][1] as FormData;
+    expect(formData.get("intent")).toBe("continue");
+
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
+    });
+    expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
+    expect(screen.getByText("Guardados: 1")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Nota")).toHaveValue("");
+      expect(screen.getByLabelText("Importe (€)")).toHaveValue("");
+    });
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Selecciona etiqueta",
+    );
+    expect(screen.getByLabelText("Fecha")).toHaveValue(todayIsoDate());
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
+    expect(screen.getByLabelText("Nota")).toHaveFocus();
+  });
+
+  it("la fecha, tipo y naturaleza del último envío se pegan en la siguiente captura", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValue({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "continue",
+    });
+    renderDialog();
+
+    await user.clear(screen.getByLabelText("Fecha"));
+    await user.type(screen.getByLabelText("Fecha"), "2026-10-01");
+    await user.click(screen.getByRole("radio", { name: "Compartido" }));
+    await user.type(screen.getByLabelText("Nota"), "Uno");
+    await user.type(screen.getByLabelText("Importe (€)"), "10,00");
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Hipoteca" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Guardados: 1")).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText("Fecha")).toHaveValue("2026-10-01");
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Compartido" })).toBeChecked();
+  });
+
+  it("dos guardados consecutivos con «Guardar y seguir» cuentan 2 y el tercero con «Guardar y cerrar» cierra", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValue({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "continue",
+    });
+    renderDialog();
+
+    const fillAndSave = async (note: string) => {
+      await user.type(screen.getByLabelText("Nota"), note);
+      await user.type(screen.getByLabelText("Importe (€)"), "10,00");
+      await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+      await user.click(screen.getByRole("option", { name: "Vivienda" }));
+      await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+      await waitFor(() => {
+        expect(screen.getByText(`Guardados: ${note === "Uno" ? 1 : 2}`)).toBeInTheDocument();
+      });
+    };
+
+    await fillAndSave("Uno");
+    await new Promise((r) => setTimeout(r, 50));
+    await fillAndSave("Dos");
+
+    actionMock.mockResolvedValue({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "close",
+    });
+    await user.type(screen.getByLabelText("Nota"), "Tres");
+    await user.type(screen.getByLabelText("Importe (€)"), "30,00");
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Hipoteca" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(onCloseMock).toHaveBeenCalled();
+    expect(actionMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("ambos botones de guardado quedan deshabilitados durante el envío", async () => {
+    const user = userEvent.setup();
+    let resolveAction: (value: unknown) => void = () => {};
+    actionMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveAction = resolve;
+      }),
+    );
+    renderDialog();
+
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    const pendingButtons = screen.getAllByRole("button", { name: "Guardando…" });
+    expect(pendingButtons).toHaveLength(2);
+    for (const button of pendingButtons) {
+      expect(button).toBeDisabled();
+    }
+
+    resolveAction({ status: "success", message: "Movimiento guardado", intent: "continue" });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Guardar y seguir" })).toBeEnabled();
+    });
   });
 });

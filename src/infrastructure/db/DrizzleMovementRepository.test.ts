@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DrizzleMovementRepository } from "./DrizzleMovementRepository";
 import { accounts } from "./schema/accounts";
 import { members } from "./schema/members";
-import { movementTags } from "./schema/movement-tags";
 import { movements } from "./schema/movements";
 import { tags } from "./schema/tags";
 import { createTestDb, type TestDb } from "./test-support";
@@ -33,17 +32,16 @@ function buildMovement(overrides: Partial<Parameters<typeof Movement.create>[0]>
     accountId: AccountId(3),
     type: "expense",
     date: "2026-09-15",
-    concept: "Hipoteca",
-    description: null,
+    note: "Hipoteca",
     amount: Money.fromCents(85_000),
     nature: "shared",
-    tagIds: [TagId(2), TagId(3)],
+    tagId: TagId(2),
     ...overrides,
   });
 }
 
 describe("DrizzleMovementRepository", () => {
-  it("crea el movimiento con sus tags de forma atómica", async () => {
+  it("crea el movimiento con su tag única en la propia fila", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
     const movement = buildMovement();
 
@@ -51,79 +49,90 @@ describe("DrizzleMovementRepository", () => {
 
     expect(movementId).toBe(1);
     const [storedMovement] = await testDb.db.select().from(movements);
-    expect(storedMovement.concept).toBe("Hipoteca");
+    expect(storedMovement.note).toBe("Hipoteca");
     expect(storedMovement.amountCents).toBe(85_000);
     expect(storedMovement.nature).toBe("shared");
+    expect(storedMovement.tagId).toBe(2);
+  });
 
-    const storedTags = await testDb.db.select().from(movementTags);
-    expect(storedTags).toEqual([
-      { movementId: 1, tagId: 2 },
-      { movementId: 1, tagId: 3 },
-    ]);
+  it("crea un ingreso sin tag (tag_id null)", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await repository.create(
+      buildMovement({ type: "income", nature: null, tagId: null, note: "Nómina" }),
+    );
+
+    const [storedMovement] = await testDb.db.select().from(movements);
+    expect(storedMovement.tagId).toBeNull();
   });
 
   it("lista por mes y cuenta con rango semicerrado [mes-01, mesSiguiente-01)", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
     await repository.create(buildMovement({ date: "2026-09-01" }));
-    await repository.create(buildMovement({ date: "2026-09-30", concept: "Fin de mes" }));
-    await repository.create(buildMovement({ date: "2026-10-01", concept: "Mes siguiente" }));
-    await repository.create(buildMovement({ date: "2026-08-31", concept: "Mes anterior" }));
+    await repository.create(buildMovement({ date: "2026-09-30", note: "Fin de mes" }));
+    await repository.create(buildMovement({ date: "2026-10-01", note: "Mes siguiente" }));
+    await repository.create(buildMovement({ date: "2026-08-31", note: "Mes anterior" }));
     await repository.create(
-      buildMovement({ accountId: AccountId(1), date: "2026-09-15", concept: "Otra cuenta" }),
+      buildMovement({ accountId: AccountId(1), date: "2026-09-15", note: "Otra cuenta" }),
     );
 
     const result = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
 
-    expect(result.map((movement) => movement.concept)).toEqual(["Fin de mes", "Hipoteca"]);
+    expect(result.map((movement) => movement.note)).toEqual(["Fin de mes", "Hipoteca"]);
   });
 
-  it("incluye las tags de cada movimiento en el listado", async () => {
+  it("incluye la tag única de cada movimiento en el listado", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
     await repository.create(buildMovement());
 
     const [movement] = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
 
-    expect(movement.tags).toEqual([
-      { id: 2, name: "Vivienda", slug: "vivienda" },
-      { id: 3, name: "Hipoteca", slug: "hipoteca" },
-    ]);
+    expect(movement.tag).toEqual({ id: 2, name: "Vivienda", slug: "vivienda" });
+  });
+
+  it("la tag del DTO es null para un movimiento sin tag", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await repository.create(
+      buildMovement({ type: "income", nature: null, tagId: null, note: "Nómina" }),
+    );
+
+    const [movement] = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
+
+    expect(movement.tag).toBeNull();
   });
 
   it("cubre febrero y años bisiestos por construcción", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
-    await repository.create(buildMovement({ date: "2024-02-29", concept: "Bisiesto" }));
-    await repository.create(buildMovement({ date: "2024-03-01", concept: "Marzo" }));
+    await repository.create(buildMovement({ date: "2024-02-29", note: "Bisiesto" }));
+    await repository.create(buildMovement({ date: "2024-03-01", note: "Marzo" }));
 
     const february = await repository.listByMonthAndAccount(AccountId(3), "2024-02");
 
-    expect(february.map((movement) => movement.concept)).toEqual(["Bisiesto"]);
+    expect(february.map((movement) => movement.note)).toEqual(["Bisiesto"]);
   });
 
   it("ordena por fecha descendente dentro del mes", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
-    await repository.create(buildMovement({ date: "2026-09-02", concept: "Antiguo" }));
-    await repository.create(buildMovement({ date: "2026-09-28", concept: "Reciente" }));
+    await repository.create(buildMovement({ date: "2026-09-02", note: "Antiguo" }));
+    await repository.create(buildMovement({ date: "2026-09-28", note: "Reciente" }));
 
     const result = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
 
-    expect(result.map((movement) => movement.concept)).toEqual(["Reciente", "Antiguo"]);
+    expect(result.map((movement) => movement.note)).toEqual(["Reciente", "Antiguo"]);
   });
 
   it("filtra solo por la fecha del movimiento, no por la de creación (FR-004)", async () => {
     const repository = new DrizzleMovementRepository(testDb.db);
-    await repository.create(
-      buildMovement({ date: "2026-08-10", concept: "Movimiento de otro mes" }),
-    );
+    await repository.create(buildMovement({ date: "2026-08-10", note: "Movimiento de otro mes" }));
 
     const currentMonth = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
     const previousMonth = await repository.listByMonthAndAccount(AccountId(3), "2026-08");
 
     expect(currentMonth).toHaveLength(0);
-    expect(previousMonth.map((movement) => movement.concept)).toEqual(["Movimiento de otro mes"]);
+    expect(previousMonth.map((movement) => movement.note)).toEqual(["Movimiento de otro mes"]);
   });
 
   describe("listByMonth", () => {
-    it("devuelve los movimientos de todas las cuentas del mes con sus tags", async () => {
+    it("devuelve los movimientos de todas las cuentas del mes con su tag", async () => {
       await testDb.db.insert(members).values({ id: 2, name: "Miembro B" });
       await testDb.db.insert(accounts).values([
         { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
@@ -132,65 +141,62 @@ describe("DrizzleMovementRepository", () => {
         { id: 1, name: "Coche", slug: "coche", status: "active" },
       ]);
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-09-05", concept: "Hipoteca común" }));
+      await repository.create(buildMovement({ date: "2026-09-05", note: "Hipoteca común" }));
       await repository.create(
         buildMovement({
           accountId: AccountId(1),
           date: "2026-09-10",
-          concept: "Gasolina",
+          note: "Gasolina",
           nature: "personal",
-          tagIds: [TagId(1)],
+          tagId: TagId(1),
         }),
       );
       await repository.create(
         buildMovement({
           accountId: AccountId(2),
           date: "2026-09-12",
-          concept: "Compra semanal",
+          note: "Compra semanal",
           amount: Money.fromCents(15_050),
-          tagIds: [TagId(2)],
+          tagId: TagId(3),
         }),
       );
 
       const result = await repository.listByMonth("2026-09");
 
-      expect(result.map((movement) => movement.concept)).toEqual([
+      expect(result.map((movement) => movement.note)).toEqual([
         "Compra semanal",
         "Gasolina",
         "Hipoteca común",
       ]);
-      const gasolina = result.find((movement) => movement.concept === "Gasolina");
-      expect(gasolina?.tags).toEqual([{ id: 1, name: "Coche", slug: "coche" }]);
-      const hipoteca = result.find((movement) => movement.concept === "Hipoteca común");
-      expect(hipoteca?.tags).toEqual([
-        { id: 2, name: "Vivienda", slug: "vivienda" },
-        { id: 3, name: "Hipoteca", slug: "hipoteca" },
-      ]);
+      const gasolina = result.find((movement) => movement.note === "Gasolina");
+      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche" });
+      const hipoteca = result.find((movement) => movement.note === "Hipoteca común");
+      expect(hipoteca?.tag).toEqual({ id: 2, name: "Vivienda", slug: "vivienda" });
     });
 
     it("respeta el rango exacto del mes sin meses contiguos ni otros años", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-09-01", concept: "Primero" }));
-      await repository.create(buildMovement({ date: "2026-09-30", concept: "Último" }));
-      await repository.create(buildMovement({ date: "2026-10-01", concept: "Mes siguiente" }));
-      await repository.create(buildMovement({ date: "2026-08-31", concept: "Mes anterior" }));
-      await repository.create(buildMovement({ date: "2025-09-15", concept: "Otro año" }));
+      await repository.create(buildMovement({ date: "2026-09-01", note: "Primero" }));
+      await repository.create(buildMovement({ date: "2026-09-30", note: "Último" }));
+      await repository.create(buildMovement({ date: "2026-10-01", note: "Mes siguiente" }));
+      await repository.create(buildMovement({ date: "2026-08-31", note: "Mes anterior" }));
+      await repository.create(buildMovement({ date: "2025-09-15", note: "Otro año" }));
 
       const result = await repository.listByMonth("2026-09");
 
-      expect(result.map((movement) => movement.concept)).toEqual(["Último", "Primero"]);
+      expect(result.map((movement) => movement.note)).toEqual(["Último", "Primero"]);
     });
 
     it("cruza correctamente el cambio de año (diciembre → enero)", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-12-31", concept: "Fin de año" }));
-      await repository.create(buildMovement({ date: "2027-01-01", concept: "Año nuevo" }));
+      await repository.create(buildMovement({ date: "2026-12-31", note: "Fin de año" }));
+      await repository.create(buildMovement({ date: "2027-01-01", note: "Año nuevo" }));
 
       const december = await repository.listByMonth("2026-12");
       const january = await repository.listByMonth("2027-01");
 
-      expect(december.map((movement) => movement.concept)).toEqual(["Fin de año"]);
-      expect(january.map((movement) => movement.concept)).toEqual(["Año nuevo"]);
+      expect(december.map((movement) => movement.note)).toEqual(["Fin de año"]);
+      expect(january.map((movement) => movement.note)).toEqual(["Año nuevo"]);
     });
 
     it("devuelve [] para un mes sin movimientos", async () => {
@@ -206,12 +212,12 @@ describe("DrizzleMovementRepository", () => {
         { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
       ]);
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-09-05", concept: "Común" }));
+      await repository.create(buildMovement({ date: "2026-09-05", note: "Común" }));
       await repository.create(
-        buildMovement({ accountId: AccountId(1), date: "2026-09-10", concept: "Miembro A" }),
+        buildMovement({ accountId: AccountId(1), date: "2026-09-10", note: "Miembro A" }),
       );
       await repository.create(
-        buildMovement({ accountId: AccountId(2), date: "2026-09-12", concept: "Miembro B" }),
+        buildMovement({ accountId: AccountId(2), date: "2026-09-12", note: "Miembro B" }),
       );
 
       const global = await repository.listByMonth("2026-09");
@@ -230,7 +236,7 @@ describe("DrizzleMovementRepository", () => {
   });
 
   describe("listByYear", () => {
-    it("devuelve los movimientos de todas las cuentas del año con sus tags", async () => {
+    it("devuelve los movimientos de todas las cuentas del año con su tag", async () => {
       await testDb.db.insert(members).values({ id: 2, name: "Miembro B" });
       await testDb.db.insert(accounts).values([
         { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
@@ -240,52 +246,49 @@ describe("DrizzleMovementRepository", () => {
       ]);
       const repository = new DrizzleMovementRepository(testDb.db);
       await repository.create(
-        buildMovement({ date: "2026-01-05", concept: "Hipoteca enero", tagIds: [TagId(2), TagId(3)] }),
+        buildMovement({ date: "2026-01-05", note: "Hipoteca enero", tagId: TagId(3) }),
       );
       await repository.create(
         buildMovement({
           accountId: AccountId(1),
           date: "2026-07-10",
-          concept: "Gasolina julio",
+          note: "Gasolina julio",
           nature: "personal",
-          tagIds: [TagId(1)],
+          tagId: TagId(1),
         }),
       );
       await repository.create(
         buildMovement({
           accountId: AccountId(2),
           date: "2026-12-20",
-          concept: "Compra diciembre",
+          note: "Compra diciembre",
           amount: Money.fromCents(15_050),
         }),
       );
 
       const result = await repository.listByYear("2026");
 
-      expect(result.map((movement) => movement.concept)).toEqual([
+      expect(result.map((movement) => movement.note)).toEqual([
         "Compra diciembre",
         "Gasolina julio",
         "Hipoteca enero",
       ]);
-      const gasolina = result.find((movement) => movement.concept === "Gasolina julio");
-      expect(gasolina?.tags).toEqual([{ id: 1, name: "Coche", slug: "coche" }]);
-      const hipoteca = result.find((movement) => movement.concept === "Hipoteca enero");
-      expect(hipoteca?.tags).toEqual([
-        { id: 2, name: "Vivienda", slug: "vivienda" },
-        { id: 3, name: "Hipoteca", slug: "hipoteca" },
-      ]);
+      const gasolina = result.find((movement) => movement.note === "Gasolina julio");
+      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche" });
+      const hipoteca = result.find((movement) => movement.note === "Hipoteca enero");
+      expect(hipoteca?.tag).toEqual({ id: 3, name: "Hipoteca", slug: "hipoteca" });
     });
 
     it("respeta el rango exacto del año sin el 31-dic anterior ni el 1-ene siguiente", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-01-01", concept: "Primero" }));
-      await repository.create(buildMovement({ date: "2026-12-31", concept: "Último" }));
-      await repository.create(buildMovement({ date: "2027-01-01", concept: "Año siguiente" }));
-      await repository.create(buildMovement({ date: "2025-12-31", concept: "Año anterior" }));
+      await repository.create(buildMovement({ date: "2026-01-01", note: "Primero" }));
+      await repository.create(buildMovement({ date: "2026-12-31", note: "Último" }));
+      await repository.create(buildMovement({ date: "2027-01-01", note: "Año siguiente" }));
+      await repository.create(buildMovement({ date: "2025-12-31", note: "Año anterior" }));
 
       const result = await repository.listByYear("2026");
 
-      expect(result.map((movement) => movement.concept)).toEqual(["Último", "Primero"]);
+      expect(result.map((movement) => movement.note)).toEqual(["Último", "Primero"]);
     });
 
     it("devuelve [] para un año sin movimientos", async () => {
@@ -297,10 +300,10 @@ describe("DrizzleMovementRepository", () => {
 
     it("la unión de las 12 llamadas mensuales equivale al listado por año", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
-      await repository.create(buildMovement({ date: "2026-01-15", concept: "Enero" }));
-      await repository.create(buildMovement({ date: "2026-06-15", concept: "Junio" }));
-      await repository.create(buildMovement({ date: "2026-12-15", concept: "Diciembre" }));
-      await repository.create(buildMovement({ date: "2027-02-15", concept: "Año siguiente" }));
+      await repository.create(buildMovement({ date: "2026-01-15", note: "Enero" }));
+      await repository.create(buildMovement({ date: "2026-06-15", note: "Junio" }));
+      await repository.create(buildMovement({ date: "2026-12-15", note: "Diciembre" }));
+      await repository.create(buildMovement({ date: "2027-02-15", note: "Año siguiente" }));
 
       const year = await repository.listByYear("2026");
       const months = await Promise.all(
@@ -316,7 +319,7 @@ describe("DrizzleMovementRepository", () => {
   });
 
   describe("findById", () => {
-    it("rehidrata el movimiento con sus tags", async () => {
+    it("rehidrata el movimiento con su tag única", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
       const movementId = await repository.create(buildMovement());
 
@@ -324,9 +327,9 @@ describe("DrizzleMovementRepository", () => {
 
       expect(found).not.toBeNull();
       expect(found?.id).toBe(movementId);
-      expect(found?.concept).toBe("Hipoteca");
+      expect(found?.note).toBe("Hipoteca");
       expect(found?.nature).toBe("shared");
-      expect([...(found?.tagIds ?? [])]).toEqual([TagId(2), TagId(3)]);
+      expect(found?.tagId).toBe(TagId(2));
       expect(found?.createdAt).toBeTypeOf("string");
     });
 
@@ -338,7 +341,7 @@ describe("DrizzleMovementRepository", () => {
   });
 
   describe("update", () => {
-    it("sustituye la fila y el conjunto de tags, cambia cuenta y fecha y pone updated_at", async () => {
+    it("actualiza la fila con su tag única, cambia fecha y pone updated_at", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
       const movementId = await repository.create(buildMovement());
       const [originalRow] = await testDb.db.select().from(movements);
@@ -346,14 +349,13 @@ describe("DrizzleMovementRepository", () => {
       const recreated = Movement.recreate(
         movementId,
         {
-          accountId: AccountId(1),
-          type: "income",
+          accountId: AccountId(3),
+          type: "expense",
           date: "2026-08-05",
-          concept: "Nómina",
-          description: null,
+          note: "Hipoteca editada",
           amount: Money.fromCents(150_000),
-          nature: null,
-          tagIds: [TagId(2)],
+          nature: "shared",
+          tagId: TagId(3),
         },
         originalRow.createdAt,
       );
@@ -363,15 +365,13 @@ describe("DrizzleMovementRepository", () => {
       const [updatedRow] = await testDb.db.select().from(movements);
       expect(updatedRow.id).toBe(originalRow.id);
       expect(updatedRow.createdAt).toBe(originalRow.createdAt);
-      expect(updatedRow.accountId).toBe(1);
-      expect(updatedRow.type).toBe("income");
+      expect(updatedRow.accountId).toBe(3);
+      expect(updatedRow.type).toBe("expense");
       expect(updatedRow.date).toBe("2026-08-05");
-      expect(updatedRow.concept).toBe("Nómina");
+      expect(updatedRow.note).toBe("Hipoteca editada");
       expect(updatedRow.amountCents).toBe(150_000);
+      expect(updatedRow.tagId).toBe(3);
       expect(updatedRow.updatedAt).not.toBeNull();
-
-      const storedTags = await testDb.db.select().from(movementTags);
-      expect(storedTags).toEqual([{ movementId, tagId: 2 }]);
     });
 
     it("updated_at es null mientras el movimiento no se edita", async () => {
@@ -384,7 +384,7 @@ describe("DrizzleMovementRepository", () => {
   });
 
   describe("delete", () => {
-    it("borra la fila y sus movement_tags sin tocar el catálogo tags", async () => {
+    it("borra la fila sin tocar el catálogo tags", async () => {
       const repository = new DrizzleMovementRepository(testDb.db);
       const movementId = await repository.create(buildMovement());
 
@@ -393,11 +393,39 @@ describe("DrizzleMovementRepository", () => {
       const remainingMovements = await testDb.db.select().from(movements);
       expect(remainingMovements).toHaveLength(0);
 
-      const remainingMovementTags = await testDb.db.select().from(movementTags);
-      expect(remainingMovementTags).toHaveLength(0);
-
       const catalogTags = await testDb.db.select().from(tags);
       expect(catalogTags.map((tag) => tag.id)).toEqual([2, 3]);
+    });
+  });
+
+  describe("migración 0002 y FK RESTRICT (SC-003)", () => {
+    it("la BD de test nace sin tabla movement_tags y con la columna note en movements", async () => {
+      const tables = await testDb.client.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+      );
+      const tableNames = tables.rows.map((row) => row.name);
+      expect(tableNames).toContain("movements");
+      expect(tableNames).not.toContain("movement_tags");
+
+      const columns = await testDb.client.execute("PRAGMA table_info(movements)");
+      const columnNames = columns.rows.map((row) => row.name);
+      expect(columnNames).toContain("note");
+      expect(columnNames).toContain("tag_id");
+      expect(columnNames).not.toContain("concept");
+      expect(columnNames).not.toContain("description");
+    });
+
+    it("borrar una tag con movimientos falla por FK RESTRICT", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement());
+
+      await expect(testDb.client.execute("DELETE FROM tags WHERE id = 2")).rejects.toThrow();
+    });
+
+    it("borrar una tag sin movimientos sí está permitido", async () => {
+      await expect(
+        testDb.client.execute("DELETE FROM tags WHERE id = 3"),
+      ).resolves.toBeDefined();
     });
   });
 });

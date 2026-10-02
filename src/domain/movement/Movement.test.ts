@@ -11,20 +11,19 @@ const validBase = {
   accountId: AccountId(1),
   type: "expense" as const,
   date: "2026-09-01",
-  concept: "Mercadona",
-  description: null,
+  note: "Mercadona",
   amount: Money.fromCents(8_500),
   nature: "personal" as const,
-  tagIds: [TagId(1), TagId(2)],
+  tagId: TagId(1),
 };
 
 describe("Movement.create", () => {
-  it("crea un gasto válido con naturaleza y tags", () => {
+  it("crea un gasto válido con naturaleza y tag", () => {
     const movement = Movement.create({ ...validBase });
     expect(movement.id).toBeNull();
-    expect(movement.concept).toBe("Mercadona");
+    expect(movement.note).toBe("Mercadona");
     expect(movement.nature).toBe("personal");
-    expect(movement.tagIds).toHaveLength(2);
+    expect(movement.tagId).toBe(TagId(1));
     expect(movement.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 
@@ -38,6 +37,25 @@ describe("Movement.create", () => {
     expect(movement.nature).toBeNull();
   });
 
+  it("crea un ingreso sin tag (tag opcional en ingresos)", () => {
+    const movement = Movement.create({
+      ...validBase,
+      type: "income",
+      nature: null,
+      tagId: null,
+    });
+    expect(movement.tagId).toBeNull();
+  });
+
+  it("crea un ingreso con tag (tag válida también en ingresos)", () => {
+    const movement = Movement.create({
+      ...validBase,
+      type: "income",
+      nature: null,
+    });
+    expect(movement.tagId).toBe(TagId(1));
+  });
+
   it("rechaza un gasto sin naturaleza", () => {
     expect(() => Movement.create({ ...validBase, nature: null })).toThrowError(InvalidMovementError);
   });
@@ -48,15 +66,15 @@ describe("Movement.create", () => {
     ).toThrowError(InvalidMovementError);
   });
 
-  it("rechaza un concepto vacío o con solo espacios", () => {
-    expect(() => Movement.create({ ...validBase, concept: "   " })).toThrowError(
+  it("rechaza una nota vacía o con solo espacios", () => {
+    expect(() => Movement.create({ ...validBase, note: "   " })).toThrowError(
       InvalidMovementError,
     );
   });
 
-  it("hace trim del concepto", () => {
-    const movement = Movement.create({ ...validBase, concept: "  Mercadona  " });
-    expect(movement.concept).toBe("Mercadona");
+  it("hace trim de la nota", () => {
+    const movement = Movement.create({ ...validBase, note: "  Mercadona  " });
+    expect(movement.note).toBe("Mercadona");
   });
 
   it("rechaza fechas que no son de calendario real (2026-02-30)", () => {
@@ -82,23 +100,21 @@ describe("Movement.create", () => {
     );
   });
 
-  it("rechaza tagIds vacías", () => {
-    expect(() => Movement.create({ ...validBase, tagIds: [] })).toThrowError(InvalidMovementError);
-  });
-
-  it("deduplica tagIds repetidas", () => {
-    const movement = Movement.create({
-      ...validBase,
-      tagIds: [TagId(1), TagId(2), TagId(1)],
-    });
-    expect(movement.tagIds.map((tagId) => tagId as number)).toEqual([1, 2]);
+  it("rechaza un gasto sin tag con error de campo tagId", () => {
+    try {
+      Movement.create({ ...validBase, tagId: null });
+      expect.unreachable("debería lanzar InvalidMovementError");
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidMovementError);
+      expect((error as InvalidMovementError).field).toBe("tagId");
+      expect((error as InvalidMovementError).message).toBe("Selecciona una etiqueta para el gasto.");
+    }
   });
 
   it("es inmutable: sus campos son de solo lectura", () => {
     const movement = Movement.create({ ...validBase });
-    expect(Object.isFrozen(movement.tagIds)).toBe(true);
     expect(() => {
-      (movement as { concept: string }).concept = "Otro";
+      (movement as { note: string }).note = "Otro";
     }).toThrow();
   });
 
@@ -108,15 +124,15 @@ describe("Movement.create", () => {
       accountId: AccountId(1),
       type: "expense",
       date: "2026-09-01",
-      concept: "Mercadona",
-      description: "Compra semanal",
+      note: "Mercadona",
       amount: Money.fromCents(8_500),
       nature: "shared",
-      tagIds: [TagId(3)],
+      tagId: TagId(3),
       createdAt: "2026-09-01T10:00:00.000Z",
     });
     expect(movement.id).toBe(7);
-    expect(movement.description).toBe("Compra semanal");
+    expect(movement.note).toBe("Mercadona");
+    expect(movement.tagId).toBe(TagId(3));
   });
 
   it("el importe inválido se rechaza en el VO Money antes de crear el movimiento", () => {
@@ -139,42 +155,33 @@ describe("Movement.recreate", () => {
     const movement = recreate();
     expect(movement.id).toBe(7);
     expect(movement.createdAt).toBe(originalCreatedAt);
-    expect(movement.concept).toBe("Mercadona");
+    expect(movement.note).toBe("Mercadona");
     expect(movement.nature).toBe("personal");
   });
 
-  it("aplica trim del concepto y normaliza la descripción vacía a null", () => {
-    const movement = recreate({ concept: "  Mercadona  ", description: "   " });
-    expect(movement.concept).toBe("Mercadona");
-    expect(movement.description).toBeNull();
+  it("aplica trim de la nota", () => {
+    const movement = recreate({ note: "  Mercadona  " });
+    expect(movement.note).toBe("Mercadona");
   });
 
   it.each([
-    ["concepto vacío", { concept: "   " }],
+    ["nota vacía", { note: "   " }],
     ["fecha no real", { date: "2026-02-30" }],
     ["importe no positivo", { amount: { amountCents: 0 } as unknown as Money }],
     ["gasto sin naturaleza", { nature: null }],
+    ["gasto sin tag", { tagId: null }],
     ["ingreso con naturaleza", { type: "income" as const, nature: "personal" as const }],
-    ["cero tags", { tagIds: [] }],
   ])("revalida la invariante de %s igual que create", (_case, overrides) => {
     expect(() => recreate(overrides as Partial<typeof validBase>)).toThrowError(
       InvalidMovementError,
     );
   });
 
-  it("permite cambiar el movimiento de cuenta y de mes (FR-005)", () => {
-    const movement = recreate({
-      accountId: AccountId(3),
-      date: "2026-08-15",
-    });
-    expect(movement.accountId).toBe(3);
+  it("permite cambiar el movimiento de mes (la cuenta queda inmutable en la capa de aplicación)", () => {
+    const movement = recreate({ date: "2026-08-15" });
+    expect(movement.accountId).toBe(1);
     expect(movement.date).toBe("2026-08-15");
     expect(movement.id).toBe(7);
     expect(movement.createdAt).toBe(originalCreatedAt);
-  });
-
-  it("deduplica tags repetidas", () => {
-    const movement = recreate({ tagIds: [TagId(1), TagId(2), TagId(1)] });
-    expect(movement.tagIds.map((tagId) => tagId as number)).toEqual([1, 2]);
   });
 });

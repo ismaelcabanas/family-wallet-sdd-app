@@ -3,12 +3,12 @@ import { AccountNotFoundError } from "@/domain/account/AccountErrors";
 import { Money } from "@/domain/movement/Money";
 import { Movement } from "@/domain/movement/Movement";
 import { MovementId } from "@/domain/movement/MovementId";
-import { MovementNotFoundError } from "@/domain/movement/MovementErrors";
+import { InvalidMovementError, MovementNotFoundError } from "@/domain/movement/MovementErrors";
 
 import type { AccountRepository } from "../account/AccountRepository";
 import type { TagRepository } from "../tag/TagRepository";
 import type { UpdateMovementDTO } from "./dto";
-import { resolveNature, resolveTagIds } from "./movement-inputs";
+import { resolveNature, resolveTagId } from "./movement-inputs";
 import type { MovementRepository } from "./MovementRepository";
 
 export class UpdateMovement {
@@ -24,25 +24,28 @@ export class UpdateMovement {
       throw new MovementNotFoundError();
     }
 
-    const account = await this.accounts.findById(AccountId(dto.accountId));
+    if ((existing.accountId as number) !== dto.expectedAccountId) {
+      throw new InvalidMovementError("accountId", "El movimiento ya no pertenece a esta cuenta.");
+    }
+
+    const account = await this.accounts.findById(AccountId(dto.expectedAccountId));
     if (!account) {
       throw new AccountNotFoundError();
     }
 
     const nature = resolveNature(dto, account);
-    const tagIds = await resolveTagIds(this.tags, dto.tagIds);
+    const tagId = await resolveTagId(this.tags, dto.tagId);
 
     const movement = Movement.recreate(
       MovementId(dto.movementId),
       {
-        accountId: account.id ?? AccountId(dto.accountId),
+        accountId: existing.accountId,
         type: dto.type,
         date: dto.date,
-        concept: dto.concept,
-        description: dto.description,
+        note: dto.note,
         amount: Money.fromCents(dto.amountCents),
         nature,
-        tagIds,
+        tagId,
       },
       existing.createdAt,
     );

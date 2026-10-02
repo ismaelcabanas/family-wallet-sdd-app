@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { TagDTO } from "@/application/movement/dto";
+import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
+import type { MovementType } from "@/domain/movement/MovementType";
 
 import {
   createMovement,
@@ -16,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./components/ui/dialog";
-import { MovementFormFields } from "./movement-form";
+import { MovementFormFields, type CarryOverValues } from "./movement-form";
 
 interface CreateMovementDialogProps {
   accountId: number;
@@ -28,12 +30,15 @@ interface CreateMovementDialogProps {
 
 export function CreateMovementDialog({
   accountId,
-  accountName,
+  accountName: _accountName,
   accountType,
   tags,
   onClose,
 }: CreateMovementDialogProps) {
+  void _accountName;
   const [open, setOpen] = useState(true);
+  const [savedCount, setSavedCount] = useState(0);
+  const [carry, setCarry] = useState<CarryOverValues | null>(null);
 
   return (
     <Dialog
@@ -46,12 +51,20 @@ export function CreateMovementDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nuevo movimiento</DialogTitle>
+          {savedCount > 0 ? (
+            <p className="text-sm text-muted-foreground">Guardados: {savedCount}</p>
+          ) : null}
         </DialogHeader>
         <CreateMovementForm
+          key={savedCount}
           accountId={accountId}
-          accountName={accountName}
           accountType={accountType}
           tags={tags}
+          carry={carry}
+          onSaved={(nextCarry) => {
+            setSavedCount((count) => count + 1);
+            setCarry(nextCarry);
+          }}
           onClose={() => {
             setOpen(false);
             onClose();
@@ -64,35 +77,69 @@ export function CreateMovementDialog({
 
 function CreateMovementForm({
   accountId,
-  accountName,
   accountType,
   tags,
+  carry,
+  onSaved,
   onClose,
-}: Omit<CreateMovementDialogProps, "onClose"> & { onClose: () => void }) {
+}: Omit<CreateMovementDialogProps, "onClose" | "accountName"> & {
+  carry: CarryOverValues | null;
+  onSaved: (carry: CarryOverValues) => void;
+  onClose: () => void;
+}) {
   const [state, formAction, isPending] = useActionState(createMovement, {
     status: "idle",
   } satisfies CreateMovementState);
 
+  const lastSubmittedRef = useRef<FormData | null>(null);
+  const handledRef = useRef(false);
+
   useEffect(() => {
-    if (state.status === "success") {
-      onClose();
-      toast.success("Movimiento guardado");
+    if (state.status !== "success" || handledRef.current) return;
+    handledRef.current = true;
+    toast.success(state.message);
+    if (state.intent === "continue") {
+      const formData = lastSubmittedRef.current;
+      if (formData) {
+        const type = (formData.get("type") as MovementType) ?? "expense";
+        const nature =
+          type === "expense" ? ((formData.get("nature") as ExpenseNature) ?? "personal") : null;
+        onSaved({ date: String(formData.get("date") ?? ""), type, nature });
+      }
+      return;
     }
-  }, [state, onClose]);
+    onClose();
+  }, [state, onSaved, onClose]);
 
   return (
     <MovementFormFields
       state={state}
-      formAction={formAction}
+      formAction={(formData) => {
+        lastSubmittedRef.current = formData;
+        return formAction(formData);
+      }}
       isPending={isPending}
       tags={tags}
       accountId={accountId}
-      accountName={accountName}
       accountType={accountType}
+      carry={carry ?? undefined}
+      submitLabel="Guardar y seguir"
+      primaryIntent="continue"
       secondaryActions={
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            name="intent"
+            value="close"
+            variant="outline"
+            disabled={isPending}
+          >
+            {isPending ? "Guardando…" : "Guardar y cerrar"}
+          </Button>
+        </>
       }
     />
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { MovementDTO, TagDTO } from "@/application/movement/dto";
 
 import { CreateMovementDialog } from "./create-movement-dialog";
 import { DeleteMovementDialog } from "./delete-movement-dialog";
@@ -34,7 +34,6 @@ function natureLabel(movement: MovementDTO): string {
 
 interface GroupedMovementListProps {
   movements: MovementDTO[];
-  accounts: AccountDTO[];
   tags: TagDTO[];
   currentAccountId: number;
   currentMonth: string;
@@ -44,7 +43,6 @@ interface GroupedMovementListProps {
 
 export function GroupedMovementList({
   movements,
-  accounts,
   tags,
   currentAccountId,
   currentMonth,
@@ -89,20 +87,14 @@ export function GroupedMovementList({
                       data-testid="movement-item"
                     >
                       <div className="flex min-w-0 flex-col gap-1">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {movement.tags.map((tag) => (
-                            <span
-                              key={tag.id}
-                              className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground"
-                            >
-                              {tag.name}
+                        {movement.tag !== null ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                              {movement.tag.name}
                             </span>
-                          ))}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {movement.concept}
-                          {movement.description !== null ? ` · ${movement.description}` : ""}
-                        </span>
+                          </div>
+                        ) : null}
+                        <span className="text-xs text-muted-foreground">{movement.note}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         {movement.type === "expense" ? (
@@ -120,8 +112,8 @@ export function GroupedMovementList({
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            aria-label={`Editar ${movement.concept}`}
-                            title={`Editar ${movement.concept}`}
+                            aria-label={`Editar ${movement.note}`}
+                            title={`Editar ${movement.note}`}
                             onClick={() => setEditing(movement)}
                             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           >
@@ -129,8 +121,8 @@ export function GroupedMovementList({
                           </button>
                           <button
                             type="button"
-                            aria-label={`Eliminar ${movement.concept}`}
-                            title={`Eliminar ${movement.concept}`}
+                            aria-label={`Eliminar ${movement.note}`}
+                            title={`Eliminar ${movement.note}`}
                             onClick={() => setDeleting(movement)}
                             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           >
@@ -160,7 +152,6 @@ export function GroupedMovementList({
       {editing ? (
         <EditMovementDialog
           movement={editing}
-          accounts={accounts}
           tags={tags}
           currentAccountId={currentAccountId}
           currentMonth={currentMonth}

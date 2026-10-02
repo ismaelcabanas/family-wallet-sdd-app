@@ -1,6 +1,5 @@
 "use server";
 
-import { ListAccounts } from "@/application/account/ListAccounts";
 import { UpdateMovement } from "@/application/movement/UpdateMovement";
 import { AccountNotFoundError } from "@/domain/account/AccountErrors";
 import { MovementNotFoundError } from "@/domain/movement/MovementErrors";
@@ -50,40 +49,27 @@ function mapDomainErrors(error: unknown): MovementFieldErrors {
     return { accountId: ["Selecciona una cuenta."] };
   }
   if (error instanceof InactiveTagError || error instanceof TagNotFoundError) {
-    return { tagIds: ["Una de las etiquetas seleccionadas ya no está disponible."] };
+    return { tagId: ["Una de las etiquetas seleccionadas ya no está disponible."] };
   }
   return { _form: [UNEXPECTED_ERROR] };
 }
 
 function buildMovedNotice(
   message: string,
-  finalAccountId: number,
   finalMonth: string,
-  context: { currentAccountId: number; currentMonth: string },
-  accountName: string,
+  currentMonth: string,
 ): string {
-  const accountMoved = finalAccountId !== context.currentAccountId;
-  const monthMoved = finalMonth !== context.currentMonth;
-
-  if (accountMoved && monthMoved) {
-    return `${message}: ahora está en ${accountName} · ${monthYearLabel(finalMonth)}`;
-  }
-  if (accountMoved) {
-    return `${message}: ahora está en ${accountName}`;
-  }
-  if (monthMoved) {
+  if (finalMonth !== currentMonth) {
     return `${message}: ahora está en ${monthYearLabel(finalMonth)}`;
   }
   return message;
 }
 
-const movementsRepository = new DrizzleMovementRepository(db);
 const updateMovementUseCase = new UpdateMovement(
-  movementsRepository,
+  new DrizzleMovementRepository(db),
   new DrizzleAccountRepository(db),
   new DrizzleTagRepository(db),
 );
-const listAccountsUseCase = new ListAccounts(new DrizzleAccountRepository(db));
 
 export async function updateMovement(
   _prevState: UpdateMovementState,
@@ -111,31 +97,20 @@ export async function updateMovement(
   try {
     await updateMovementUseCase.execute({
       movementId: context.movementId,
-      accountId: data.accountId,
+      expectedAccountId: context.currentAccountId,
       type: data.type,
       date: data.date,
-      concept: data.concept,
-      description: data.description,
+      note: data.note,
       amountCents: parseAmountToCents(data.amount.trim()),
       nature: data.nature ?? null,
-      tagIds: data.tagIds,
+      tagId: data.tagId,
     });
-
-    const accounts = await listAccountsUseCase.execute();
-    const accountName =
-      accounts.find((account) => account.id === data.accountId)?.name ?? "otra cuenta";
 
     revalidatePath("/");
     revalidatePath("/accounts/[accountId]", "page");
     return {
       status: "success",
-      message: buildMovedNotice(
-        "Movimiento actualizado",
-        data.accountId,
-        data.date.slice(0, 7),
-        context,
-        accountName,
-      ),
+      message: buildMovedNotice("Movimiento actualizado", data.date.slice(0, 7), context.currentMonth),
     };
   } catch (error) {
     if (error instanceof MovementNotFoundError) {

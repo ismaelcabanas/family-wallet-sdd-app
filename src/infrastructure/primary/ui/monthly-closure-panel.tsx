@@ -2,9 +2,6 @@ import type { MonthlyClosureDTO } from "@/application/movement/dto";
 
 import { formatAmountCents, formatSignedCents, monthLabel } from "./format";
 
-const TAG_NOTE =
-  "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.";
-
 export function MonthlyClosurePanel({
   closure,
   month,
@@ -68,7 +65,6 @@ export function MonthlyClosurePanel({
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">{TAG_NOTE}</p>
     </section>
   );
 }

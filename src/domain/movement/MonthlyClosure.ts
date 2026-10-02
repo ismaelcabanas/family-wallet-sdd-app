@@ -11,7 +11,7 @@ export interface ClosureMovementInput {
   type: MovementType;
   nature: ExpenseNature | null;
   amountCents: number;
-  tags: readonly ClosureTagRef[];
+  tag: ClosureTagRef | null;
 }
 
 export interface TagBreakdownEntry {
@@ -71,7 +71,8 @@ export class MonthlyClosure {
         personalCents += input.amountCents;
       }
 
-      for (const tag of input.tags) {
+      if (input.tag !== null) {
+        const tag = input.tag;
         const entry = breakdownByTagId.get(tag.id) ?? { tagId: tag.id, tagName: tag.name, cents: 0 };
         entry.cents += input.amountCents;
         breakdownByTagId.set(tag.id, entry);

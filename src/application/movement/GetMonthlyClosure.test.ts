@@ -9,36 +9,30 @@ const movements: MovementDTO[] = [
     accountId: 2,
     type: "income",
     date: "2026-09-01",
-    concept: "Aportación",
-    description: null,
+    note: "Aportación",
     amountCents: 192_000,
     nature: null,
-    tags: [{ id: 9, name: "Alimentación", slug: "alimentacion" }],
+    tag: null,
   },
   {
     id: 2,
     accountId: 2,
     type: "expense",
     date: "2026-09-05",
-    concept: "Hipoteca",
-    description: null,
+    note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tags: [
-      { id: 1, name: "Vivienda", slug: "vivienda" },
-      { id: 2, name: "Hipoteca", slug: "hipoteca" },
-    ],
+    tag: { id: 2, name: "Hipoteca", slug: "hipoteca" },
   },
   {
     id: 3,
     accountId: 2,
     type: "expense",
     date: "2026-09-10",
-    concept: "Luz",
-    description: null,
+    note: "Luz",
     amountCents: 12_050,
     nature: "shared",
-    tags: [{ id: 3, name: "Hogar", slug: "hogar" }],
+    tag: { id: 3, name: "Hogar", slug: "hogar" },
   },
 ];
 
@@ -69,7 +63,6 @@ describe("GetMonthlyClosure", () => {
     expect(closure.monthBalanceCents).toBe(94_950);
     expect(closure.tagBreakdown).toEqual([
       { tagId: 2, tagName: "Hipoteca", amountCents: 85_000 },
-      { tagId: 1, tagName: "Vivienda", amountCents: 85_000 },
       { tagId: 3, tagName: "Hogar", amountCents: 12_050 },
     ]);
   });

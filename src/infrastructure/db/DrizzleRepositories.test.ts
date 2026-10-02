@@ -37,11 +37,10 @@ function buildMovement(overrides: Partial<Parameters<typeof Movement.create>[0]>
     accountId: AccountId(1),
     type: "expense",
     date: "2026-09-15",
-    concept: "Gasto",
-    description: null,
+    note: "Gasto",
     amount: Money.fromCents(1_000),
     nature: "personal",
-    tagIds: [TagId(9)],
+    tagId: TagId(9),
     ...overrides,
   });
 }
@@ -83,8 +82,8 @@ describe("DrizzleAccountRepository", () => {
         accountId: movement.accountId as number,
         type: movement.type,
         date: movement.date,
-        concept: movement.concept,
-        description: movement.description,
+        note: movement.note,
+        tagId: movement.tagId as number,
         amountCents: movement.amount.amountCents,
         nature: movement.nature,
         createdAt: movement.createdAt,
@@ -114,8 +113,8 @@ describe("DrizzleAccountRepository", () => {
         accountId: movement.accountId as number,
         type: movement.type,
         date: movement.date,
-        concept: movement.concept,
-        description: movement.description,
+        note: movement.note,
+        tagId: movement.tagId as number,
         amountCents: movement.amount.amountCents,
         nature: movement.nature,
         createdAt: movement.createdAt,
@@ -139,8 +138,8 @@ describe("DrizzleAccountRepository", () => {
         accountId: movement.accountId as number,
         type: movement.type,
         date: movement.date,
-        concept: movement.concept,
-        description: movement.description,
+        note: movement.note,
+        tagId: movement.tagId as number,
         amountCents: movement.amount.amountCents,
         nature: movement.nature,
         createdAt: movement.createdAt,
@@ -157,15 +156,15 @@ describe("DrizzleAccountRepository", () => {
 
   it("getBalance con asOf devuelve 0 (no null ni NaN) si no hay movimientos ≤ corte", async () => {
     const repository = new DrizzleAccountRepository(testDb.db);
-    const movement = buildMovement({ date: "2026-09-15", concept: "Futuro" });
+    const movement = buildMovement({ date: "2026-09-15", note: "Futuro" });
     await testDb.db.insert(movements).values({
       accountId: movement.accountId as number,
       type: movement.type,
       date: movement.date,
-      concept: movement.concept,
-      description: movement.description,
+      note: movement.note,
       amountCents: movement.amount.amountCents,
       nature: movement.nature,
+      tagId: movement.tagId as number,
       createdAt: movement.createdAt,
     });
 

@@ -12,7 +12,7 @@ function movement(
     type: "expense",
     nature: "shared",
     amountCents: 1_000,
-    tags: [{ id: 1, name: "Hogar" }],
+    tag: { id: 1, name: "Hogar" },
     accountId: 3,
     ...input,
   };
@@ -34,12 +34,12 @@ const mesTresCuentas: GlobalSummaryMovementInput[] = [
     type: "income",
     nature: null,
     amountCents: 210_000,
-    tags: [{ id: 9, name: "Alimentación" }],
+    tag: null,
   }),
   movement({
     accountId: 3,
     amountCents: 85_000,
-    tags: [{ id: 4, name: "Vivienda" }, { id: 5, name: "Hipoteca" }],
+    tag: { id: 5, name: "Hipoteca" },
   }),
   movement({
     accountId: 1,
@@ -51,12 +51,12 @@ const mesTresCuentas: GlobalSummaryMovementInput[] = [
     accountId: 1,
     nature: "personal",
     amountCents: 6_000,
-    tags: [{ id: 6, name: "Coche" }],
+    tag: { id: 6, name: "Coche" },
   }),
   movement({
     accountId: 2,
     amountCents: 15_050,
-    tags: [{ id: 9, name: "Alimentación" }],
+    tag: { id: 9, name: "Alimentación" },
   }),
 ];
 
@@ -100,7 +100,6 @@ describe("GlobalMonthlySummary", () => {
 
     expect(summary.tagBreakdown.map((entry) => [entry.tagName, entry.amount.amountCents])).toEqual([
       ["Hipoteca", 85_000],
-      ["Vivienda", 85_000],
       ["Alimentación", 15_050],
       ["Coche", 6_000],
     ]);
@@ -179,8 +178,14 @@ describe("GlobalMonthlySummary", () => {
   it("los ingresos no aparecen en ningún desglose", () => {
     const summary = GlobalMonthlySummary.fromMovements(
       [
-        movement({ accountId: 1, type: "income", nature: null, amountCents: 100_000, tags: [{ id: 9, name: "Ocio" }] }),
-        movement({ accountId: 3, amountCents: 5_000, tags: [{ id: 9, name: "Ocio" }] }),
+        movement({
+          accountId: 1,
+          type: "income",
+          nature: null,
+          amountCents: 100_000,
+          tag: { id: 9, name: "Ocio" },
+        }),
+        movement({ accountId: 3, amountCents: 5_000, tag: { id: 9, name: "Ocio" } }),
       ],
       accounts,
     );
@@ -192,13 +197,13 @@ describe("GlobalMonthlySummary", () => {
     expect(summary.memberBreakdown[0].shared.amountCents).toBe(5_000);
   });
 
-  it("un gasto multi-tag computa en cada tag sin duplicar el total de gastos", () => {
+  it("cada gasto computa en su única tag y el desglose no duplica el total de gastos", () => {
     const summary = GlobalMonthlySummary.fromMovements(
-      [movement({ accountId: 3, amountCents: 85_000, tags: [{ id: 4, name: "Vivienda" }, { id: 5, name: "Hipoteca" }] })],
+      [movement({ accountId: 3, amountCents: 85_000, tag: { id: 5, name: "Hipoteca" } })],
       accounts,
     );
 
-    expect(summary.tagBreakdown.map((entry) => entry.amount.amountCents)).toEqual([85_000, 85_000]);
+    expect(summary.tagBreakdown.map((entry) => entry.amount.amountCents)).toEqual([85_000]);
     expect(summary.expenseTotal.amountCents).toBe(85_000);
     expect(summary.memberBreakdown[0].shared.amountCents).toBe(85_000);
   });
@@ -234,9 +239,9 @@ describe("GlobalMonthlySummary", () => {
   it("ordena el desglose por tag por importe descendente y desempata alfabéticamente", () => {
     const summary = GlobalMonthlySummary.fromMovements(
       [
-        movement({ accountId: 3, amountCents: 5_000, tags: [{ id: 6, name: "Ocio" }] }),
-        movement({ accountId: 3, amountCents: 5_000, tags: [{ id: 9, name: "Alimentación" }] }),
-        movement({ accountId: 3, amountCents: 9_000, tags: [{ id: 4, name: "Coche" }] }),
+        movement({ accountId: 3, amountCents: 5_000, tag: { id: 6, name: "Ocio" } }),
+        movement({ accountId: 3, amountCents: 5_000, tag: { id: 9, name: "Alimentación" } }),
+        movement({ accountId: 3, amountCents: 9_000, tag: { id: 4, name: "Coche" } }),
       ],
       accounts,
     );

@@ -41,8 +41,8 @@ export function DeleteMovementDialog({ movement, onClose }: DeleteMovementDialog
               <p>¿Eliminar este movimiento?</p>
               <dl className="mt-3 flex flex-col gap-1 text-sm">
                 <div className="flex gap-2">
-                  <dt className="font-medium">Concepto:</dt>
-                  <dd>{movement.concept}</dd>
+                  <dt className="font-medium">Nota:</dt>
+                  <dd>{movement.note}</dd>
                 </div>
                 <div className="flex gap-2">
                   <dt className="font-medium">Importe:</dt>

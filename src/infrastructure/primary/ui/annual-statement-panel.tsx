@@ -2,9 +2,6 @@ import type { AnnualIncomeStatementDTO } from "@/application/movement/dto";
 
 import { formatAmountCents, formatSignedCents, MONTH_SHORT_LABELS } from "./format";
 
-const TAG_NOTE =
-  "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.";
-
 const CELL_CLASS = "px-2 py-1.5 text-right tabular-nums whitespace-nowrap";
 const ROW_HEADER_CLASS = "py-1.5 pr-2 text-left font-normal whitespace-nowrap";
 const COL_HEADER_CLASS = "px-2 py-1 text-right font-medium whitespace-nowrap";
@@ -92,7 +89,7 @@ export function AnnualStatementPanel({
             <thead>
               <tr className="text-left text-xs text-muted-foreground">
                 <th scope="col" className="py-1 pr-2 font-medium">
-                  <span className="sr-only">Concepto</span>
+                  <span className="sr-only">Nota</span>
                 </th>
                 <HeaderColumns />
               </tr>
@@ -201,7 +198,6 @@ export function AnnualStatementPanel({
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{TAG_NOTE}</p>
           </>
         ) : (
           <p className="mt-1 text-sm text-muted-foreground">Sin gastos este año.</p>

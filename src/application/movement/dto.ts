@@ -5,23 +5,21 @@ export interface CreateMovementDTO {
   accountId: number;
   type: MovementType;
   date: string;
-  concept: string;
-  description: string | null;
+  note: string;
   amountCents: number;
   nature: ExpenseNature | null;
-  tagIds: number[];
+  tagId: number | null;
 }
 
 export interface UpdateMovementDTO {
   movementId: number;
-  accountId: number;
+  expectedAccountId: number;
   type: MovementType;
   date: string;
-  concept: string;
-  description: string | null;
+  note: string;
   amountCents: number;
   nature: ExpenseNature | null;
-  tagIds: number[];
+  tagId: number | null;
 }
 
 export interface MovementTagDTO {
@@ -35,11 +33,10 @@ export interface MovementDTO {
   accountId: number;
   type: MovementType;
   date: string;
-  concept: string;
-  description: string | null;
+  note: string;
   amountCents: number;
   nature: ExpenseNature | null;
-  tags: MovementTagDTO[];
+  tag: MovementTagDTO | null;
 }
 
 export interface AccountDTO {

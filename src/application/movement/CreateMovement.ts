@@ -6,10 +6,8 @@ import { Movement } from "@/domain/movement/Movement";
 import type { AccountRepository } from "../account/AccountRepository";
 import type { TagRepository } from "../tag/TagRepository";
 import type { CreateMovementDTO } from "./dto";
-import { resolveNature, resolveTagIds } from "./movement-inputs";
+import { resolveNature, resolveTagId } from "./movement-inputs";
 import type { MovementRepository } from "./MovementRepository";
-
-export { DEFAULT_TAG_SLUG } from "./movement-inputs";
 
 export class CreateMovement {
   constructor(
@@ -25,17 +23,16 @@ export class CreateMovement {
     }
 
     const nature = resolveNature(dto, account);
-    const tagIds = await resolveTagIds(this.tags, dto.tagIds);
+    const tagId = await resolveTagId(this.tags, dto.tagId);
 
     const movement = Movement.create({
       accountId: account.id ?? AccountId(dto.accountId),
       type: dto.type,
       date: dto.date,
-      concept: dto.concept,
-      description: dto.description,
+      note: dto.note,
       amount: Money.fromCents(dto.amountCents),
       nature,
-      tagIds,
+      tagId,
     });
 
     const movementId = await this.movements.create(movement);

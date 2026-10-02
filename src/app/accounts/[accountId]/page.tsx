@@ -78,7 +78,6 @@ export default async function AccountPage({
 
       <GroupedMovementList
         movements={movements}
-        accounts={accounts}
         tags={tags}
         currentAccountId={account.id}
         currentMonth={month}
