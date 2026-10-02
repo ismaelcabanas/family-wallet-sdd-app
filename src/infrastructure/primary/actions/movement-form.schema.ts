@@ -4,36 +4,35 @@ import { z } from "zod";
 
 export type MovementFieldKey =
   | "date"
-  | "concept"
+  | "note"
   | "amount"
   | "accountId"
   | "type"
   | "nature"
-  | "tagIds"
+  | "tagId"
   | "_form";
 
 export type MovementFieldErrors = Partial<Record<MovementFieldKey, string[]>>;
 
 export interface MovementFormValues {
   date: string;
-  concept: string;
-  description: string;
+  note: string;
   amount: string;
   accountId: string;
   type: string;
   nature: string;
-  tagIds: string[];
+  tagId: string;
 }
 
 export interface RawMovementInput {
   date: string;
-  concept: string;
-  description: string;
+  note: string;
   amount: string;
   accountId: string;
   type: string;
   nature?: string;
-  tagIds: string[];
+  tagId: string;
+  intent?: string;
 }
 
 const AMOUNT_PATTERN = /^\d{1,9}([.,]\d{1,2})?$/;
@@ -61,11 +60,10 @@ export function parseAmountToCents(value: string): number {
 export const movementFormSchema = z
   .object({
     date: z.string().refine(isRealCalendarDate, "Indica una fecha válida."),
-    concept: z
+    note: z
       .string()
       .trim()
-      .min(1, "El concepto es obligatorio."),
-    description: z.string().transform((value) => (value.trim() === "" ? null : value.trim())),
+      .min(1, "La nota es obligatoria."),
     amount: z.string().superRefine((value, ctx) => {
       const trimmed = value.trim();
       if (trimmed === "") {
@@ -86,7 +84,9 @@ export const movementFormSchema = z
     accountId: z
       .string()
       .regex(/^\d+$/, "Selecciona una cuenta.")
-      .transform(Number),
+      .transform(Number)
+      .or(z.literal("").transform(() => undefined))
+      .optional(),
     type: z
       .string()
       .refine(
@@ -100,9 +100,11 @@ export const movementFormSchema = z
         "Selecciona la naturaleza del gasto (personal o compartido).",
       )
       .optional(),
-    tagIds: z
-      .array(z.string().regex(/^\d+$/, "Una de las etiquetas seleccionadas ya no está disponible."))
-      .transform((ids) => [...new Set(ids)].map(Number)),
+    tagId: z
+      .string()
+      .regex(/^\d+$/, "Una de las etiquetas seleccionadas ya no está disponible.")
+      .transform(Number)
+      .or(z.literal("").transform(() => null)),
   })
   .superRefine((data, ctx) => {
     if (data.type === "expense" && data.nature === undefined) {
@@ -115,31 +117,45 @@ export const movementFormSchema = z
     if (data.type === "income" && data.nature !== undefined) {
       ctx.addIssue({ code: "custom", path: ["nature"], message: "Los ingresos no llevan naturaleza." });
     }
+    if (data.type === "expense" && data.tagId === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["tagId"],
+        message: "Selecciona una etiqueta para el gasto.",
+      });
+    }
   });
+
+export const movementIntentSchema = z
+  .string()
+  .optional()
+  .transform((value) => (value === "continue" ? "continue" : "close"));
+
+export type MovementIntent = "continue" | "close";
 
 export function extractMovementFormData(formData: FormData): RawMovementInput {
   const nature = formData.get("nature");
+  const intent = formData.get("intent");
   return {
     date: String(formData.get("date") ?? ""),
-    concept: String(formData.get("concept") ?? ""),
-    description: String(formData.get("description") ?? ""),
+    note: String(formData.get("note") ?? ""),
     amount: String(formData.get("amount") ?? ""),
     accountId: String(formData.get("accountId") ?? ""),
     type: String(formData.get("type") ?? ""),
     nature: nature === null ? undefined : String(nature),
-    tagIds: formData.getAll("tagIds").map(String),
+    tagId: String(formData.get("tagId") ?? ""),
+    intent: intent === null ? undefined : String(intent),
   };
 }
 
 export function toMovementFormValues(raw: RawMovementInput): MovementFormValues {
   return {
     date: raw.date,
-    concept: raw.concept,
-    description: raw.description,
+    note: raw.note,
     amount: raw.amount,
     accountId: raw.accountId,
     type: raw.type,
     nature: raw.nature ?? "",
-    tagIds: raw.tagIds,
+    tagId: raw.tagId,
   };
 }

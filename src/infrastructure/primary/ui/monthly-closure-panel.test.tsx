@@ -54,14 +54,14 @@ describe("MonthlyClosurePanel", () => {
     ]);
   });
 
-  it("incluye la nota informativa del desglose multi-tag", () => {
+  it("ya no incluye la nota informativa del desglose multi-tag (tag única)", () => {
     render(<MonthlyClosurePanel closure={closureDTO()} month="2026-09" />);
 
     expect(
-      screen.getByText(
+      screen.queryByText(
         "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.",
       ),
-    ).toBeVisible();
+    ).toBeNull();
   });
 
   it("muestra saldo negativo con signo menos contable", () => {

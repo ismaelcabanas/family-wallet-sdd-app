@@ -21,11 +21,10 @@ export interface MovementInput {
   accountId: AccountId;
   type: MovementType;
   date: string;
-  concept: string;
-  description: string | null;
+  note: string;
   amount: Money;
   nature: ExpenseNature | null;
-  tagIds: TagId[];
+  tagId: TagId | null;
 }
 
 export interface MovementPersistence {
@@ -33,11 +32,10 @@ export interface MovementPersistence {
   accountId: AccountId;
   type: MovementType;
   date: string;
-  concept: string;
-  description: string | null;
+  note: string;
   amount: Money;
   nature: ExpenseNature | null;
-  tagIds: TagId[];
+  tagId: TagId | null;
   createdAt: string;
 }
 
@@ -45,17 +43,16 @@ type ValidatedMovementState = [
   accountId: AccountId,
   type: MovementType,
   date: string,
-  concept: string,
-  description: string | null,
+  note: string,
   amount: Money,
   nature: ExpenseNature | null,
-  tagIds: TagId[],
+  tagId: TagId | null,
 ];
 
 function buildValidatedState(input: MovementInput): ValidatedMovementState {
-  const concept = input.concept.trim();
-  if (concept === "") {
-    throw new InvalidMovementError("concept", "El concepto es obligatorio.");
+  const note = input.note.trim();
+  if (note === "") {
+    throw new InvalidMovementError("note", "La nota es obligatoria.");
   }
 
   if (!isRealCalendarDate(input.date)) {
@@ -73,25 +70,16 @@ function buildValidatedState(input: MovementInput): ValidatedMovementState {
         "Selecciona la naturaleza del gasto (personal o compartido).",
       );
     }
-  } else if (input.nature !== null) {
-    throw new InvalidMovementError("nature", "Los ingresos no llevan naturaleza.");
+    if (input.tagId === null) {
+      throw new InvalidMovementError("tagId", "Selecciona una etiqueta para el gasto.");
+    }
+  } else {
+    if (input.nature !== null) {
+      throw new InvalidMovementError("nature", "Los ingresos no llevan naturaleza.");
+    }
   }
 
-  const uniqueTagIds = [...new Set(input.tagIds)];
-  if (uniqueTagIds.length === 0) {
-    throw new InvalidMovementError("tagIds", "Selecciona al menos una etiqueta.");
-  }
-
-  return [
-    input.accountId,
-    input.type,
-    input.date,
-    concept,
-    input.description?.trim() === "" ? null : (input.description?.trim() ?? null),
-    input.amount,
-    input.nature,
-    uniqueTagIds,
-  ];
+  return [input.accountId, input.type, input.date, note, input.amount, input.nature, input.tagId];
 }
 
 export class Movement {
@@ -99,11 +87,10 @@ export class Movement {
   readonly accountId: AccountId;
   readonly type: MovementType;
   readonly date: string;
-  readonly concept: string;
-  readonly description: string | null;
+  readonly note: string;
   readonly amount: Money;
   readonly nature: ExpenseNature | null;
-  readonly tagIds: readonly TagId[];
+  readonly tagId: TagId | null;
   readonly createdAt: string;
 
   private constructor(
@@ -111,32 +98,26 @@ export class Movement {
     accountId: AccountId,
     type: MovementType,
     date: string,
-    concept: string,
-    description: string | null,
+    note: string,
     amount: Money,
     nature: ExpenseNature | null,
-    tagIds: TagId[],
+    tagId: TagId | null,
     createdAt: string,
   ) {
     this.id = id;
     this.accountId = accountId;
     this.type = type;
     this.date = date;
-    this.concept = concept;
-    this.description = description;
+    this.note = note;
     this.amount = amount;
     this.nature = nature;
-    this.tagIds = Object.freeze([...tagIds]);
+    this.tagId = tagId;
     this.createdAt = createdAt;
     Object.freeze(this);
   }
 
   static create(input: MovementInput): Movement {
-    return new Movement(
-      null,
-      ...buildValidatedState(input),
-      new Date().toISOString(),
-    );
+    return new Movement(null, ...buildValidatedState(input), new Date().toISOString());
   }
 
   static recreate(id: MovementId, input: MovementInput, createdAt: string): Movement {
@@ -149,11 +130,10 @@ export class Movement {
       persistence.accountId,
       persistence.type,
       persistence.date,
-      persistence.concept,
-      persistence.description,
+      persistence.note,
       persistence.amount,
       persistence.nature,
-      persistence.tagIds,
+      persistence.tagId,
       persistence.createdAt,
     );
   }

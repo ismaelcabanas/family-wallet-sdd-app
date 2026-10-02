@@ -6,14 +6,8 @@ vi.mock("../actions/update-movement.action", () => ({ updateMovement: vi.fn() })
 vi.mock("../actions/delete-movement.action", () => ({ deleteMovement: vi.fn() }));
 vi.mock("../actions/create-movement.action", () => ({ createMovement: vi.fn() }));
 
-import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { MovementDTO, TagDTO } from "@/application/movement/dto";
 import { groupMovementsByDate, GroupedMovementList } from "./grouped-movement-list";
-
-const accounts: AccountDTO[] = [
-  { id: 1, name: "Cuenta de Miembro A", type: "personal", memberId: 1, memberName: "Miembro A" },
-  { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2, memberName: "Miembro B" },
-  { id: 3, name: "Cuenta común", type: "shared", memberId: null, memberName: null },
-];
 
 const tags: TagDTO[] = [{ id: 1, name: "Alimentación", slug: "alimentacion" }];
 
@@ -23,11 +17,10 @@ function buildMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
     accountId: 2,
     type: "expense",
     date: "2026-04-05",
-    concept: "Mercadona",
-    description: null,
+    note: "Mercadona",
     amountCents: 8_500,
     nature: "personal",
-    tags: [{ id: 1, name: "Alimentación", slug: "alimentacion" }],
+    tag: { id: 1, name: "Alimentación", slug: "alimentacion" },
     ...overrides,
   };
 }
@@ -36,7 +29,6 @@ function renderList(movements: MovementDTO[]) {
   return render(
     <GroupedMovementList
       movements={movements}
-      accounts={accounts}
       tags={tags}
       currentAccountId={2}
       currentMonth="2026-04"
@@ -53,9 +45,9 @@ afterEach(() => {
 
 describe("groupMovementsByDate", () => {
   it("agrupa por fecha en orden de aparición sin reordenar la entrada", () => {
-    const older = buildMovement({ id: 1, date: "2026-04-02", concept: "Cine" });
-    const newerFirst = buildMovement({ id: 3, date: "2026-04-05", concept: "Gasolina" });
-    const newerSecond = buildMovement({ id: 2, date: "2026-04-05", concept: "Mercadona" });
+    const older = buildMovement({ id: 1, date: "2026-04-02", note: "Cine" });
+    const newerFirst = buildMovement({ id: 3, date: "2026-04-05", note: "Gasolina" });
+    const newerSecond = buildMovement({ id: 2, date: "2026-04-05", note: "Mercadona" });
 
     const groups = groupMovementsByDate([newerFirst, newerSecond, older]);
 
@@ -67,8 +59,8 @@ describe("groupMovementsByDate", () => {
   it("aplanar los grupos recupera exactamente la entrada (invariante)", () => {
     const input = [
       buildMovement({ id: 3, date: "2026-04-05" }),
-      buildMovement({ id: 2, date: "2026-04-05", concept: "Gasolina" }),
-      buildMovement({ id: 1, date: "2026-04-02", concept: "Cine" }),
+      buildMovement({ id: 2, date: "2026-04-05", note: "Gasolina" }),
+      buildMovement({ id: 1, date: "2026-04-02", note: "Cine" }),
     ];
 
     const flattened = groupMovementsByDate(input).flatMap((group) => group.movements);
@@ -80,9 +72,9 @@ describe("groupMovementsByDate", () => {
 describe("GroupedMovementList", () => {
   it("muestra el grupo más reciente arriba y el orden interno por registro", () => {
     renderList([
-      buildMovement({ id: 3, date: "2026-04-05", concept: "Gasolina" }),
-      buildMovement({ id: 2, date: "2026-04-05", concept: "Mercadona" }),
-      buildMovement({ id: 1, date: "2026-04-02", concept: "Cine" }),
+      buildMovement({ id: 3, date: "2026-04-05", note: "Gasolina" }),
+      buildMovement({ id: 2, date: "2026-04-05", note: "Mercadona" }),
+      buildMovement({ id: 1, date: "2026-04-02", note: "Cine" }),
     ]);
 
     const groups = screen.getAllByRole("heading", { level: 3 });
@@ -99,20 +91,20 @@ describe("GroupedMovementList", () => {
     ]);
   });
 
-  it("muestra la nota concatenada concepto · descripción y solo concepto sin descripción", () => {
+  it("muestra la nota única de cada movimiento", () => {
     renderList([
-      buildMovement({ id: 1, concept: "Mercadona", description: "compra semanal" }),
-      buildMovement({ id: 2, concept: "Cine", description: null }),
+      buildMovement({ id: 1, note: "Mercadona compra semanal" }),
+      buildMovement({ id: 2, note: "Cine" }),
     ]);
 
-    expect(screen.getByText("Mercadona · compra semanal")).toBeInTheDocument();
+    expect(screen.getByText("Mercadona compra semanal")).toBeInTheDocument();
     expect(screen.getByText("Cine")).toBeInTheDocument();
   });
 
   it("muestra el distintivo de naturaleza solo en gastos", () => {
     renderList([
-      buildMovement({ id: 1, type: "expense", nature: "shared", concept: "Mercadona" }),
-      buildMovement({ id: 2, type: "income", nature: null, concept: "Nómina", amountCents: 1_000_000 }),
+      buildMovement({ id: 1, type: "expense", nature: "shared", note: "Mercadona" }),
+      buildMovement({ id: 2, type: "income", nature: null, note: "Nómina", amountCents: 1_000_000 }),
     ]);
 
     expect(screen.getByText("Común")).toBeInTheDocument();
@@ -140,12 +132,14 @@ describe("GroupedMovementList", () => {
     expect(screen.queryByText("Ingreso")).not.toBeInTheDocument();
   });
 
-  it("pinta la tag Sin Clasificar como cualquier otra", () => {
+  it("pinta la tag única como chip y sin chip cuando no hay tag", () => {
     renderList([
-      buildMovement({ tags: [{ id: 9, name: "Sin Clasificar", slug: "sin-clasificar" }] }),
+      buildMovement({ id: 1, tag: { id: 9, name: "Sin Clasificar", slug: "sin-clasificar" } }),
+      buildMovement({ id: 2, tag: null, note: "Nómina" }),
     ]);
 
     expect(screen.getByText("Sin Clasificar")).toBeInTheDocument();
+    expect(screen.getByText("Nómina")).toBeInTheDocument();
   });
 
   it("abre los diálogos de 003 al pulsar editar o eliminar desde la fila", async () => {
@@ -177,7 +171,6 @@ describe("GroupedMovementList", () => {
     rerender(
       <GroupedMovementList
         movements={[]}
-        accounts={accounts}
         tags={tags}
         currentAccountId={2}
         currentMonth="2026-04"

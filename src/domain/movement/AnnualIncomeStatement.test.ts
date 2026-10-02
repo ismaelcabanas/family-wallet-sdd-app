@@ -15,7 +15,7 @@ function movement(
     type: "expense",
     nature: "shared",
     amountCents: 1_000,
-    tags: [{ id: 1, name: "Hogar" }],
+    tag: { id: 1, name: "Hogar" },
     accountId: 3,
     date: "2026-01-15",
     ...input,
@@ -44,7 +44,7 @@ const yearTresCuentas: AnnualStatementMovementInput[] = [
     nature: null,
     amountCents: 210_000,
     date: "2026-01-05",
-    tags: [{ id: 9, name: "Nómina" }],
+    tag: { id: 9, name: "Nómina" },
   }),
   movement({
     accountId: 2,
@@ -64,20 +64,20 @@ const yearTresCuentas: AnnualStatementMovementInput[] = [
     accountId: 3,
     amountCents: 85_000,
     date: "2026-01-05",
-    tags: [{ id: 4, name: "Vivienda" }, { id: 5, name: "Hipoteca" }],
+    tag: { id: 5, name: "Hipoteca" },
   }),
   movement({
     accountId: 1,
     nature: "personal",
     amountCents: 6_000,
     date: "2026-01-10",
-    tags: [{ id: 6, name: "Coche" }],
+    tag: { id: 6, name: "Coche" },
   }),
   movement({
     accountId: 2,
     amountCents: 306_000,
     date: "2026-07-12",
-    tags: [{ id: 9, name: "Alimentación" }],
+    tag: { id: 9, name: "Alimentación" },
   }),
   movement({
     accountId: 2,
@@ -320,20 +320,20 @@ describe("AnnualIncomeStatement", () => {
     expect(incomeStatement.totalIncomeRow.averageCents).toBe(8_333);
   });
 
-  it("un gasto multi-tag computa en cada tag sin duplicar el gasto real anual", () => {
+  it("cada gasto computa en su única tag sin duplicar el gasto real anual", () => {
     const statement = AnnualIncomeStatement.fromMovements(
       [
         movement({
           accountId: 3,
           amountCents: 85_000,
           date: "2026-01-05",
-          tags: [{ id: 4, name: "Vivienda" }, { id: 5, name: "Hipoteca" }],
+          tag: { id: 5, name: "Hipoteca" },
         }),
         movement({
           accountId: 3,
           amountCents: 85_000,
           date: "2026-03-05",
-          tags: [{ id: 4, name: "Vivienda" }, { id: 5, name: "Hipoteca" }],
+          tag: { id: 4, name: "Vivienda" },
         }),
       ],
       accounts,
@@ -341,15 +341,14 @@ describe("AnnualIncomeStatement", () => {
     );
 
     expect(statement.tagRows.map((row) => [row.tagName, row.totalCents])).toEqual([
-      ["Hipoteca", 170_000],
-      ["Vivienda", 170_000],
+      ["Hipoteca", 85_000],
+      ["Vivienda", 85_000],
     ]);
     expect(statement.expenseRealRow.totalCents).toBe(170_000);
 
     const vivienda = statement.tagRows.find((row) => row.tagName === "Vivienda");
-    expect(cellCents(vivienda?.monthCells ?? [])[0]).toBe(85_000);
     expect(cellCents(vivienda?.monthCells ?? [])[2]).toBe(85_000);
-    expect(vivienda?.averageCents).toBe(Math.round(170_000 / 12));
+    expect(vivienda?.averageCents).toBe(Math.round(85_000 / 12));
   });
 
   it("los ingresos no aparecen en el desglose por tag", () => {
@@ -360,7 +359,7 @@ describe("AnnualIncomeStatement", () => {
           type: "income",
           nature: null,
           amountCents: 100_000,
-          tags: [{ id: 9, name: "Nómina" }],
+          tag: { id: 9, name: "Nómina" },
         }),
       ],
       accounts,
@@ -374,15 +373,15 @@ describe("AnnualIncomeStatement", () => {
   it("tagRows es la fusión de los 12 tagBreakdown ordenada por total anual desc y nombre asc", () => {
     const statement = AnnualIncomeStatement.fromMovements(
       [
-        movement({ accountId: 3, amountCents: 5_000, date: "2026-02-01", tags: [{ id: 6, name: "Ocio" }] }),
+        movement({ accountId: 3, amountCents: 5_000, date: "2026-02-01", tag: { id: 6, name: "Ocio" } }),
         movement({
           accountId: 3,
           amountCents: 5_000,
           date: "2026-03-01",
-          tags: [{ id: 9, name: "Alimentación" }],
+          tag: { id: 9, name: "Alimentación" },
         }),
-        movement({ accountId: 3, amountCents: 9_000, date: "2026-05-01", tags: [{ id: 4, name: "Coche" }] }),
-        movement({ accountId: 3, amountCents: 2_000, date: "2026-08-01", tags: [{ id: 6, name: "Ocio" }] }),
+        movement({ accountId: 3, amountCents: 9_000, date: "2026-05-01", tag: { id: 4, name: "Coche" } }),
+        movement({ accountId: 3, amountCents: 2_000, date: "2026-08-01", tag: { id: 6, name: "Ocio" } }),
       ],
       accounts,
       members,

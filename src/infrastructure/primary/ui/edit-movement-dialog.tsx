@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import type { AccountDTO, MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { MovementDTO, TagDTO } from "@/application/movement/dto";
 
 import { updateMovement, type UpdateMovementState } from "../actions/update-movement.action";
 import { Button } from "./components/ui/button";
@@ -17,7 +17,6 @@ import { MovementFormFields, type MovementFormInitialValues } from "./movement-f
 
 interface EditMovementDialogProps {
   movement: MovementDTO;
-  accounts: AccountDTO[];
   tags: TagDTO[];
   currentAccountId: number;
   currentMonth: string;
@@ -28,7 +27,6 @@ const NOT_FOUND_MESSAGE = "El movimiento ya no existe.";
 
 export function EditMovementDialog({
   movement,
-  accounts,
   tags,
   currentAccountId,
   currentMonth,
@@ -50,7 +48,6 @@ export function EditMovementDialog({
         </DialogHeader>
         <EditMovementForm
           movement={movement}
-          accounts={accounts}
           tags={tags}
           currentAccountId={currentAccountId}
           currentMonth={currentMonth}
@@ -66,7 +63,6 @@ export function EditMovementDialog({
 
 function EditMovementForm({
   movement,
-  accounts,
   tags,
   currentAccountId,
   currentMonth,
@@ -89,13 +85,11 @@ function EditMovementForm({
 
   const initialValues: MovementFormInitialValues = {
     date: movement.date,
-    concept: movement.concept,
-    description: movement.description ?? "",
+    note: movement.note,
     amountCents: movement.amountCents,
-    accountId: movement.accountId,
     type: movement.type,
     nature: movement.nature,
-    tagIds: movement.tags.map((tag) => tag.id),
+    tagId: movement.tag?.id ?? null,
   };
 
   return (
@@ -104,7 +98,6 @@ function EditMovementForm({
       formAction={formAction}
       isPending={isPending}
       tags={tags}
-      accounts={accounts}
       initialValues={initialValues}
       submitLabel="Guardar cambios"
       secondaryActions={

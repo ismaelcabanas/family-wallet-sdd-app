@@ -50,7 +50,6 @@ describe("CreateMovement", () => {
   const tags = [
     Tag.rehydrate(1, "Alimentación", "alimentacion", "active"),
     Tag.rehydrate(2, "Vivienda", "vivienda", "active"),
-    Tag.rehydrate(3, "Hipoteca", "hipoteca", "active"),
     Tag.rehydrate(5, "Inactiva", "inactiva", "inactive"),
     Tag.rehydrate(9, "Sin Clasificar", "sin-clasificar", "active"),
   ];
@@ -62,11 +61,10 @@ describe("CreateMovement", () => {
     accountId: 1,
     type: "expense" as const,
     date: "2026-09-01",
-    concept: "Mercadona",
-    description: null,
+    note: "Mercadona",
     amountCents: 12_050,
     nature: "personal" as const,
-    tagIds: [2, 3],
+    tagId: 2,
   };
 
   beforeEach(() => {
@@ -87,12 +85,18 @@ describe("CreateMovement", () => {
     );
   });
 
-  it("crea un gasto válido y lo persiste con sus tags", async () => {
+  it("crea un gasto válido y lo persiste con su tag única", async () => {
     const id = await useCase.execute({ ...baseDto });
     expect(id).toBe(1);
     expect(movements.created).toHaveLength(1);
-    expect([...movements.created[0].tagIds]).toEqual([TagId(2), TagId(3)]);
+    expect(movements.created[0].tagId).toBe(TagId(2));
     expect(movements.created[0].nature).toBe("personal");
+  });
+
+  it("crea un ingreso válido sin tag (tag opcional en ingresos)", async () => {
+    await useCase.execute({ ...baseDto, type: "income", nature: null, tagId: null });
+    expect(movements.created[0].tagId).toBeNull();
+    expect(movements.created[0].nature).toBeNull();
   });
 
   it("aplica naturaleza 'shared' por defecto en gastos de la cuenta común", async () => {
@@ -100,20 +104,29 @@ describe("CreateMovement", () => {
     expect(movements.created[0].nature).toBe("shared");
   });
 
-  it("asigna la tag por defecto 'Sin Clasificar' si no se selecciona ninguna (FR-006)", async () => {
-    await useCase.execute({ ...baseDto, tagIds: [] });
-    expect([...movements.created[0].tagIds]).toEqual([TagId(9)]);
+  it("rechaza un gasto sin tag con el error de dominio propagado", async () => {
+    await expect(useCase.execute({ ...baseDto, tagId: null })).rejects.toThrowError(
+      InvalidMovementError,
+    );
+    expect(movements.created).toHaveLength(0);
+  });
+
+  it("el error de gasto sin tag señala el campo tagId", async () => {
+    const error = await useCase.execute({ ...baseDto, tagId: null }).catch((e) => e);
+    expect(error).toBeInstanceOf(InvalidMovementError);
+    expect(error.field).toBe("tagId");
+    expect(error.message).toBe("Selecciona una etiqueta para el gasto.");
   });
 
   it("rechaza una tag inexistente", async () => {
-    await expect(useCase.execute({ ...baseDto, tagIds: [999] })).rejects.toThrowError(
+    await expect(useCase.execute({ ...baseDto, tagId: 999 })).rejects.toThrowError(
       TagNotFoundError,
     );
     expect(movements.created).toHaveLength(0);
   });
 
   it("rechaza una tag inactiva", async () => {
-    await expect(useCase.execute({ ...baseDto, tagIds: [5] })).rejects.toThrowError(
+    await expect(useCase.execute({ ...baseDto, tagId: 5 })).rejects.toThrowError(
       InactiveTagError,
     );
     expect(movements.created).toHaveLength(0);
@@ -123,11 +136,6 @@ describe("CreateMovement", () => {
     await expect(
       useCase.execute({ ...baseDto, type: "income", nature: "personal" }),
     ).rejects.toThrowError(InvalidMovementError);
-  });
-
-  it("el repositorio recibe el agregado con tagIds deduplicados", async () => {
-    await useCase.execute({ ...baseDto, tagIds: [2, 2, 3, 3] });
-    expect([...movements.created[0].tagIds]).toEqual([TagId(2), TagId(3)]);
   });
 
   it("rechaza una cuenta inexistente", async () => {

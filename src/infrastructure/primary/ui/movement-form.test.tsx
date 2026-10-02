@@ -48,13 +48,12 @@ function errorState(overrides: Partial<Extract<CreateMovementState, { status: "e
     errors: {},
     values: {
       date: "2026-09-03",
-      concept: "Hipoteca",
-      description: "",
+      note: "Hipoteca",
       amount: "850,00",
       accountId: "1",
       type: "expense",
       nature: "personal",
-      tagIds: ["2"],
+      tagId: "2",
     },
     ...overrides,
   };
@@ -79,15 +78,44 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
-  it("renderiza los defaults: fecha hoy, tipo gasto y naturaleza personal editable", () => {
+describe("CreateMovementDialog (flujo de alta)", () => {
+  it("renderiza los 6 controles: fecha hoy, importe, Nota, Gasto, naturaleza personal editable y Etiqueta sin selección", () => {
     renderCreateDialog();
 
     const dateInput = screen.getByLabelText("Fecha");
     expect(dateInput).toHaveValue(todayIsoDate());
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("");
+    expect(screen.getByLabelText("Nota")).toHaveValue("");
     expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Compartido" })).toBeEnabled();
+    const tagTrigger = screen.getByRole("combobox", { name: "Etiqueta" });
+    expect(tagTrigger).toHaveTextContent("Selecciona etiqueta");
+  });
+
+  it("no muestra campo descripción, bloque de cuenta ni texto de Sin Clasificar", () => {
+    renderCreateDialog();
+
+    expect(screen.queryByLabelText("Descripción (opcional)")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sin selección, el movimiento se guarda/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/se cambia con el selector superior/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Cuenta" })).not.toBeInTheDocument();
+  });
+
+  it("el Select de etiqueta ofrece una opción por tag activa y «Sin etiqueta» solo con Ingreso", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    expect(screen.getByRole("option", { name: "Vivienda" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Hipoteca" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sin Clasificar" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Sin etiqueta" })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("radio", { name: "Ingreso" }));
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    expect(screen.getByRole("option", { name: "Sin etiqueta" })).toBeInTheDocument();
   });
 
   it("en la cuenta común la naturaleza es compartido y no editable", () => {
@@ -111,49 +139,71 @@ describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
     expect(screen.queryByRole("radio", { name: "Compartido" })).not.toBeInTheDocument();
   });
 
+  it("muestra el error de tag en gasto con el mensaje del contrato", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValueOnce(
+      errorState({
+        errors: { tagId: ["Selecciona una etiqueta para el gasto."] },
+      }),
+    );
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Selecciona una etiqueta para el gasto."),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("muestra los errores por campo con los mensajes del contrato", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce(
       errorState({
         errors: {
           amount: ["El importe es obligatorio."],
-          concept: ["El concepto es obligatorio."],
+          note: ["La nota es obligatoria."],
         },
       }),
     );
     renderCreateDialog();
 
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
 
     await waitFor(() => {
       expect(screen.getByText("El importe es obligatorio.")).toBeInTheDocument();
     });
-    expect(screen.getByText("El concepto es obligatorio.")).toBeInTheDocument();
+    expect(screen.getByText("La nota es obligatoria.")).toBeInTheDocument();
     expect(actionMock).toHaveBeenCalledTimes(1);
   });
 
-  it("conserva los valores introducidos tras un fallo", async () => {
+  it("conserva los valores introducidos tras un fallo (nota y tag)", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce(errorState());
     renderCreateDialog();
 
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Hipoteca")).toBeInTheDocument();
     });
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("850,00");
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-03");
-    expect(screen.getByLabelText("Vivienda")).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
   });
 
-  it("en éxito tuesta, cierra el diálogo y al reabrir encuentra el formulario limpio", async () => {
+  it("en éxito tuesta y cierra el diálogo", async () => {
     const user = userEvent.setup();
-    actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento guardado" });
+    actionMock.mockResolvedValueOnce({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "close",
+    });
     renderCreateDialog();
 
-    await user.type(screen.getByLabelText("Concepto"), "Mercadona");
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.type(screen.getByLabelText("Nota"), "Mercadona");
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
 
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
@@ -161,28 +211,6 @@ describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-
-    renderCreateDialog();
-    expect(screen.getByLabelText("Concepto")).toHaveValue("");
-    expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
-  });
-
-  it("permite seleccionar ingreso tras reabrir el diálogo después de un registro exitoso (regresión E3)", async () => {
-    const user = userEvent.setup();
-    actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento guardado" });
-    renderCreateDialog();
-
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
-    await waitFor(() => {
-      expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento guardado");
-    });
-
-    renderCreateDialog();
-    await user.click(screen.getByRole("radio", { name: "Ingreso" }));
-
-    expect(screen.getByRole("radio", { name: "Ingreso" })).toBeChecked();
-    expect(screen.queryByRole("radio", { name: "Personal" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: "Compartido" })).not.toBeInTheDocument();
   });
 
   it("muestra el error de formulario inesperado bajo el formulario", async () => {
@@ -194,7 +222,7 @@ describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
     );
     renderCreateDialog();
 
-    await user.click(screen.getByRole("button", { name: "Registrar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
 
     await waitFor(() => {
       expect(
@@ -206,20 +234,13 @@ describe("CreateMovementDialog (flujo de alta, ex MovementForm)", () => {
 });
 
 describe("MovementFormFields (modo edición)", () => {
-  const accounts = [
-    { id: 1, name: "Cuenta de Miembro A", type: "personal" as const, memberId: 1, memberName: "Miembro A" },
-    { id: 3, name: "Cuenta común", type: "shared" as const, memberId: null, memberName: null },
-  ];
-
   const initialValues = {
     date: "2026-09-14",
-    concept: "Mercadona",
-    description: "Compra semanal",
+    note: "Mercadona",
     amountCents: 7_850,
-    accountId: 1,
     type: "expense" as const,
     nature: "personal" as const,
-    tagIds: [2, 3],
+    tagId: 2,
   };
 
   function renderEditFields(
@@ -232,64 +253,28 @@ describe("MovementFormFields (modo edición)", () => {
         isPending={false}
         submitLabel="Guardar cambios"
         tags={tags}
-        accounts={accounts}
         initialValues={initialValues}
         {...overrides}
       />,
     );
   }
 
-  it("prellena los campos desde initialValues (importe con formato de entrada)", () => {
+  it("prellena nota y etiqueta única desde initialValues", () => {
     renderEditFields();
 
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-14");
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("78,50");
-    expect(screen.getByLabelText("Concepto")).toHaveValue("Mercadona");
-    expect(screen.getByLabelText("Descripción (opcional)")).toHaveValue("Compra semanal");
+    expect(screen.getByLabelText("Nota")).toHaveValue("Mercadona");
     expect(screen.getByRole("radio", { name: "Gasto" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
-    expect(screen.getByLabelText("Vivienda")).toBeChecked();
-    expect(screen.getByLabelText("Hipoteca")).toBeChecked();
-    expect(screen.getByLabelText("Sin Clasificar")).not.toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
   });
 
-  it("Cuenta es un Select con todas las cuentas de la página", async () => {
-    const user = userEvent.setup();
+  it("no muestra selector de cuenta en edición", () => {
     renderEditFields();
 
-    const accountTrigger = screen.getByRole("combobox", { name: "Cuenta" });
-    expect(accountTrigger).toHaveTextContent("Cuenta de Miembro A");
-
-    await user.click(accountTrigger);
-    expect(screen.getByRole("option", { name: "Cuenta de Miembro A" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Cuenta común" })).toBeInTheDocument();
-  });
-
-  it("al elegir la cuenta común la naturaleza queda fija en Compartido", async () => {
-    const user = userEvent.setup();
-    renderEditFields();
-
-    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
-    await user.click(screen.getByRole("option", { name: "Cuenta común" }));
-
-    const personal = screen.getByRole("radio", { name: /Personal/ });
-    const shared = screen.getByRole("radio", { name: /Compartido \(fijo/ });
-    expect(personal).toBeDisabled();
-    expect(shared).toBeDisabled();
-    expect(shared).toBeChecked();
-  });
-
-  it("al volver a una cuenta personal se conserva la elección explícita de naturaleza", async () => {
-    const user = userEvent.setup();
-    renderEditFields();
-
-    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
-    await user.click(screen.getByRole("option", { name: "Cuenta común" }));
-    await user.click(screen.getByRole("combobox", { name: "Cuenta" }));
-    await user.click(screen.getByRole("option", { name: "Cuenta de Miembro A" }));
-
-    expect(screen.getByRole("radio", { name: "Personal" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /^Compartido$/ })).toBeEnabled();
+    expect(screen.queryByRole("combobox", { name: "Cuenta" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Cuenta")).not.toBeInTheDocument();
   });
 
   it("al cambiar el tipo a ingreso el bloque de naturaleza no se muestra", async () => {
@@ -311,58 +296,29 @@ describe("MovementFormFields (modo edición)", () => {
     expect(actionMock).toHaveBeenCalledTimes(1);
     const formData = actionMock.mock.calls[0][0] as FormData;
     expect(formData.get("date")).toBe("2026-09-14");
-    expect(formData.get("concept")).toBe("Mercadona");
+    expect(formData.get("note")).toBe("Mercadona");
     expect(formData.get("amount")).toBe("78,50");
-    expect(formData.get("accountId")).toBe("1");
     expect(formData.get("type")).toBe("expense");
     expect(formData.get("nature")).toBe("personal");
-    expect(formData.getAll("tagIds")).toEqual(["2", "3"]);
+    expect(formData.get("tagId")).toBe("2");
   });
 
-  it("muestra los errores en línea con los mensajes compartidos del alta (FR-002)", async () => {
-    const user = userEvent.setup();
-    const { rerender } = renderEditFields();
-
-    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
-    actionMock.mockResolvedValueOnce({
-      status: "error",
-      errors: { amount: ["El importe es obligatorio."] },
-      values: {
-        date: "2026-09-14",
-        concept: "Mercadona",
-        description: "",
-        amount: "",
-        accountId: "1",
-        type: "expense",
-        nature: "personal",
-        tagIds: ["2"],
+  it("muestra los errores en línea con los mensajes compartidos del alta (FR-002)", () => {
+    renderEditFields({
+      state: {
+        status: "error",
+        errors: { amount: ["El importe es obligatorio."] },
+        values: {
+          date: "2026-09-14",
+          note: "Mercadona",
+          amount: "",
+          accountId: "",
+          type: "expense",
+          nature: "personal",
+          tagId: "2",
+        },
       },
     });
-
-    rerender(
-      <MovementFormFields
-        state={{
-          status: "error",
-          errors: { amount: ["El importe es obligatorio."] },
-          values: {
-            date: "2026-09-14",
-            concept: "Mercadona",
-            description: "",
-            amount: "",
-            accountId: "1",
-            type: "expense",
-            nature: "personal",
-            tagIds: ["2"],
-          },
-        }}
-        formAction={actionMock}
-        isPending={false}
-        submitLabel="Guardar cambios"
-        tags={tags}
-        accounts={accounts}
-        initialValues={initialValues}
-      />,
-    );
 
     expect(screen.getByText("El importe es obligatorio.")).toBeInTheDocument();
   });

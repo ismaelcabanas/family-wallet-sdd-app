@@ -2,7 +2,7 @@ import { Account } from "@/domain/account/Account";
 import { AccountId } from "@/domain/account/AccountId";
 import { AccountNotFoundError } from "@/domain/account/AccountErrors";
 import { MemberId } from "@/domain/member/MemberId";
-import { MovementNotFoundError } from "@/domain/movement/MovementErrors";
+import { InvalidMovementError, MovementNotFoundError } from "@/domain/movement/MovementErrors";
 import { Money } from "@/domain/movement/Money";
 import { Movement } from "@/domain/movement/Movement";
 import { Tag } from "@/domain/tag/Tag";
@@ -24,11 +24,10 @@ class InMemoryMovementRepository implements MovementRepository {
     accountId: AccountId(1),
     type: "expense",
     date: "2026-09-01",
-    concept: "Mercadona",
-    description: "Compra semanal",
+    note: "Mercadona",
     amount: Money.fromCents(8_500),
     nature: "personal",
-    tagIds: [TagId(2)],
+    tagId: TagId(2),
     createdAt: ORIGINAL_CREATED_AT,
   });
   updated: Movement | null = null;
@@ -90,14 +89,13 @@ describe("UpdateMovement", () => {
 
   const baseDto = {
     movementId: 7,
-    accountId: AccountId(1),
+    expectedAccountId: 1,
     type: "expense" as const,
     date: "2026-09-10",
-    concept: "Mercadona editado",
-    description: null,
+    note: "Mercadona editado",
     amountCents: 7_850,
     nature: "personal" as const,
-    tagIds: [2, 3],
+    tagId: 2,
   };
 
   beforeEach(() => {
@@ -105,15 +103,23 @@ describe("UpdateMovement", () => {
     useCase = new UpdateMovement(movements, accountsRepository, tagsRepository);
   });
 
-  it("actualiza reconstruyendo el movimiento y preservando id y createdAt", async () => {
+  it("actualiza reconstruyendo el movimiento y preservando id, cuenta y createdAt", async () => {
     await useCase.execute({ ...baseDto });
 
     expect(movements.updated).not.toBeNull();
     expect(movements.updated?.id).toBe(7);
     expect(movements.updated?.createdAt).toBe(ORIGINAL_CREATED_AT);
-    expect(movements.updated?.concept).toBe("Mercadona editado");
+    expect(movements.updated?.accountId).toBe(1);
+    expect(movements.updated?.note).toBe("Mercadona editado");
     expect(movements.updated?.amount.amountCents).toBe(7_850);
     expect(movements.updated?.date).toBe("2026-09-10");
+    expect(movements.updated?.tagId).toBe(TagId(2));
+  });
+
+  it("permite cambiar la tag del movimiento", async () => {
+    await useCase.execute({ ...baseDto, tagId: 3 });
+
+    expect(movements.updated?.tagId).toBe(TagId(3));
   });
 
   it("lanza MovementNotFoundError si el movimiento no existe", async () => {
@@ -125,35 +131,92 @@ describe("UpdateMovement", () => {
     expect(movements.updated).toBeNull();
   });
 
-  it("lanza AccountNotFoundError si la cuenta destino no existe", async () => {
-    await expect(useCase.execute({ ...baseDto, accountId: 999 })).rejects.toThrowError(
+  it("lanza InvalidMovementError de accountId si el movimiento pertenece a otra cuenta", async () => {
+    const error = await useCase
+      .execute({ ...baseDto, expectedAccountId: 3 })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(InvalidMovementError);
+    expect((error as InvalidMovementError).field).toBe("accountId");
+    expect((error as InvalidMovementError).message).toBe(
+      "El movimiento ya no pertenece a esta cuenta.",
+    );
+    expect(movements.updated).toBeNull();
+  });
+
+  it("lanza AccountNotFoundError si la cuenta del movimiento ya no existe", async () => {
+    movements.stored = Movement.rehydrate({
+      id: 7,
+      accountId: AccountId(999),
+      type: "expense",
+      date: "2026-09-01",
+      note: "Mercadona",
+      amount: Money.fromCents(8_500),
+      nature: "personal",
+      tagId: TagId(2),
+      createdAt: ORIGINAL_CREATED_AT,
+    });
+
+    await expect(useCase.execute({ ...baseDto, expectedAccountId: 999 })).rejects.toThrowError(
       AccountNotFoundError,
     );
     expect(movements.updated).toBeNull();
   });
 
   it("resuelve la naturaleza igual que la creación: shared por defecto en cuenta común", async () => {
-    await useCase.execute({ ...baseDto, accountId: 3, nature: null });
+    movements.stored = Movement.rehydrate({
+      id: 7,
+      accountId: AccountId(3),
+      type: "expense",
+      date: "2026-09-01",
+      note: "Mercadona",
+      amount: Money.fromCents(8_500),
+      nature: "shared",
+      tagId: TagId(2),
+      createdAt: ORIGINAL_CREATED_AT,
+    });
+
+    await useCase.execute({ ...baseDto, expectedAccountId: 3, nature: null });
 
     expect(movements.updated?.nature).toBe("shared");
   });
 
-  it("resuelve las tags igual que la creación: 'Sin Clasificar' si no se selecciona ninguna", async () => {
-    await useCase.execute({ ...baseDto, tagIds: [] });
-
-    expect([...(movements.updated?.tagIds ?? [])]).toEqual([TagId(9)]);
-  });
-
-  it("resuelve las tags igual que la creación: rechaza una tag inexistente", async () => {
-    await expect(useCase.execute({ ...baseDto, tagIds: [999] })).rejects.toThrowError(
+  it("rechaza una tag inexistente igual que la creación", async () => {
+    await expect(useCase.execute({ ...baseDto, tagId: 999 })).rejects.toThrowError(
       TagNotFoundError,
     );
   });
 
-  it("permite mover el movimiento a otra cuenta y mes (FR-005)", async () => {
-    await useCase.execute({ ...baseDto, accountId: 3, date: "2026-08-20", nature: null });
+  it("rechaza un gasto sin tag con el error de dominio", async () => {
+    await expect(useCase.execute({ ...baseDto, tagId: null })).rejects.toThrowError(
+      InvalidMovementError,
+    );
+    expect(movements.updated).toBeNull();
+  });
 
-    expect(movements.updated?.accountId).toBe(3);
+  it("permite editar un ingreso sin tag", async () => {
+    movements.stored = Movement.rehydrate({
+      id: 7,
+      accountId: AccountId(1),
+      type: "income",
+      date: "2026-09-01",
+      note: "Nómina",
+      amount: Money.fromCents(210_000),
+      nature: null,
+      tagId: null,
+      createdAt: ORIGINAL_CREATED_AT,
+    });
+
+    await useCase.execute({ ...baseDto, type: "income", nature: null, tagId: null });
+
+    expect(movements.updated?.tagId).toBeNull();
+    expect(movements.updated?.nature).toBeNull();
+  });
+
+  it("permite cambiar el movimiento de mes dentro de la misma cuenta", async () => {
+    await useCase.execute({ ...baseDto, date: "2026-08-20" });
+
+    expect(movements.updated?.accountId).toBe(1);
     expect(movements.updated?.date).toBe("2026-08-20");
     expect(movements.updated?.id).toBe(7);
   });

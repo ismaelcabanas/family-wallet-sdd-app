@@ -14,10 +14,12 @@ import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import {
   extractMovementFormData,
   movementFormSchema,
+  movementIntentSchema,
   parseAmountToCents,
   toMovementFormValues,
   type MovementFieldErrors,
   type MovementFormValues,
+  type MovementIntent,
 } from "./movement-form.schema";
 
 export type {
@@ -28,7 +30,7 @@ export type {
 
 export type CreateMovementState =
   | { status: "idle" }
-  | { status: "success"; message: string }
+  | { status: "success"; message: string; intent: MovementIntent }
   | { status: "error"; errors: MovementFieldErrors; values: MovementFormValues };
 
 function mapDomainErrors(error: unknown): MovementFieldErrors {
@@ -42,7 +44,7 @@ function mapDomainErrors(error: unknown): MovementFieldErrors {
     return { accountId: ["Selecciona una cuenta."] };
   }
   if (error instanceof InactiveTagError || error instanceof TagNotFoundError) {
-    return { tagIds: ["Una de las etiquetas seleccionadas ya no está disponible."] };
+    return { tagId: ["Una de las etiquetas seleccionadas ya no está disponible."] };
   }
   return { _form: ["No se ha podido guardar el movimiento. Inténtalo de nuevo."] };
 }
@@ -59,6 +61,7 @@ export async function createMovement(
 ): Promise<CreateMovementState> {
   const raw = extractMovementFormData(formData);
   const parsed = movementFormSchema.safeParse(raw);
+  const intent = movementIntentSchema.parse(raw.intent);
 
   if (!parsed.success) {
     const fieldErrors = z.flattenError(parsed.error).fieldErrors as MovementFieldErrors;
@@ -66,22 +69,28 @@ export async function createMovement(
   }
 
   const data = parsed.data;
+  if (data.accountId === undefined) {
+    return {
+      status: "error",
+      errors: { accountId: ["Selecciona una cuenta."] },
+      values: toMovementFormValues(raw),
+    };
+  }
 
   try {
     await createMovementUseCase.execute({
       accountId: data.accountId,
       type: data.type,
       date: data.date,
-      concept: data.concept,
-      description: data.description,
+      note: data.note,
       amountCents: parseAmountToCents(data.amount.trim()),
       nature: data.nature ?? null,
-      tagIds: data.tagIds,
+      tagId: data.tagId,
     });
 
     revalidatePath("/");
     revalidatePath("/accounts/[accountId]", "page");
-    return { status: "success", message: "Movimiento guardado" };
+    return { status: "success", message: "Movimiento guardado", intent };
   } catch (error) {
     return { status: "error", errors: mapDomainErrors(error), values: toMovementFormValues(raw) };
   }

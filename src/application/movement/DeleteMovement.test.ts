@@ -15,11 +15,10 @@ class InMemoryMovementRepository implements MovementRepository {
     accountId: AccountId(1),
     type: "expense",
     date: "2026-09-01",
-    concept: "Mercadona",
-    description: null,
+    note: "Mercadona",
     amount: Money.fromCents(8_500),
     nature: "personal",
-    tagIds: [TagId(2)],
+    tagId: TagId(2),
     createdAt: "2026-09-01T08:00:00.000Z",
   });
   deletedId: number | null = null;

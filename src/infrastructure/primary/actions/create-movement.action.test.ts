@@ -6,7 +6,6 @@ vi.mock("@/application/movement/CreateMovement", () => ({
   CreateMovement: vi.fn().mockImplementation(function () {
     return { execute: executeMock };
   }),
-  DEFAULT_TAG_SLUG: "sin-clasificar",
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -20,22 +19,19 @@ import {
 
 const revalidatePathMock = (await import("next/cache")).revalidatePath as Mock;
 
-function buildFormData(overrides: Record<string, string | string[]> = {}): FormData {
+function buildFormData(overrides: Record<string, string> = {}): FormData {
   const formData = new FormData();
   formData.set("date", "2026-09-03");
-  formData.set("concept", "Mercadona");
-  formData.set("description", "");
+  formData.set("note", "Mercadona");
   formData.set("amount", "850,00");
   formData.set("accountId", "3");
   formData.set("type", "expense");
   formData.set("nature", "shared");
-  formData.append("tagIds", "2");
-  formData.append("tagIds", "3");
+  formData.set("tagId", "2");
   for (const [key, value] of Object.entries(overrides)) {
-    formData.delete(key);
-    if (Array.isArray(value)) {
-      for (const item of value) formData.append(key, item);
-    } else if (value !== "") {
+    if (value === "") {
+      formData.delete(key);
+    } else {
       formData.set(key, value);
     }
   }
@@ -47,25 +43,70 @@ async function run(formData: FormData): Promise<CreateMovementState> {
 }
 
 describe("createMovement (Server Action)", () => {
-  it("valida y devuelve éxito con movimiento válido", async () => {
+  it("valida y devuelve éxito con intent close por defecto", async () => {
     executeMock.mockResolvedValueOnce(1);
 
     const state = await run(buildFormData());
 
-    expect(state.status).toBe("success");
-    expect(state).toEqual({ status: "success", message: "Movimiento guardado" });
+    expect(state).toEqual({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "close",
+    });
     expect(executeMock).toHaveBeenCalledExactlyOnceWith({
       accountId: 3,
       type: "expense",
       date: "2026-09-03",
-      concept: "Mercadona",
-      description: null,
+      note: "Mercadona",
       amountCents: 85_000,
       nature: "shared",
-      tagIds: [2, 3],
+      tagId: 2,
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
     expect(revalidatePathMock).toHaveBeenCalledWith("/accounts/[accountId]", "page");
+  });
+
+  it("devuelve intent continue cuando el FormData lo pide", async () => {
+    executeMock.mockResolvedValueOnce(1);
+
+    const state = await run(buildFormData({ intent: "continue" }));
+
+    expect(state).toEqual({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "continue",
+    });
+  });
+
+  it("normaliza un intent desconocido a close", async () => {
+    executeMock.mockResolvedValueOnce(1);
+
+    const state = await run(buildFormData({ intent: "nonsense" }));
+
+    expect(state.status).toBe("success");
+    if (state.status === "success") {
+      expect(state.intent).toBe("close");
+    }
+  });
+
+  it("tagId vacío viaja como null (ingreso sin etiqueta)", async () => {
+    executeMock.mockResolvedValueOnce(1);
+
+    const formData = buildFormData({ type: "income", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state.status).toBe("success");
+    expect(executeMock).toHaveBeenCalledExactlyOnceWith({
+      accountId: 3,
+      type: "income",
+      date: "2026-09-03",
+      note: "Mercadona",
+      amountCents: 85_000,
+      nature: null,
+      tagId: null,
+    });
   });
 
   it.each([
@@ -93,13 +134,23 @@ describe("createMovement (Server Action)", () => {
     expect(executeMock.mock.calls[0][0].amountCents).toBe(85_050);
   });
 
-  it("rechaza el concepto vacío con el mensaje del contrato", async () => {
-    const state = await run(buildFormData({ concept: "   " }));
+  it("rechaza la nota vacía con el mensaje del contrato", async () => {
+    const state = await run(buildFormData({ note: "   " }));
 
     expect(state.status).toBe("error");
     if (state.status === "error") {
-      expect(state.errors.concept).toEqual(["El concepto es obligatorio."]);
+      expect(state.errors.note).toEqual(["La nota es obligatoria."]);
     }
+  });
+
+  it("rechaza un gasto sin etiqueta con el error de tagId", async () => {
+    const state = await run(buildFormData({ tagId: "" }));
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors.tagId).toEqual(["Selecciona una etiqueta para el gasto."]);
+    }
+    expect(executeMock).not.toHaveBeenCalled();
   });
 
   it("rechaza la naturaleza ausente en un gasto", async () => {
@@ -117,7 +168,7 @@ describe("createMovement (Server Action)", () => {
   });
 
   it("rechaza la naturaleza presente en un ingreso", async () => {
-    const state = await run(buildFormData({ type: "income" }));
+    const state = await run(buildFormData({ type: "income", tagId: "" }));
 
     expect(state.status).toBe("error");
     if (state.status === "error") {
@@ -135,19 +186,18 @@ describe("createMovement (Server Action)", () => {
   });
 
   it("conserva los valores introducidos tras un fallo", async () => {
-    const state = await run(buildFormData({ concept: "" }));
+    const state = await run(buildFormData({ note: "" }));
 
     expect(state.status).toBe("error");
     if (state.status === "error") {
       expect(state.values).toEqual({
         date: "2026-09-03",
-        concept: "",
-        description: "",
+        note: "",
         amount: "850,00",
         accountId: "3",
         type: "expense",
         nature: "shared",
-        tagIds: ["2", "3"],
+        tagId: "2",
       });
     }
   });
@@ -172,7 +222,7 @@ describe("createMovement (Server Action)", () => {
     }
   });
 
-  it("mapea la tag inactiva al error de tagIds del contrato", async () => {
+  it("mapea la tag inactiva al error de tagId del contrato", async () => {
     const { InactiveTagError } = await import("@/domain/tag/TagErrors");
     executeMock.mockRejectedValueOnce(new InactiveTagError());
 
@@ -180,9 +230,23 @@ describe("createMovement (Server Action)", () => {
 
     expect(state.status).toBe("error");
     if (state.status === "error") {
-      expect(state.errors.tagIds).toEqual([
+      expect(state.errors.tagId).toEqual([
         "Una de las etiquetas seleccionadas ya no está disponible.",
       ]);
+    }
+  });
+
+  it("mapea el error de dominio de gasto sin tag al campo tagId", async () => {
+    const { InvalidMovementError } = await import("@/domain/movement/MovementErrors");
+    executeMock.mockRejectedValueOnce(
+      new InvalidMovementError("tagId", "Selecciona una etiqueta para el gasto."),
+    );
+
+    const state = await run(buildFormData());
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors.tagId).toEqual(["Selecciona una etiqueta para el gasto."]);
     }
   });
 });

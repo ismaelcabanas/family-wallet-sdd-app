@@ -149,7 +149,7 @@ describe("AnnualStatementPanel", () => {
     const table = monthlyTable();
     const headers = table.getAllByRole("columnheader").map((th) => th.textContent);
     expect(headers).toEqual([
-      "Concepto",
+      "Nota",
       "Ene", "Feb", "Mar", "Abr", "May", "Jun",
       "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
       "Total año", "Media mensual",
@@ -242,20 +242,14 @@ describe("AnnualStatementPanel", () => {
     const viviendaRow = table.getByRole("row", { name: /Vivienda/ });
     expect(within(viviendaRow).getAllByText(amountRe(85_000))).toHaveLength(2);
     expect(within(viviendaRow).getAllByText(amountRe(0))).toHaveLength(11);
-
-    expect(screen.getByText(toExactRe(TAG_NOTE))).toBeVisible();
   });
 
   it("en un año sin gastos muestra 'Sin gastos este año.' sin ocultar la tabla mensual", () => {
     render(<AnnualStatementPanel statement={statementDTO({ tagRows: [] })} year="2026" />);
 
     expect(screen.getByText("Sin gastos este año.")).toBeVisible();
-    expect(screen.queryByText(toExactRe(TAG_NOTE))).toBeNull();
 
     const table = monthlyTable();
     expect(table.getByRole("row", { name: /Total ingresos/ })).toBeVisible();
   });
 });
-
-const TAG_NOTE =
-  "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.";

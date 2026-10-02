@@ -7,73 +7,55 @@ import { TagId } from "@/domain/tag/TagId";
 
 import type { MovementDTO } from "@/application/movement/dto";
 import type { MovementRow, NewMovementRow } from "../schema/movements";
-import type { TagRow } from "../schema/tags";
 
 export function mapMovementToRow(movement: Movement): NewMovementRow {
   return {
     accountId: movement.accountId as number,
     type: movement.type,
     date: movement.date,
-    concept: movement.concept,
-    description: movement.description,
+    note: movement.note,
     amountCents: movement.amount.amountCents,
     nature: movement.nature,
+    tagId: movement.tagId as number | null,
     createdAt: movement.createdAt,
   };
-}
-
-export interface MovementWithTagsRow extends MovementRow {
-  tags: Array<Pick<TagRow, "id" | "name" | "slug">>;
 }
 
 export interface MovementJoinedRow
   extends Pick<
     MovementRow,
-    "id" | "accountId" | "type" | "date" | "concept" | "description" | "amountCents" | "nature"
+    "id" | "accountId" | "type" | "date" | "note" | "amountCents" | "nature"
   > {
   tagId: number | null;
   tagName: string | null;
   tagSlug: string | null;
 }
 
-export function mapJoinedRowsToMovementDTOs(rows: MovementJoinedRow[]): MovementDTO[] {
-  const movementsById = new Map<number, MovementDTO>();
-
-  for (const row of rows) {
-    let dto = movementsById.get(row.id);
-    if (!dto) {
-      dto = {
-        id: row.id,
-        accountId: row.accountId,
-        type: row.type as MovementType,
-        date: row.date,
-        concept: row.concept,
-        description: row.description,
-        amountCents: row.amountCents,
-        nature: row.nature as ExpenseNature | null,
-        tags: [],
-      };
-      movementsById.set(row.id, dto);
-    }
-    if (row.tagId !== null && row.tagName !== null && row.tagSlug !== null) {
-      dto.tags.push({ id: row.tagId, name: row.tagName, slug: row.tagSlug });
-    }
-  }
-
-  return [...movementsById.values()];
+export function mapJoinedRowToMovementDTO(row: MovementJoinedRow): MovementDTO {
+  const { tagId, tagName, tagSlug } = row;
+  const hasTag = tagId !== null && tagName !== null && tagSlug !== null;
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    type: row.type as MovementType,
+    date: row.date,
+    note: row.note,
+    amountCents: row.amountCents,
+    nature: row.nature as ExpenseNature | null,
+    tag: hasTag ? { id: tagId, name: tagName, slug: tagSlug } : null,
+  };
 }
 
-export function mapRowToMovement(row: MovementRow, tagIds: number[]): Movement {
+export function mapRowToMovement(row: MovementRow): Movement {
   return Movement.rehydrate({
     id: row.id,
     accountId: AccountId(row.accountId),
     type: row.type as MovementType,
     date: row.date,
-    concept: row.concept,
-    description: row.description,
+    note: row.note,
     amount: Money.fromCents(row.amountCents),
     nature: row.nature as ExpenseNature | null,
-    tagIds: tagIds.map((id) => TagId(id)),
+    tagId: row.tagId === null ? null : TagId(row.tagId),
     createdAt: row.createdAt,
   });
 }

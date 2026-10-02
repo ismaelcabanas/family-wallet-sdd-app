@@ -23,11 +23,6 @@ vi.mock("sonner", async (importOriginal) => {
 import type { MovementDTO } from "@/application/movement/dto";
 import { EditMovementDialog } from "./edit-movement-dialog";
 
-const accounts = [
-  { id: 1, name: "Cuenta de Miembro A", type: "personal" as const, memberId: 1, memberName: "Miembro A" },
-  { id: 3, name: "Cuenta común", type: "shared" as const, memberId: null, memberName: null },
-];
-
 const tags = [
   { id: 2, name: "Vivienda", slug: "vivienda" },
   { id: 3, name: "Hipoteca", slug: "hipoteca" },
@@ -38,11 +33,10 @@ const movement: MovementDTO = {
   accountId: 1,
   type: "expense",
   date: "2026-09-14",
-  concept: "Mercadona",
-  description: "Compra semanal",
+  note: "Mercadona",
   amountCents: 8_500,
   nature: "personal",
-  tags: [{ id: 2, name: "Vivienda", slug: "vivienda" }],
+  tag: { id: 2, name: "Vivienda", slug: "vivienda" },
 };
 
 const onCloseMock = vi.fn();
@@ -51,7 +45,6 @@ function renderDialog() {
   return render(
     <EditMovementDialog
       movement={movement}
-      accounts={accounts}
       tags={tags}
       currentAccountId={1}
       currentMonth="2026-09"
@@ -66,15 +59,21 @@ afterEach(() => {
 });
 
 describe("EditMovementDialog", () => {
-  it("abre con el formulario precargado con los datos del movimiento", () => {
+  it("abre con el formulario precargado con nota y tag única del movimiento", () => {
     renderDialog();
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Editar movimiento" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Concepto")).toHaveValue("Mercadona");
+    expect(screen.getByLabelText("Nota")).toHaveValue("Mercadona");
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("85,00");
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-09-14");
-    expect(screen.getByLabelText("Vivienda")).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
+  });
+
+  it("no muestra selector de cuenta", () => {
+    renderDialog();
+
+    expect(screen.queryByRole("combobox", { name: "Cuenta" })).not.toBeInTheDocument();
   });
 
   it("cancelar cierra el diálogo sin llamar a la action", async () => {
@@ -90,7 +89,7 @@ describe("EditMovementDialog", () => {
     expect(actionMock).not.toHaveBeenCalled();
   });
 
-  it("éxito cierra el diálogo y tuesta el mensaje de la action", async () => {
+  it("éxito cierra el diálogo y tuesta el mensaje de la action (FR-006)", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce({
       status: "success",
@@ -109,7 +108,7 @@ describe("EditMovementDialog", () => {
     expect(onCloseMock).toHaveBeenCalled();
   });
 
-  it("tuesta el aviso de movimiento movido compuesto por la action", async () => {
+  it("tuesta el aviso de mes movido compuesto por la action", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce({
       status: "success",
@@ -133,13 +132,12 @@ describe("EditMovementDialog", () => {
       errors: { _form: ["No se ha podido guardar el movimiento. Inténtalo de nuevo."] },
       values: {
         date: "2026-09-14",
-        concept: "Mercadona",
-        description: "",
+        note: "Mercadona",
         amount: "85,00",
-        accountId: "1",
+        accountId: "",
         type: "expense",
         nature: "personal",
-        tagIds: ["2"],
+        tagId: "2",
       },
     });
     renderDialog();
@@ -161,13 +159,12 @@ describe("EditMovementDialog", () => {
       errors: { _form: ["El movimiento ya no existe."] },
       values: {
         date: "2026-09-14",
-        concept: "Mercadona",
-        description: "",
+        note: "Mercadona",
         amount: "85,00",
-        accountId: "1",
+        accountId: "",
         type: "expense",
         nature: "personal",
-        tagIds: ["2"],
+        tagId: "2",
       },
     });
     renderDialog();

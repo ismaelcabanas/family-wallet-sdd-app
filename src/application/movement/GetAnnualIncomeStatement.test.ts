@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Member } from "@/domain/member/Member";
-
 import type { AccountDTO, MovementDTO } from "./dto";
 import { GetAnnualIncomeStatement } from "./GetAnnualIncomeStatement";
+import { Member } from "@/domain/member/Member";
 
 const movements: MovementDTO[] = [
   {
@@ -11,80 +10,70 @@ const movements: MovementDTO[] = [
     accountId: 1,
     type: "income",
     date: "2026-01-05",
-    concept: "Nómina",
-    description: null,
+    note: "Nómina",
     amountCents: 210_000,
     nature: null,
-    tags: [],
+    tag: null,
   },
   {
     id: 2,
     accountId: 2,
     type: "income",
     date: "2026-01-05",
-    concept: "Nómina",
-    description: null,
+    note: "Nómina",
     amountCents: 160_000,
     nature: null,
-    tags: [],
+    tag: null,
   },
   {
     id: 3,
     accountId: 3,
     type: "income",
     date: "2026-01-03",
-    concept: "Aportaciones",
-    description: null,
+    note: "Aportaciones",
     amountCents: 192_000,
     nature: null,
-    tags: [],
+    tag: null,
   },
   {
     id: 4,
     accountId: 3,
     type: "expense",
     date: "2026-01-05",
-    concept: "Hipoteca",
-    description: null,
+    note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tags: [
-      { id: 1, name: "Vivienda", slug: "vivienda" },
-      { id: 2, name: "Hipoteca", slug: "hipoteca" },
-    ],
+    tag: { id: 2, name: "Hipoteca", slug: "hipoteca" },
   },
   {
     id: 5,
     accountId: 1,
     type: "expense",
     date: "2026-01-10",
-    concept: "Gasolina",
-    description: null,
+    note: "Gasolina",
     amountCents: 6_000,
     nature: "personal",
-    tags: [{ id: 3, name: "Coche", slug: "coche" }],
+    tag: { id: 3, name: "Coche", slug: "coche" },
   },
   {
     id: 6,
     accountId: 2,
     type: "expense",
     date: "2026-07-12",
-    concept: "Compra semanal",
-    description: null,
+    note: "Compra semanal",
     amountCents: 306_000,
     nature: "shared",
-    tags: [{ id: 4, name: "Alimentación", slug: "alimentacion" }],
+    tag: { id: 4, name: "Alimentación", slug: "alimentacion" },
   },
   {
     id: 7,
     accountId: 2,
     type: "income",
     date: "2026-07-05",
-    concept: "Nómina",
-    description: null,
+    note: "Nómina",
     amountCents: 160_000,
     nature: null,
-    tags: [],
+    tag: null,
   },
 ];
 
@@ -170,7 +159,6 @@ describe("GetAnnualIncomeStatement", () => {
     expect(statement.tagRows.map((row) => [row.tagName, row.totalCents])).toEqual([
       ["Alimentación", 306_000],
       ["Hipoteca", 85_000],
-      ["Vivienda", 85_000],
       ["Coche", 6_000],
     ]);
   });

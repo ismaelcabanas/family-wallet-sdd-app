@@ -2,9 +2,6 @@ import type { GlobalMonthlySummaryDTO } from "@/application/movement/dto";
 
 import { formatAmountCents, formatSignedCents, monthLabel } from "./format";
 
-const TAG_NOTE =
-  "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.";
-
 export function GlobalSummaryPanel({
   summary,
   month,
@@ -68,7 +65,6 @@ export function GlobalSummaryPanel({
           ))}
         </ul>
       )}
-      <p className="mt-3 text-xs text-muted-foreground">{TAG_NOTE}</p>
 
       <h3 className="mt-4 text-sm font-medium">Desglose por miembro</h3>
       {summary.memberBreakdown.length === 0 ? (
