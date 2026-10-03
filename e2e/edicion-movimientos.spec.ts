@@ -26,19 +26,19 @@ async function selectMonth(page: Page, monthLabel: string): Promise<void> {
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     date?: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
 ): Promise<void> {
   await page.getByRole("button", { name: "Nuevo movimiento" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toBeVisible();
 
   await page.getByLabel("Fecha", { exact: true }).fill(fields.date ?? "2026-08-10");
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
   if (fields.type === "income") {
@@ -51,11 +51,12 @@ async function registerMovement(
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Guardar y cerrar" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).not.toBeVisible({
     timeout: 10_000,
   });
@@ -63,7 +64,7 @@ async function registerMovement(
   await expect(
     movementList(page)
       .getByRole("listitem")
-      .filter({ hasText: fields.concept })
+      .filter({ hasText: fields.note })
       .first(),
   ).toBeVisible({ timeout: 10_000 });
 }
@@ -78,10 +79,10 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
 
   test("E1: editar el importe recalcula listado, balance y cierre", async ({ page }) => {
     await registerMovement(page, {
-      concept: "Mercadona",
+      note: "Mercadona",
       amount: "85,00",
       nature: "personal",
-      tags: ["Alimentación"],
+      tag: "Alimentación",
     });
 
     await page.getByRole("button", { name: "Editar Mercadona" }).click();
@@ -89,8 +90,8 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
     const dialog = page.getByRole("dialog", { name: "Editar movimiento" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Importe (€)")).toHaveValue("85,00");
-    await expect(dialog.getByLabel("Concepto")).toHaveValue("Mercadona");
-    await expect(dialog.getByRole("checkbox", { name: "Alimentación", exact: true })).toBeChecked();
+    await expect(dialog.getByLabel("Nota")).toHaveValue("Mercadona");
+    await expect(dialog.getByRole("combobox", { name: "Etiqueta" })).toContainText("Alimentación");
 
     await dialog.getByLabel("Importe (€)").fill("78,50");
     await dialog.getByRole("button", { name: "Guardar cambios" }).click();
@@ -112,10 +113,10 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
 
   test("E2: eliminar con confirmación actualiza listado, balance y cierre", async ({ page }) => {
     await registerMovement(page, {
-      concept: "Compra a borrar",
+      note: "Compra a borrar",
       amount: "20,00",
       nature: "personal",
-      tags: ["Alimentación"],
+      tag: "Alimentación",
     });
 
     await page.getByRole("button", { name: "Eliminar Compra a borrar" }).click();
@@ -146,11 +147,11 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
   }) => {
     await selectMonth(page, "Julio de 2026");
     await registerMovement(page, {
-      concept: "Solitario",
+      note: "Solitario",
       amount: "15,00",
       date: "2026-07-05",
       nature: "personal",
-      tags: ["Ocio"],
+      tag: "Ocio",
     });
 
     await page.getByRole("button", { name: "Eliminar Solitario" }).click();

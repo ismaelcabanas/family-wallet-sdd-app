@@ -9,17 +9,17 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
 ): Promise<void> {
   await page.getByRole("button", { name: "Nuevo movimiento" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toBeVisible();
 
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
   if (fields.type === "income") {
@@ -32,11 +32,12 @@ async function registerMovement(
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Guardar y cerrar" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).not.toBeVisible({
     timeout: 10_000,
   });
@@ -45,7 +46,7 @@ async function registerMovement(
     page
       .getByRole("region", { name: "Movimientos del mes" })
       .getByRole("listitem")
-      .filter({ hasText: fields.concept })
+      .filter({ hasText: fields.note })
       .first(),
   ).toBeVisible({ timeout: 10_000 });
 }
@@ -58,21 +59,21 @@ test.describe("cierre mensual (cuenta de Miembro B)", () => {
     await expect(page.getByText("Cierre de")).toBeVisible();
   });
 
-  test("E1: KPIs exactos del mes con ingreso, gasto compartido multi-tag y gasto personal", async ({
+  test("E1: KPIs exactos del mes con ingreso, gasto compartido y gasto personal (tag única)", async ({
     page,
   }) => {
-    await registerMovement(page, { concept: "Aportación", amount: "1920,00", type: "income" });
+    await registerMovement(page, { note: "Aportación", amount: "1920,00", type: "income" });
     await registerMovement(page, {
-      concept: "Hipoteca",
+      note: "Hipoteca",
       amount: "850,00",
       nature: "shared",
-      tags: ["Vivienda", "Hipoteca"],
+      tag: "Hipoteca",
     });
     await registerMovement(page, {
-      concept: "Gasolina",
+      note: "Gasolina",
       amount: "60,00",
       nature: "personal",
-      tags: ["Coche"],
+      tag: "Coche",
     });
 
     const panel = page.getByRole("region").filter({ hasText: "Cierre de" }).first();
@@ -85,13 +86,11 @@ test.describe("cierre mensual (cuenta de Miembro B)", () => {
     await expect(panel.getByText("Gastos personales: 60,00").first()).toBeVisible();
 
     const breakdown = panel.getByRole("listitem");
-    await expect(breakdown).toHaveCount(3);
+    await expect(breakdown).toHaveCount(2);
     await expect(breakdown.nth(0)).toContainText("Hipoteca");
     await expect(breakdown.nth(0)).toContainText("850,00");
-    await expect(breakdown.nth(1)).toContainText("Vivienda");
-    await expect(breakdown.nth(1)).toContainText("850,00");
-    await expect(breakdown.nth(2)).toContainText("Coche");
-    await expect(breakdown.nth(2)).toContainText("60,00");
+    await expect(breakdown.nth(1)).toContainText("Coche");
+    await expect(breakdown.nth(1)).toContainText("60,00");
   });
 
   test("E2: mes vacío muestra todos los KPIs a cero y desglose sin gastos", async ({ page }) => {

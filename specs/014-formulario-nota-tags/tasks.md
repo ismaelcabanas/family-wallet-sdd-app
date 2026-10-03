@@ -134,14 +134,14 @@ description: "Task list for feature 014 implementation"
 
 **Purpose**: El flujo crítico de registro cubre la tanda continua y el error por tag ausente; los helpers migran a «Nota» + Select de etiqueta; `registro-movimientos.spec.ts` es la spec canónica de la tanda (research §6.6). Aislamiento cuenta/mes por spec y `workers: 1` intactos.
 
-- [ ] T036 Ampliar `e2e/registro-movimientos.spec.ts` (flujo crítico, mantiene su combinación cuenta/mes): helpers rellenan «Nota» y etiqueta vía Select (`getByRole("combobox", …)` + opción por nombre); **tanda continua** — 1 apertura y N guardados con «Guardar y seguir» (verificando contador, campos vacíos/pegados y listado revalidado sin cerrar), cierre con «Guardar y cerrar»; **gasto sin tag** → error «Selecciona una etiqueta para el gasto.» con diálogo abierto y valores conservados; **ingreso sin tag** → se guarda (FR-001/FR-003, US1-1, US2-2/2-3)
-- [ ] T037 [P] Adaptar `e2e/edicion-movimientos.spec.ts`: helpers Nota + Select de etiqueta; fuera el recorrido de cambio de cuenta (imposible, FR-004); editar mantiene cierre en éxito; mantener lo que la spec verifica
-- [ ] T038 [P] Adaptar `e2e/cierre-mensual.spec.ts`: helpers Nota + selector de etiqueta única (3 altas); el alta permanece abierta tras «Guardar y seguir» → los helpers cierran tras guardar o usan «Guardar y cerrar» (y pueden encadenar altas con una sola apertura, SC-001)
-- [ ] T039 [P] Adaptar `e2e/resumen-global.spec.ts`: ídem T038 (altas múltiples)
-- [ ] T040 [P] Adaptar `e2e/cuenta-resultados-anual.spec.ts`: ídem T038 (5 altas)
-- [ ] T041 [P] Adaptar `e2e/pagina-cuenta.spec.ts`: helpers Nota + selector de etiqueta única (alta con «Guardar y cerrar» o cierre tras guardar)
-- [ ] T042 Verificar `e2e/panel-cuentas.spec.ts` intacta (sus literales siguen siendo ciertos; sin cambios esperados — solo ajustar si un literal afectado lo exige)
-- [ ] T043 Ejecutar `npm run test:e2e` y verificar las 7 specs en verde (SC-004)
+- [x] T036 Ampliar `e2e/registro-movimientos.spec.ts` (flujo crítico, mantiene su combinación cuenta/mes): helpers rellenan «Nota» y etiqueta vía Select (`getByRole("combobox", …)` + opción por nombre); **tanda continua** — 1 apertura y N guardados con «Guardar y seguir» (verificando contador, campos vacíos/pegados y listado revalidado sin cerrar), cierre con «Guardar y cerrar»; **gasto sin tag** → error «Selecciona una etiqueta para el gasto.» con diálogo abierto y valores conservados; **ingreso sin tag** → se guarda (FR-001/FR-003, US1-1, US2-2/2-3)
+- [x] T037 [P] Adaptar `e2e/edicion-movimientos.spec.ts`: helpers Nota + Select de etiqueta; fuera el recorrido de cambio de cuenta (imposible, FR-004); editar mantiene cierre en éxito; mantener lo que la spec verifica
+- [x] T038 [P] Adaptar `e2e/cierre-mensual.spec.ts`: helpers Nota + selector de etiqueta única (3 altas); el alta permanece abierta tras «Guardar y seguir» → los helpers cierran tras guardar o usan «Guardar y cerrar» (y pueden encadenar altas con una sola apertura, SC-001)
+- [x] T039 [P] Adaptar `e2e/resumen-global.spec.ts`: ídem T038 (altas múltiples)
+- [x] T040 [P] Adaptar `e2e/cuenta-resultados-anual.spec.ts`: ídem T038 (5 altas)
+- [x] T041 [P] Adaptar `e2e/pagina-cuenta.spec.ts`: helpers Nota + selector de etiqueta única (alta con «Guardar y cerrar» o cierre tras guardar)
+- [x] T042 Verificar `e2e/panel-cuentas.spec.ts` intacta (sus literales siguen siendo ciertos; sin cambios esperados — solo ajustar si un literal afectado lo exige)
+- [x] T043 Ejecutar `npm run test:e2e` y verificar las 7 specs en verde (SC-004)
 
 **Checkpoint**: Flujo crítico e2e cubriendo tanda + tag obligatoria; todas las specs e2e en verde.
 

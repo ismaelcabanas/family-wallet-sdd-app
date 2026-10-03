@@ -13,19 +13,19 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     date: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
 ): Promise<void> {
   await page.getByRole("button", { name: "Nuevo movimiento" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toBeVisible();
 
   await page.getByLabel("Fecha", { exact: true }).fill(fields.date);
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
   if (fields.type === "income") {
@@ -38,11 +38,12 @@ async function registerMovement(
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Guardar y cerrar" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).not.toBeVisible({
     timeout: 10_000,
   });
@@ -51,7 +52,7 @@ async function registerMovement(
     page
       .getByRole("region", { name: "Movimientos del mes" })
       .getByRole("listitem")
-      .filter({ hasText: fields.concept })
+      .filter({ hasText: fields.note })
       .first(),
   ).toBeVisible({ timeout: 10_000 });
 }
@@ -80,24 +81,24 @@ test.describe("cuenta de resultados anual", () => {
     ).toBeVisible();
 
     await registerMovement(page, {
-      concept: "Nómina B enero",
+      note: "Nómina B enero",
       amount: "1600,00",
       date: "2027-01-05",
       type: "income",
     });
     await registerMovement(page, {
-      concept: "Gasolina B",
+      note: "Gasolina B",
       amount: "60,00",
       date: "2027-01-10",
       nature: "personal",
-      tags: ["Coche"],
+      tag: "Coche",
     });
     await registerMovement(page, {
-      concept: "Compra enero",
+      note: "Compra enero",
       amount: "300,00",
       date: "2027-01-12",
       nature: "shared",
-      tags: ["Alimentación"],
+      tag: "Alimentación",
     });
 
     await page.goto(`/accounts/2?month=2027-07`);
@@ -105,17 +106,17 @@ test.describe("cuenta de resultados anual", () => {
       page.getByRole("heading", { name: "Cuenta de Miembro B", exact: true }),
     ).toBeVisible();
     await registerMovement(page, {
-      concept: "Nómina B julio",
+      note: "Nómina B julio",
       amount: "1600,00",
       date: "2027-07-05",
       type: "income",
     });
     await registerMovement(page, {
-      concept: "Compra julio",
+      note: "Compra julio",
       amount: "200,00",
       date: "2027-07-12",
       nature: "shared",
-      tags: ["Alimentación", "Ocio"],
+      tag: "Alimentación",
     });
 
     await page.getByRole("link", { name: "Cuenta de resultados" }).click();
@@ -169,9 +170,6 @@ test.describe("cuenta de resultados anual", () => {
     await expect(alimentacionRow).toContainText(new RegExp(`500,00${EUR}`));
     await expect(alimentacionRow).toContainText(new RegExp(`41,67${EUR}`));
 
-    const ocioRow = breakdown.getByRole("row", { name: /^Ocio/ });
-    await expect(ocioRow).toContainText(new RegExp(`200,00${EUR}`));
-
     const cocheRow = breakdown.getByRole("row", { name: /^Coche/ });
     await expect(cocheRow).toContainText(new RegExp(`60,00${EUR}`));
     await expect(cocheRow).toContainText(new RegExp(`5,00${EUR}`));
@@ -180,7 +178,7 @@ test.describe("cuenta de resultados anual", () => {
       breakdown.getByText(
         "Los gastos con varias tags computan en cada una; las filas pueden no sumar el total de gastos.",
       ),
-    ).toBeVisible();
+    ).toHaveCount(0);
 
     const tagTotalsReal = breakdown.getByRole("row", { name: /^Gasto real/ });
     await expect(tagTotalsReal).toContainText(new RegExp(`560,00${EUR}`));
