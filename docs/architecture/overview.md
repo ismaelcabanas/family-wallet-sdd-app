@@ -39,7 +39,7 @@ src/
 │   │   ├── CreateMovement.ts    <-- Caso de uso (reglas FR-005/FR-006)
 │   │   ├── UpdateMovement.ts    <-- findById -> recreate (preserva id/createdAt) -> update (ADR 0011)
 │   │   ├── DeleteMovement.ts    <-- findById -> delete físico (ADR 0011)
-│   │   ├── movement-inputs.ts   <-- Resolutores de naturaleza/tags compartidos por alta y edición
+│   │   ├── movement-inputs.ts   <-- Resolutores de naturaleza y tag única (sin default desde 014) compartidos por alta y edición
 │   │   ├── ListMovements.ts     <-- Query mes+cuenta
 │   │   ├── GetMonthlyClosure.ts <-- Query cierre del mes vía puerto + VO (ADR 0010)
 │   │   ├── GetGlobalMonthlySummary.ts <-- Query resumen global del mes: listByMonth + findAll vía puertos + VO (ADR 0012)
@@ -64,7 +64,7 @@ src/
 │
 └── infrastructure/
     ├── db/                      <-- ADAPTADOR OUTBOUND: Persistencia Drizzle
-    │   ├── schema/              <-- members, accounts, tags, movements, movement_tags
+    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
@@ -76,7 +76,7 @@ src/
         ├── actions/
         │   ├── movement-form.schema.ts    <-- Schema Zod del formulario compartido alta/edición (FR-002)
         │   ├── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008); revalida '/' y '/accounts/[accountId]' (patrón "page")
-        │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido" (FR-007), la UI solo lo muestra; doble revalidación
+        │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   └── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)

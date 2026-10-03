@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006 y 009)
+# Clases: modelo de dominio (features 002, 006, 009 y 014)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -30,14 +30,13 @@ classDiagram
     class Movement {
         <<Entidad · raíz del agregado>>
         +id: MovementId?
-        +accountId: AccountId
+        +accountId: AccountId (inmutable tras el alta, 014)
         +type: MovementType
         +date: String YYYY-MM-DD
-        +concept: String
-        +description: String?
+        +note: String (fusiona concept+description, 014)
         +amount: Money
         +nature: ExpenseNature?
-        +tagIds: TagId[] congelada
+        +tagId: TagId? (obligatoria si expense, 014)
         +createdAt: String ISO-8601 UTC
         +create(input)$ Movement
         +recreate(id, input, createdAt)$ Movement
@@ -125,11 +124,11 @@ classDiagram
     }
 
     class ClosureMovementInput {
-        <<record de 005>>
+        <<record de 005 (tag única desde 014)>>
         +type MovementType
         +nature ExpenseNature?
         +amountCents number
-        +tags ClosureTagRef[]
+        +tag ClosureTagRef?
     }
 
     class GlobalSummaryMovementInput {
@@ -199,7 +198,7 @@ classDiagram
     Movement "1" *-- "1" Money : amount (céntimos enteros)
     Movement "1" *-- "1" MovementType : type
     Movement "1" o-- "0..1" ExpenseNature : solo si expense
-    Movement "*" --o "*" Tag : tagIds (1..n tras default "Sin Clasificar")
+    Movement "0..1" --o "1" Tag : tagId (obligatoria en expense, 014)
     Member "1" --o "0..1" Account : solo cuentas personales
     Account "1" *-- "1" AccountType : type
     Tag "1" *-- "1" TagStatus : status
@@ -233,10 +232,10 @@ classDiagram
 ## Invariantes clave
 
 - **`Money`**: `amountCents` entero; `fromCents` exige `0 < cents ≤ 99.999.999.999` (999.999.999,99 €); `fromCentsOrZero` admite ≤ 0 (balances); sin conversión a/from float (ADR 0007).
-- **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); `tagIds` con mínimo 1 (la acción por defecto "Sin Clasificar" la garantiza el caso de uso, FR-006); fecha ISO de calendario real; concepto no vacío tras trim; `amount > 0` (los abonos se registran como ingresos, FR-003).
+- **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`.
 - **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004).
 - **Balance**: no es un campo de `Account`; query derivada `SUM` (ADR 0009).
-- **`MonthlyClosure`**: `shared + personal = expenseTotal`; multi-tag computa en cada tag sin duplicar `expenseTotal`; mes vacío → ceros (ADR 0010).
+- **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).
 - **`AnnualIncomeStatement`** (ADR 0013): compone 12 `GlobalMonthlySummary` (uno por mes Ene–Dic, vacíos incluidos), por lo que hereda sus invariantes y además **cada mes = resumen global de 006** (FR-006, garantía estructural + test de invariante); Σ `memberIncomeRows` mes a mes = `totalIncomeRow` (cada ingreso computa exactamente en la fila de la cuenta de registro; catálogo completo siempre presente con ceros, FR-002); `accumulatedBalanceRow.monthCells[m]` = Σ `balanceRow.monthCells[0..m]` y su total = total anual de «Saldo» (FR-012, sin media); `averageCents = Math.round(totalCents / 12)` en todas las filas salvo la acumulada (único redondeo de la feature, ADR 0007); año vacío → 12 resúmenes a ceros, filas completas a cero y `tagRows = []` (FR-007). La factory es total sobre inputs ya filtrados por el año (no re-valida el año: lo garantiza el llamador).
