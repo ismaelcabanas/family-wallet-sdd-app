@@ -31,13 +31,12 @@ async function gotoAccountMonth(page: Page, month = MONTH): Promise<void> {
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     date: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
-    description?: string;
+    tag?: string;
   },
 ): Promise<void> {
   await page.getByRole("button", { name: "Nuevo movimiento" }).click();
@@ -45,12 +44,8 @@ async function registerMovement(
   await expect(dialog).toBeVisible();
 
   await page.getByLabel("Fecha", { exact: true }).fill(fields.date);
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
-
-  if (fields.description !== undefined) {
-    await page.getByLabel("Descripción (opcional)").fill(fields.description);
-  }
 
   if (fields.type === "income") {
     await page.getByRole("radio", { name: "Ingreso" }).check();
@@ -62,17 +57,18 @@ async function registerMovement(
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Guardar y cerrar" }).click();
   await expect(page.getByText("Movimiento guardado").last()).toBeVisible({ timeout: 10_000 });
   await expect(dialog).not.toBeVisible();
 
   const item = movementList(page)
     .getByRole("listitem")
-    .filter({ hasText: fields.concept })
+    .filter({ hasText: fields.note })
     .first();
   await expect(item).toBeVisible({ timeout: 10_000 });
 }
@@ -93,26 +89,25 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await expect(page.getByRole("button", { name: "Nuevo movimiento" })).toBeVisible();
 
     await registerMovement(page, {
-      concept: "Mercadona",
+      note: "Mercadona compra semanal",
       amount: "85,00",
       date: "2026-04-05",
       nature: "shared",
-      tags: ["Alimentación"],
-      description: "compra semanal",
+      tag: "Alimentación",
     });
     await registerMovement(page, {
-      concept: "Gasolina",
+      note: "Gasolina",
       amount: "30,00",
       date: "2026-04-05",
       nature: "personal",
-      tags: ["Coche"],
+      tag: "Coche",
     });
     await registerMovement(page, {
-      concept: "Cine",
+      note: "Cine",
       amount: "12,00",
       date: "2026-04-02",
       nature: "personal",
-      tags: ["Ocio"],
+      tag: "Ocio",
     });
 
     const groups = movementList(page).getByRole("heading", { level: 3 });
@@ -128,7 +123,7 @@ test.describe("página de cuenta (flujo crítico)", () => {
 
     const mercadonaRow = movementList(page).getByRole("listitem").filter({ hasText: "Mercadona" });
     await expect(mercadonaRow).toContainText("Alimentación");
-    await expect(mercadonaRow).toContainText("Mercadona · compra semanal");
+    await expect(mercadonaRow).toContainText("Mercadona compra semanal");
     await expect(mercadonaRow).toContainText("−85,00");
     await expect(mercadonaRow).toContainText("Común");
 

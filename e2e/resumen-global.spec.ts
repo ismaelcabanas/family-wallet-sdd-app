@@ -23,19 +23,19 @@ async function selectMonth(page: Page, optionName: string): Promise<void> {
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     date: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
 ): Promise<void> {
   await page.getByRole("button", { name: "Nuevo movimiento" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toBeVisible();
 
   await page.getByLabel("Fecha", { exact: true }).fill(fields.date);
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
   if (fields.type === "income") {
@@ -48,11 +48,12 @@ async function registerMovement(
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
 
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await page.getByRole("button", { name: "Guardar y cerrar" }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).not.toBeVisible({
     timeout: 10_000,
   });
@@ -61,7 +62,7 @@ async function registerMovement(
     page
       .getByRole("region", { name: "Movimientos del mes" })
       .getByRole("listitem")
-      .filter({ hasText: fields.concept })
+      .filter({ hasText: fields.note })
       .first(),
   ).toBeVisible({ timeout: 10_000 });
 }
@@ -80,36 +81,36 @@ test.describe("resumen global mensual", () => {
     await openAccount(page, "Cuenta común");
     await selectMonth(page, "Junio de 2026");
     await registerMovement(page, {
-      concept: "Hipoteca",
+      note: "Hipoteca",
       amount: "850,00",
       date: "2026-06-05",
-      tags: ["Vivienda", "Hipoteca"],
+      tag: "Hipoteca",
     });
 
     await openAccount(page, "Cuenta de Miembro A");
     await selectMonth(page, "Junio de 2026");
     await registerMovement(page, {
-      concept: "Nómina",
+      note: "Nómina",
       amount: "2100,00",
       date: "2026-06-01",
       type: "income",
     });
     await registerMovement(page, {
-      concept: "Gasolina",
+      note: "Gasolina",
       amount: "60,00",
       date: "2026-06-15",
       nature: "personal",
-      tags: ["Coche"],
+      tag: "Coche",
     });
 
     await openAccount(page, "Cuenta de Miembro B");
     await selectMonth(page, "Junio de 2026");
     await registerMovement(page, {
-      concept: "Compra semanal",
+      note: "Compra semanal",
       amount: "150,50",
       date: "2026-06-20",
       nature: "shared",
-      tags: ["Alimentación"],
+      tag: "Alimentación",
     });
 
     await page.getByRole("link", { name: "Resumen global" }).click();
@@ -125,15 +126,13 @@ test.describe("resumen global mensual", () => {
     await expect(panel.getByText(/Gastos personales: 60,00/)).toBeVisible();
 
     const tagRows = panel.getByRole("listitem");
-    await expect(tagRows).toHaveCount(4);
+    await expect(tagRows).toHaveCount(3);
     await expect(tagRows.nth(0)).toContainText("Hipoteca");
     await expect(tagRows.nth(0)).toContainText("850,00");
-    await expect(tagRows.nth(1)).toContainText("Vivienda");
-    await expect(tagRows.nth(1)).toContainText("850,00");
-    await expect(tagRows.nth(2)).toContainText("Alimentación");
-    await expect(tagRows.nth(2)).toContainText("150,50");
-    await expect(tagRows.nth(3)).toContainText("Coche");
-    await expect(tagRows.nth(3)).toContainText("60,00");
+    await expect(tagRows.nth(1)).toContainText("Alimentación");
+    await expect(tagRows.nth(1)).toContainText("150,50");
+    await expect(tagRows.nth(2)).toContainText("Coche");
+    await expect(tagRows.nth(2)).toContainText("60,00");
 
     const memberRows = panel.getByRole("table").getByRole("row");
     await expect(memberRows).toHaveCount(4);

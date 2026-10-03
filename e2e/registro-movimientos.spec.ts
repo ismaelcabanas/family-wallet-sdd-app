@@ -4,6 +4,10 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
+function movementListAny(page: Page) {
+  return page.locator('[aria-labelledby="movement-list-title"] [data-testid="movement-item"]');
+}
+
 async function openAccount(page: Page, accountName: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name: accountName }).click();
@@ -20,42 +24,52 @@ async function openCreateDialog(page: Page): Promise<void> {
 async function fillMovementFields(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
 ): Promise<void> {
-  await page.getByLabel("Concepto", { exact: true }).fill(fields.concept);
+  await page.getByLabel("Nota", { exact: true }).fill(fields.note);
   await page.getByLabel("Importe (€)").fill(fields.amount);
 
   if (fields.type === "income") {
     await page.getByRole("radio", { name: "Ingreso" }).check();
+  } else if (fields.type === "expense") {
+    await page.getByRole("radio", { name: "Gasto" }).check();
   }
 
   if (fields.nature === "shared") {
     await page.getByRole("radio", { name: "Compartido", exact: true }).check();
   }
 
-  for (const tagName of fields.tags ?? []) {
-    await page.getByRole("checkbox", { name: tagName, exact: true }).check();
+  if (fields.tag !== undefined) {
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: fields.tag, exact: true }).click();
   }
+}
+
+async function saveMovement(page: Page, intent: "continue" | "close" = "close"): Promise<void> {
+  await page
+    .getByRole("button", { name: intent === "continue" ? "Guardar y seguir" : "Guardar y cerrar" })
+    .click();
 }
 
 async function registerMovement(
   page: Page,
   fields: {
-    concept: string;
+    note: string;
     amount: string;
     type?: "expense" | "income";
     nature?: "personal" | "shared";
-    tags?: string[];
+    tag?: string;
   },
+  intent: "continue" | "close" = "close",
 ): Promise<void> {
   await openCreateDialog(page);
   await fillMovementFields(page, fields);
-  await page.getByRole("button", { name: "Registrar" }).click();
+  await saveMovement(page, intent);
 
   const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
   await expect
@@ -70,42 +84,73 @@ async function registerMovement(
     .toBe(true);
 }
 
-test.describe("registro de movimientos (flujo crítico)", () => {
+test.describe("registro de movimientos (flujo crítico, tanda continua)", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("E1: gasto compartido de 850,00 € con tags Vivienda+Hipoteca en la cuenta común", async ({
+  test("E1: tanda continua — gasto, error por tag ausente, ingreso sin tag y cierre (SC-001)", async ({
     page,
   }) => {
     await openAccount(page, "Cuenta común");
 
-    await registerMovement(page, {
-      concept: "Hipoteca",
-      amount: "850,00",
-      tags: ["Vivienda", "Hipoteca"],
-    });
+    await openCreateDialog(page);
 
+    await fillMovementFields(page, { note: "Hipoteca", amount: "850,00", tag: "Hipoteca" });
+    await saveMovement(page, "continue");
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Guardados: 1")).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+    await expect(dialog).toBeVisible();
 
-    const movementItem = movementList(page).getByRole("listitem").filter({ hasText: "Hipoteca" }).first();
-    await expect(movementItem).toBeVisible();
+    await expect(page.getByLabel("Nota", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Importe (€)")).toHaveValue("");
+    await expect(page.getByRole("combobox", { name: "Etiqueta" })).toContainText(
+      "Selecciona etiqueta",
+    );
+
+    const movementItem = movementListAny(page).filter({ hasText: "Hipoteca" }).first();
+    await expect(movementItem).toBeVisible({ timeout: 10_000 });
     await expect(movementItem).toContainText("−850,00");
     await expect(movementItem).toContainText("Común");
-    await expect(movementItem).toContainText("Vivienda");
     await expect(movementItem).toContainText("Hipoteca");
 
-    await expect(page.getByText(/^-850,00/)).toBeVisible();
+    await fillMovementFields(page, { note: "Luz", amount: "120,00" });
+    await saveMovement(page, "continue");
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Selecciona una etiqueta para el gasto." }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByLabel("Nota", { exact: true })).toHaveValue("Luz");
 
-    await expect(page.getByRole("dialog", { name: "Nuevo movimiento" })).toHaveCount(0);
+    await page.getByRole("combobox", { name: "Etiqueta" }).click();
+    await page.getByRole("option", { name: "Hogar", exact: true }).click();
+    await saveMovement(page, "continue");
+    await expect(page.getByText("Guardados: 2")).toBeVisible({ timeout: 10_000 });
+    await expect(
+      movementListAny(page).filter({ hasText: "Luz" }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await fillMovementFields(page, { note: "Aportación", amount: "1500,00", type: "income" });
+    await saveMovement(page, "continue");
+    await expect(page.getByText("Guardados: 3")).toBeVisible({ timeout: 10_000 });
+
+    await fillMovementFields(page, { note: "Cierre", amount: "30,00", type: "expense", tag: "Ocio" });
+    await saveMovement(page, "close");
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      movementList(page).getByRole("listitem").filter({ hasText: "Cierre" }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await expect(page.getByText(/^500,00/).first()).toBeVisible();
   });
 
   test("E2: gasto compartido pagado desde cuenta personal", async ({ page }) => {
     await openAccount(page, "Cuenta de Miembro A");
 
     await registerMovement(page, {
-      concept: "Compra semanal",
+      note: "Compra semanal",
       amount: "120,50",
       nature: "shared",
-      tags: ["Alimentación"],
+      tag: "Alimentación",
     });
 
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
@@ -120,7 +165,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
   test("E3: ingreso nómina 1.500,00 € actualiza el balance acumulado", async ({ page }) => {
     await openAccount(page, "Cuenta de Miembro A");
 
-    await registerMovement(page, { concept: "Nómina", amount: "1500,00", type: "income" });
+    await registerMovement(page, { note: "Nómina", amount: "1500,00", type: "income" });
 
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
@@ -128,7 +173,7 @@ test.describe("registro de movimientos (flujo crítico)", () => {
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("+1500,00");
 
-    await expect(page.getByText(/^1379,50/)).toBeVisible();
+    await expect(page.getByText(/^1500,00/)).toBeVisible();
   });
 
   test("E3 encadenado: ingreso seleccionable sin recarga tras un registro exitoso", async ({
@@ -136,17 +181,17 @@ test.describe("registro de movimientos (flujo crítico)", () => {
   }) => {
     await openAccount(page, "Cuenta de Miembro A");
 
-    await registerMovement(page, { concept: "Gasto previo", amount: "10,00" });
+    await registerMovement(page, { note: "Gasto previo", amount: "10,00", tag: "Ocio" });
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
     await openCreateDialog(page);
-    await expect(page.getByLabel("Concepto", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("Nota", { exact: true })).toHaveValue("");
     await page.getByRole("radio", { name: "Ingreso" }).check();
     await expect(page.getByRole("radio", { name: "Ingreso" })).toBeChecked();
 
-    await page.getByLabel("Concepto", { exact: true }).fill("Nómina encadenada");
+    await page.getByLabel("Nota", { exact: true }).fill("Nómina encadenada");
     await page.getByLabel("Importe (€)").fill("1500,00");
-    await page.getByRole("button", { name: "Registrar" }).click();
+    await saveMovement(page, "close");
     await expect(page.getByText("Movimiento guardado")).toBeVisible({ timeout: 10_000 });
 
     const movementItem = movementList(page)
@@ -160,12 +205,15 @@ test.describe("registro de movimientos (flujo crítico)", () => {
     await openAccount(page, "Cuenta común");
 
     for (const invalidAmount of ["", "0", "abc"]) {
-      await registerMovement(page, { concept: "Inválido", amount: invalidAmount });
+      await registerMovement(page, { note: "Inválido", amount: invalidAmount, tag: "Ocio" });
 
       await expect(page.getByRole("alert").first()).toBeVisible({ timeout: 10_000 });
       await expect(page.getByRole("alert").first()).toContainText("importe", { ignoreCase: true });
-      await expect(page.getByLabel("Concepto", { exact: true })).toHaveValue("Inválido");
+      await expect(page.getByLabel("Nota", { exact: true })).toHaveValue("Inválido");
       await expect(page.getByText("Movimiento guardado")).toHaveCount(0);
+
+      await page.getByRole("button", { name: "Cancelar" }).click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
     }
 
     await expect(movementList(page).getByRole("listitem").filter({ hasText: "Inválido" })).toHaveCount(0);
