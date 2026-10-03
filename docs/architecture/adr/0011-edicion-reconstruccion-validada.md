@@ -24,6 +24,10 @@ La feature 003 permite editar cualquier campo de un movimiento (incluidos cuenta
 - **`updated_at`** (TEXT ISO 8601 UTC, nullable, NULL = nunca editado): auditoría técnica que **pone el repositorio en cada UPDATE**; única migración de la feature. Fuera del dominio y de los DTOs; no es historial de valores previos.
 - Existencia explícita: `UpdateMovement`/`DeleteMovement` lanzan `MovementNotFoundError` ("El movimiento ya no existe.") cuando `findById` devuelve `null`.
 
+## Enmienda (014, 2026-10-03)
+
+La feature 014 revoca la mitad de "mover de cuenta" de este ADR: la edición **ya no permite cambiar un movimiento de cuenta** (decisión del propietario, FR-004 de 014). El flujo sigue siendo reconstrucción validada vía `Movement.recreate`, pero `UpdateMovementDTO` lleva `expectedAccountId` (check de que el movimiento pertenece a la cuenta de la página; desajuste → `InvalidMovementError("accountId", "El movimiento ya no pertenece a esta cuenta.")`) y `recreate` recibe el `accountId` **persistido**, nunca uno nuevo. El repositorio simplifica el `update` a un UPDATE de fila única con `tag_id` (ver ADR 0014); el aviso "movido" de la action pierde su rama de cuenta (solo conserva el cambio de mes).
+
 ## Consecuencias
 
 - **Positivas**: FR-002 garantizado por construcción (alta y edición pasan por el mismo código de validación en dominio y frontera — `movement-form.schema.ts`, `movement-inputs.ts`); atomicidad fila + tags sin transacciones manuales nuevas (research.md §1–§2); el mismo `id` computa exclusivamente en la cuenta/mes de su nueva fecha (FR-005) porque balance y cierre son vistas derivadas (ADR 0009/0010) que se recalculan solas vía `revalidatePath("/")`.
