@@ -240,7 +240,7 @@ sequenceDiagram
     F->>A: submit FormData { note, amount, accountId, type, nature, tagId, intent }
     A->>A: movementFormSchema.safeParse (Zod: nota, tagId 0..1, gasto con tag)
     A->>CM: execute(CreateMovementDTO { note, tagId, … })
-    CM->>CM: resolveNature + resolveTagId (sin default; existe y activa)
+    CM->>CM: resolveNature + resolveTagId (sin default, existe y activa)
     CM->>M: Movement.create(input) — valida nota/tipo/tag por tipo
     M-->>CM: Movement (tagId obligatoria en gasto ✓)
     CM->>DB: INSERT movements (note, tag_id) — sin junction
@@ -250,7 +250,7 @@ sequenceDiagram
     D->>D: toast + savedCount=1 + carry={date, type, nature} (NO cierra)
     D->>F: remonta form (key=1): nota/importe/tagId vacíos, fecha/tipo/naturaleza pegados, foco en Nota
     P-->>U: página revalidada: listado/balance/cierre con el movimiento (diálogo abierto encima)
-    U->>F: segunda captura → «Guardar y seguir» (repite 3-11; Guardados: 2)
+    U->>F: segunda captura → «Guardar y seguir» (repite 3-11, Guardados: 2)
     U->>F: última captura → «Guardar y cerrar» (intent=close)
     A-->>D: { status: "success", intent: "close" }
     D->>D: toast + cierra (onClose)
