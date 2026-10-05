@@ -2,14 +2,19 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { actionMock, toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
+const { actionMock, toastSuccessMock, toastErrorMock, createTagMock } = vi.hoisted(() => ({
   actionMock: vi.fn(),
   toastSuccessMock: vi.fn(),
   toastErrorMock: vi.fn(),
+  createTagMock: vi.fn(),
 }));
 
 vi.mock("../actions/update-movement.action", () => ({
   updateMovement: actionMock,
+}));
+
+vi.mock("../actions/create-tag.action", () => ({
+  createTag: createTagMock,
 }));
 
 vi.mock("sonner", async (importOriginal) => {
@@ -193,5 +198,39 @@ describe("EditMovementDialog", () => {
     expect(formData.get("movementId")).toBe("7");
     expect(formData.get("currentAccountId")).toBe("1");
     expect(formData.get("currentMonth")).toBe("2026-09");
+  });
+
+  it("crear etiqueta inline en edición la deja seleccionada y «Guardar cambios» envía su tagId y cierra", async () => {
+    const user = userEvent.setup();
+    createTagMock.mockResolvedValueOnce({
+      ok: true,
+      tag: { id: 15, name: "Regalos gato", slug: "regalos-gato" },
+    });
+    actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento actualizado" });
+    renderDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Regalos gato");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+        "Regalos gato",
+      );
+    });
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledTimes(1);
+    });
+    const formData = actionMock.mock.calls[0][1] as FormData;
+    expect(formData.get("tagId")).toBe("15");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento actualizado");
+    });
   });
 });

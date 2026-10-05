@@ -1,6 +1,8 @@
 import { AccountId } from "@/domain/account/AccountId";
 import { Movement } from "@/domain/movement/Movement";
 import { Money } from "@/domain/movement/Money";
+import { Tag } from "@/domain/tag/Tag";
+import { DuplicateTagNameError } from "@/domain/tag/TagErrors";
 import { TagId } from "@/domain/tag/TagId";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -205,6 +207,61 @@ describe("DrizzleTagRepository", () => {
     await expect(
       testDb.db.insert(tags).values({ name: "LUZ", slug: "luz-duplicada", status: "active" }),
     ).rejects.toThrowError();
+  });
+
+  it("findByName es case-insensitive (espejo del índice lower(name))", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const found = await repository.findByName("LUZ");
+    const exact = await repository.findByName("Luz");
+    const missing = await repository.findByName("No existe");
+
+    expect(found?.slug).toBe("luz");
+    expect(exact?.slug).toBe("luz");
+    expect(missing).toBeNull();
+  });
+
+  it("findByName no colisiona por acentos (lower ASCII de SQLite)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    await testDb.db.insert(tags).values({
+      id: 4,
+      name: "Alimentación",
+      slug: "alimentacion",
+      status: "active",
+    });
+
+    expect(await repository.findByName("Alimentacion")).toBeNull();
+    expect((await repository.findByName("Alimentación"))?.slug).toBe("alimentacion");
+  });
+
+  it("findByName ignora el estado (encuentra también inactivas)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const found = await repository.findByName("inactiva");
+
+    expect(found?.slug).toBe("inactiva");
+    expect(found?.status).toBe("inactive");
+  });
+
+  it("save persiste la etiqueta y la devuelve con id asignado", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = Tag.create({ name: "Mascotas", slug: "mascotas", status: "active" });
+
+    const saved = await repository.save(tag);
+    const reloaded = await repository.findBySlug("mascotas");
+
+    expect(saved.id).not.toBeNull();
+    expect(saved.name).toBe("Mascotas");
+    expect(saved.status).toBe("active");
+    expect(reloaded?.id).toBe(saved.id);
+  });
+
+  it("save traduce la violación del constraint de nombre a DuplicateTagNameError (carrera)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = Tag.create({ name: "LUZ", slug: "luz-2", status: "active" });
+
+    await expect(repository.save(tag)).rejects.toThrowError(new DuplicateTagNameError("LUZ"));
   });
 });
 
