@@ -32,7 +32,8 @@ src/
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
 │   └── tag/
 │       ├── Tag.ts · TagId.ts · TagStatus.ts
-│       └── TagErrors.ts         <-- DuplicateTagNameError, InactiveTagError, ...
+│       ├── TagSlug.ts            <-- deriveTagSlug(name): función pura slug (ADR 0015)
+│       └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ...
 │
 ├── application/                 <-- ORQUESTACIÓN: Casos de Uso y PUERTOS (depende solo de domain)
 │   ├── movement/
@@ -50,8 +51,9 @@ src/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance con corte opcional asOf inclusive, ADR 0009)
 │   │   └── ListAccounts.ts
 │   ├── tag/
-│   │   ├── TagRepository.ts     <-- PUERTO (incluye findBySlug para el default)
-│   │   └── ListActiveTags.ts
+│   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015)
+│   │   ├── ListActiveTags.ts
+│   │   └── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa
 │   └── member/
 │       └── MemberRepository.ts  <-- PUERTO
 │
@@ -69,21 +71,22 @@ src/
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
-    │   ├── DrizzleTagRepository.ts · DrizzleMemberRepository.ts
+    │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017) · DrizzleMemberRepository.ts
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 12 tags)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
         ├── actions/
         │   ├── movement-form.schema.ts    <-- Schema Zod del formulario compartido alta/edición (FR-002)
         │   ├── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008); revalida '/' y '/accounts/[accountId]' (patrón "page")
+        │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; revalidatePath('/', 'layout')
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   └── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
             ├── account-card-grid.tsx <-- Rejilla server de tarjetas-Link del panel de cuentas (/ lanzador puro: nombre+tipo, feature 012)
-            ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013)
-            ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement)
+            ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
+            ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
             ├── account-balance.tsx (subtitle prop: «Acumulado hasta …» en la página de cuenta) · empty-state.tsx

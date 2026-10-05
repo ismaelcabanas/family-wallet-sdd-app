@@ -81,6 +81,8 @@ describe("CreateMovement", () => {
         findByIds: async (ids) =>
           tags.filter((tag) => tag.id !== null && [...ids].includes(tag.id)),
         findBySlug: async (slug) => tags.find((tag) => tag.slug === slug) ?? null,
+        findByName: async () => null,
+        save: async (tag) => tag,
       },
     );
   });

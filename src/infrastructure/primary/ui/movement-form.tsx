@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import type { TagDTO } from "@/application/movement/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import type { MovementType } from "@/domain/movement/MovementType";
 
+import { createTag } from "../actions/create-tag.action";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
@@ -57,6 +59,7 @@ interface MovementFormFieldsProps {
   accountType?: "personal" | "shared";
   initialValues?: MovementFormInitialValues;
   carry?: CarryOverValues;
+  onTagCreated?: (tag: TagDTO) => void;
 }
 
 const NO_TAG_VALUE = "__no_tag__";
@@ -74,6 +77,7 @@ export function MovementFormFields({
   accountType,
   initialValues,
   carry,
+  onTagCreated,
 }: MovementFormFieldsProps) {
   const isEditMode = Boolean(initialValues && !carry);
 
@@ -93,12 +97,70 @@ export function MovementFormFields({
   );
 
   const noteRef = useRef<HTMLInputElement>(null);
+  const tagNameInputRef = useRef<HTMLInputElement>(null);
+  const tagSelectRef = useRef<HTMLButtonElement>(null);
+
+  const [creatingTag, setCreatingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [tagNameError, setTagNameError] = useState<string | null>(null);
+  const [createdTags, setCreatedTags] = useState<TagDTO[]>([]);
+  const [focusTagSelectAfterCreation, setFocusTagSelectAfterCreation] = useState(false);
+  const [isCreatingTag, startTagCreation] = useTransition();
 
   useEffect(() => {
     if (carry && noteRef.current) {
       noteRef.current.focus();
     }
   }, [carry]);
+
+  useEffect(() => {
+    if (creatingTag && tagNameInputRef.current) {
+      tagNameInputRef.current.focus();
+    }
+  }, [creatingTag]);
+
+  useEffect(() => {
+    if (focusTagSelectAfterCreation && tagSelectRef.current) {
+      setFocusTagSelectAfterCreation(false);
+      tagSelectRef.current.focus();
+    }
+  }, [focusTagSelectAfterCreation]);
+
+  function openTagCreation() {
+    setNewTagName("");
+    setTagNameError(null);
+    setCreatingTag(true);
+  }
+
+  function closeTagCreation() {
+    setCreatingTag(false);
+    setNewTagName("");
+    setTagNameError(null);
+  }
+
+  function submitTagCreation() {
+    if (isCreatingTag || isPending) return;
+    const name = newTagName.trim();
+    if (name === "") {
+      setTagNameError("El nombre de la etiqueta es obligatorio.");
+      return;
+    }
+    startTagCreation(async () => {
+      const result = await createTag(name);
+      if (!result.ok) {
+        setTagNameError(result.message);
+        return;
+      }
+      toast.success("Etiqueta creada");
+      setCreatedTags((current) => [...current, result.tag]);
+      setCreatingTag(false);
+      setNewTagName("");
+      setTagNameError(null);
+      setSelectedTagId(String(result.tag.id));
+      onTagCreated?.(result.tag);
+      setFocusTagSelectAfterCreation(true);
+    });
+  }
 
   const isSharedAccount = accountType === "shared" && !isEditMode;
 
@@ -140,6 +202,12 @@ export function MovementFormFields({
       : selectedTagId === ""
         ? undefined
         : selectedTagId;
+
+  const createdTag =
+    selectedTagId !== "" && !tags.some((tag) => String(tag.id) === selectedTagId)
+      ? createdTags.find((tag) => String(tag.id) === selectedTagId)
+      : undefined;
+  const selectTags = createdTag ? [...tags, createdTag] : tags;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -282,32 +350,103 @@ export function MovementFormFields({
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor={`${idPrefix}movement-tag`}>Etiqueta</Label>
-        <input
-          type="hidden"
-          name="tagId"
-          value={selectValue === NO_TAG_VALUE ? "" : (selectValue ?? "")}
-        />
-        <Select value={selectValue} onValueChange={(value) => setSelectedTagId(value)}>
-          <SelectTrigger id={`${idPrefix}movement-tag`} className="w-full" aria-label="Etiqueta">
-            <SelectValue placeholder="Selecciona etiqueta" />
-          </SelectTrigger>
-          <SelectContent>
-            {chosenType === "income" ? (
-              <SelectItem value={NO_TAG_VALUE}>Sin etiqueta</SelectItem>
+        <div className="flex items-baseline justify-between">
+          <Label htmlFor={`${idPrefix}movement-tag`}>Etiqueta</Label>
+          {creatingTag ? null : (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-sm"
+              onClick={openTagCreation}
+              disabled={isPending || isCreatingTag}
+            >
+              + Nueva etiqueta
+            </Button>
+          )}
+        </div>
+        {creatingTag ? (
+          <>
+            <Input
+              ref={tagNameInputRef}
+              id={`${idPrefix}new-tag-name`}
+              data-tag-creation-input="true"
+              value={newTagName}
+              onChange={(event) => setNewTagName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  submitTagCreation();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  closeTagCreation();
+                }
+              }}
+              placeholder="Mascotas"
+              aria-label="Nombre de la etiqueta"
+              aria-invalid={tagNameError ? true : undefined}
+              aria-describedby={tagNameError ? `${idPrefix}new-tag-name-error` : undefined}
+              disabled={isPending || isCreatingTag}
+            />
+            {tagNameError ? (
+              <p
+                role="alert"
+                id={`${idPrefix}new-tag-name-error`}
+                className="text-sm text-red-600"
+              >
+                {tagNameError}
+              </p>
             ) : null}
-            {tags.map((tag) => (
-              <SelectItem key={tag.id} value={String(tag.id)}>
-                {tag.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {fieldError("tagId") ? (
-          <p role="alert" id={`${idPrefix}movement-tag-error`} className="text-sm text-red-600">
-            {fieldError("tagId")}
-          </p>
-        ) : null}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeTagCreation}
+                disabled={isPending || isCreatingTag}
+              >
+                Cancelar
+              </Button>
+              <Button type="button" onClick={submitTagCreation} disabled={isPending || isCreatingTag}>
+                {isCreatingTag ? "Creando…" : "Crear"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <input
+              type="hidden"
+              name="tagId"
+              value={selectValue === NO_TAG_VALUE ? "" : (selectValue ?? "")}
+            />
+            <Select value={selectValue} onValueChange={(value) => setSelectedTagId(value)}>
+              <SelectTrigger
+                ref={tagSelectRef}
+                id={`${idPrefix}movement-tag`}
+                className="w-full"
+                aria-label="Etiqueta"
+              >
+                <SelectValue placeholder="Selecciona etiqueta" />
+              </SelectTrigger>
+              <SelectContent>
+                {chosenType === "income" ? (
+                  <SelectItem value={NO_TAG_VALUE}>Sin etiqueta</SelectItem>
+                ) : null}
+                {selectTags.map((tag) => (
+                  <SelectItem key={tag.id} value={String(tag.id)}>
+                    {tag.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {fieldError("tagId") ? (
+              <p role="alert" id={`${idPrefix}movement-tag-error`} className="text-sm text-red-600">
+                {fieldError("tagId")}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
 
       {state.status === "error" && state.errors._form ? (

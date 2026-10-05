@@ -12,6 +12,8 @@ describe("ListActiveTags", () => {
       ]),
       findByIds: vi.fn(),
       findBySlug: vi.fn(),
+      findByName: vi.fn(),
+      save: vi.fn(),
     };
     const useCase = new ListActiveTags(repository);
 

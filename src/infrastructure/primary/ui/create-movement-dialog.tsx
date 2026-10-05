@@ -39,6 +39,11 @@ export function CreateMovementDialog({
   const [open, setOpen] = useState(true);
   const [savedCount, setSavedCount] = useState(0);
   const [carry, setCarry] = useState<CarryOverValues | null>(null);
+  const [extraTags, setExtraTags] = useState<TagDTO[]>([]);
+
+  const allTags = [...tags, ...extraTags.filter((tag) => !tags.some((t) => t.id === tag.id))].sort(
+    (a, b) => a.name.localeCompare(b.name, "es"),
+  );
 
   return (
     <Dialog
@@ -48,7 +53,13 @@ export function CreateMovementDialog({
         setOpen(nextOpen);
       }}
     >
-      <DialogContent>
+      <DialogContent
+        onEscapeKeyDown={(event) => {
+          if (document.activeElement?.getAttribute("data-tag-creation-input") === "true") {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Nuevo movimiento</DialogTitle>
           {savedCount > 0 ? (
@@ -59,8 +70,13 @@ export function CreateMovementDialog({
           key={savedCount}
           accountId={accountId}
           accountType={accountType}
-          tags={tags}
+          tags={allTags}
           carry={carry}
+          onTagCreated={(tag) => {
+            setExtraTags((current) =>
+              current.some((t) => t.id === tag.id) ? current : [...current, tag],
+            );
+          }}
           onSaved={(nextCarry) => {
             setSavedCount((count) => count + 1);
             setCarry(nextCarry);
@@ -80,10 +96,12 @@ function CreateMovementForm({
   accountType,
   tags,
   carry,
+  onTagCreated,
   onSaved,
   onClose,
 }: Omit<CreateMovementDialogProps, "onClose" | "accountName"> & {
   carry: CarryOverValues | null;
+  onTagCreated: (tag: TagDTO) => void;
   onSaved: (carry: CarryOverValues) => void;
   onClose: () => void;
 }) {
@@ -123,6 +141,7 @@ function CreateMovementForm({
       accountId={accountId}
       accountType={accountType}
       carry={carry ?? undefined}
+      onTagCreated={onTagCreated}
       submitLabel="Guardar y seguir"
       primaryIntent="continue"
       secondaryActions={

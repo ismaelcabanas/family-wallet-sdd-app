@@ -1,6 +1,41 @@
 # Secuencia: registrar movimiento (flujo crítico)
 
-Diagrama del flujo crítico cubierto por e2e en CI (ADR 0006). Mutación vía Server Action + `useActionState` y actualización de pantalla en el mismo roundtrip (ADR 0008). Desde 014 el alta es **continua**: el diálogo permanece abierto tras «Guardar y seguir» (`intent` en el FormData) y la tag es única obligatoria en gastos.
+Diagrama del flujo crítico cubierto por e2e en CI (ADR 0006). Mutación vía Server Action + `useActionState` y actualización de pantalla en el mismo roundtrip (ADR 0008). Desde 014 el alta es **continua**: el diálogo permanece abierto tras «Guardar y seguir» (`intent` en el FormData) y la tag es única obligatoria en gastos. Desde 017, si la etiqueta no existe, se crea **inline junto al Select** antes del envío (ADR 0015).
+
+## Creación inline de etiqueta (017, paso opcional antes del envío)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario
+    participant F as movement-form.tsx (captación inline)
+    participant D as create-movement-dialog.tsx (extraTags)
+    participant A as createTag (Server Action)
+    participant CT as CreateTag (aplicación)
+    participant R as DrizzleTagRepository
+    participant DB as SQLite / Turso
+
+    U->>F: pulsa «+ Nueva etiqueta» (formulario a medias, diálogo abierto)
+    F->>F: el Select se sustituye por el input «Nombre de la etiqueta»
+    U->>F: teclea «Mascotas» y pulsa Crear/Enter (interceptado: no envía el movimiento)
+    F->>A: createTag("Mascotas") — useTransition, sin form anidado
+    A->>A: Zod trim + min 1 (frontera)
+    A->>CT: execute({ name })
+    CT->>R: findByName (espejo de lower(name), ignora estado) → null
+    CT->>CT: deriveTagSlug("Mascotas") → "mascotas"; findBySlug hasta hueco (-2, -3…)
+    CT->>R: save(Tag.create({ name, slug, status: "active" }))
+    R->>DB: INSERT tags (constraint lower(name) → DuplicateTagNameError si carrera)
+    DB-->>R: fila con id
+    R-->>CT: Tag persistida (active)
+    CT-->>A: Tag { id, name, slug, active }
+    A->>A: revalidatePath("/", "layout") — aperturas futuras ven la tag
+    A-->>F: { ok: true, tag } → toast «Etiqueta creada»; el movimiento NO se guarda aún
+    F->>F: captación colapsada, selectedTagId = tag.id, foco al Select, resto de campos intacto
+    F->>D: onTagCreated(tag) → extraTags (sobrevive al remonte de la tanda)
+    Note over F,DB: Duplicado → role=alert «Ya existe…» con el nombre conservado; vacío → «El nombre… obligatorio.»; Cancelar/Escape restaura el Select exacto
+```
+
+La secuencia continúa por el camino de éxito de abajo con el `tagId` ya persistido en el FormData.
 
 ## Camino de éxito — tanda continua (014, SC-001)
 

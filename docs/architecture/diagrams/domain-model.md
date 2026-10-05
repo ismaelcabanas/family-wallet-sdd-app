@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009 y 014)
+# Clases: modelo de dominio (features 002, 006, 009, 014 y 017)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -65,14 +65,21 @@ classDiagram
     class Tag {
         +id: TagId?
         +name: String
-        +slug: String
+        +slug: String (derivado por deriveTagSlug desde 017)
         +status: TagStatus
+        +create(input)$ Tag
+        +rehydrate(id, name, slug, status)$ Tag
     }
 
     class TagStatus {
         <<enum>>
         active
         inactive
+    }
+
+    class deriveTagSlug {
+        <<Función pura de 017>>
+        +deriveTagSlug(name) String$
     }
 
     class DomainError {
@@ -206,6 +213,7 @@ classDiagram
     DomainError <|-- InvalidMovementError
     DomainError <|-- DuplicateTagNameError
     DomainError <|-- InactiveTagError
+    deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
     ClosureMovementInput <|-- GlobalSummaryMovementInput
     GlobalSummaryMovementInput <|-- AnnualStatementMovementInput
     GlobalMonthlySummary *-- MonthlyClosure : compone (KPIs agregados, ADR 0012)
@@ -234,7 +242,7 @@ classDiagram
 - **`Money`**: `amountCents` entero; `fromCents` exige `0 < cents ≤ 99.999.999.999` (999.999.999,99 €); `fromCentsOrZero` admite ≤ 0 (balances); sin conversión a/from float (ADR 0007).
 - **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`.
-- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004).
+- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015).
 - **Balance**: no es un campo de `Account`; query derivada `SUM` (ADR 0009).
 - **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).

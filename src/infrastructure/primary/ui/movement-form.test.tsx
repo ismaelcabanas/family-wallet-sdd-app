@@ -2,13 +2,18 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { actionMock, toastSuccessMock } = vi.hoisted(() => ({
+const { actionMock, toastSuccessMock, createTagMock } = vi.hoisted(() => ({
   actionMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  createTagMock: vi.fn(),
 }));
 
 vi.mock("../actions/create-movement.action", () => ({
   createMovement: actionMock,
+}));
+
+vi.mock("../actions/create-tag.action", () => ({
+  createTag: createTagMock,
 }));
 
 vi.mock("sonner", async (importOriginal) => {
@@ -230,6 +235,189 @@ describe("CreateMovementDialog (flujo de alta)", () => {
       ).toBeInTheDocument();
     });
     expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
+  });
+});
+
+describe("MovementFormFields (creación inline de etiquetas)", () => {
+  it("abrir «+ Nueva etiqueta» y cancelar restaura el Select exacto como estaba", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Vivienda" }));
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    expect(screen.getByLabelText("Nombre de la etiqueta")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Etiqueta" })).not.toBeInTheDocument();
+
+    const cancelTagCreation = screen
+      .getAllByRole("button", { name: "Cancelar" })
+      .find((button) => button.closest("div.flex.items-center.gap-2") !== null);
+    expect(cancelTagCreation).toBeDefined();
+    await user.click(cancelTagCreation!);
+
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
+    expect(screen.queryByLabelText("Nombre de la etiqueta")).not.toBeInTheDocument();
+  });
+
+  it("Escape en el input de nombre cancela la captación y restaura el Select", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Masc");
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Selecciona etiqueta",
+    );
+    expect(screen.queryByLabelText("Nombre de la etiqueta")).not.toBeInTheDocument();
+  });
+
+  it("crear con éxito tuesta «Etiqueta creada», colapsa la captación, selecciona la nueva y avisa al padre", async () => {
+    const user = userEvent.setup();
+    const onTagCreated = vi.fn();
+    createTagMock.mockResolvedValueOnce({
+      ok: true,
+      tag: { id: 15, name: "Mascotas", slug: "mascotas" },
+    });
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        tags={tags}
+        accountId={1}
+        accountType="personal"
+        onTagCreated={onTagCreated}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Nota"), "Tienda de mascotas");
+    await user.type(screen.getByLabelText("Importe (€)"), "85,00");
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Mascotas");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledWith("Etiqueta creada");
+    });
+    expect(createTagMock).toHaveBeenCalledExactlyOnceWith("Mascotas");
+    expect(onTagCreated).toHaveBeenCalledExactlyOnceWith({
+      id: 15,
+      name: "Mascotas",
+      slug: "mascotas",
+    });
+    expect(screen.queryByLabelText("Nombre de la etiqueta")).not.toBeInTheDocument();
+    const combobox = screen.getByRole("combobox", { name: "Etiqueta" });
+    expect(combobox).toHaveTextContent("Mascotas");
+    expect(screen.getByLabelText("Nota")).toHaveValue("Tienda de mascotas");
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("85,00");
+    expect(combobox).toHaveFocus();
+  });
+
+  it("duplicado muestra role=alert con el mensaje del dominio y conserva el nombre tecleado", async () => {
+    const user = userEvent.setup();
+    createTagMock.mockResolvedValueOnce({
+      ok: false,
+      message: 'Ya existe una etiqueta con el nombre "luz".',
+    });
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "luz");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent('Ya existe una etiqueta con el nombre "luz".');
+    expect(screen.getByLabelText("Nombre de la etiqueta")).toHaveValue("luz");
+    expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+  });
+
+  it("nombre vacío muestra «El nombre de la etiqueta es obligatorio.»", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("El nombre de la etiqueta es obligatorio.");
+    expect(createTagMock).not.toHaveBeenCalled();
+  });
+
+  it("Enter en el input de nombre crea la etiqueta y NO envía el formulario del movimiento", async () => {
+    const user = userEvent.setup();
+    createTagMock.mockResolvedValueOnce({
+      ok: true,
+      tag: { id: 15, name: "Mascotas", slug: "mascotas" },
+    });
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Mascotas{Enter}");
+
+    await waitFor(() => {
+      expect(createTagMock).toHaveBeenCalledExactlyOnceWith("Mascotas");
+    });
+    expect(actionMock).not.toHaveBeenCalled();
+  });
+
+  it("muestra «Creando…» y deshabilita la botonera durante la creación", async () => {
+    const user = userEvent.setup();
+    let resolveCreate: (value: unknown) => void = () => {};
+    createTagMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Mascotas");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    expect(screen.getByRole("button", { name: "Creando…" })).toBeDisabled();
+    const cancelTagCreation = screen
+      .getAllByRole("button", { name: "Cancelar" })
+      .find((button) => button.closest("div.flex.items-center.gap-2") !== null);
+    expect(cancelTagCreation).toBeDisabled();
+
+    resolveCreate({ ok: true, tag: { id: 15, name: "Mascotas", slug: "mascotas" } });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "+ Nueva etiqueta" })).toBeInTheDocument();
+    });
+  });
+
+  it("la captación permanece abierta e íntegra al cambiar Gasto↔Ingreso", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Masc");
+
+    await user.click(screen.getByRole("radio", { name: "Ingreso" }));
+
+    expect(screen.getByLabelText("Nombre de la etiqueta")).toHaveValue("Masc");
+    expect(screen.getByRole("button", { name: "Crear" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Gasto" }));
+    expect(screen.getByLabelText("Nombre de la etiqueta")).toHaveValue("Masc");
+  });
+
+  it("deshabilita «+ Nueva etiqueta» mientras el movimiento se está guardando", () => {
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={true}
+        tags={tags}
+        accountId={1}
+        accountType="personal"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "+ Nueva etiqueta" })).toBeDisabled();
   });
 });
 

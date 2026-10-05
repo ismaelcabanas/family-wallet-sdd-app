@@ -33,6 +33,11 @@ export function EditMovementDialog({
   onClose,
 }: EditMovementDialogProps) {
   const [open, setOpen] = useState(true);
+  const [extraTags, setExtraTags] = useState<TagDTO[]>([]);
+
+  const allTags = [...tags, ...extraTags.filter((tag) => !tags.some((t) => t.id === tag.id))].sort(
+    (a, b) => a.name.localeCompare(b.name, "es"),
+  );
 
   return (
     <Dialog
@@ -42,15 +47,26 @@ export function EditMovementDialog({
         setOpen(nextOpen);
       }}
     >
-      <DialogContent>
+      <DialogContent
+        onEscapeKeyDown={(event) => {
+          if (document.activeElement?.getAttribute("data-tag-creation-input") === "true") {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Editar movimiento</DialogTitle>
         </DialogHeader>
         <EditMovementForm
           movement={movement}
-          tags={tags}
+          tags={allTags}
           currentAccountId={currentAccountId}
           currentMonth={currentMonth}
+          onTagCreated={(tag) => {
+            setExtraTags((current) =>
+              current.some((t) => t.id === tag.id) ? current : [...current, tag],
+            );
+          }}
           onClose={() => {
             setOpen(false);
             onClose();
@@ -66,8 +82,12 @@ function EditMovementForm({
   tags,
   currentAccountId,
   currentMonth,
+  onTagCreated,
   onClose,
-}: Omit<EditMovementDialogProps, "onClose"> & { onClose: () => void }) {
+}: Omit<EditMovementDialogProps, "onClose"> & {
+  onTagCreated: (tag: TagDTO) => void;
+  onClose: () => void;
+}) {
   const [state, formAction, isPending] = useActionState(updateMovement, {
     status: "idle",
   } satisfies UpdateMovementState);
@@ -99,6 +119,7 @@ function EditMovementForm({
       isPending={isPending}
       tags={tags}
       initialValues={initialValues}
+      onTagCreated={onTagCreated}
       submitLabel="Guardar cambios"
       secondaryActions={
         <Button type="button" variant="outline" onClick={onClose}>

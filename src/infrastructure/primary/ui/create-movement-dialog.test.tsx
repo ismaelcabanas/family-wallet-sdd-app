@@ -2,13 +2,18 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { actionMock, toastSuccessMock } = vi.hoisted(() => ({
+const { actionMock, toastSuccessMock, createTagMock } = vi.hoisted(() => ({
   actionMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  createTagMock: vi.fn(),
 }));
 
 vi.mock("../actions/create-movement.action", () => ({
   createMovement: actionMock,
+}));
+
+vi.mock("../actions/create-tag.action", () => ({
+  createTag: createTagMock,
 }));
 
 vi.mock("sonner", async (importOriginal) => {
@@ -275,5 +280,61 @@ describe("CreateMovementDialog (captación continua)", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Guardar y seguir" })).toBeEnabled();
     });
+  });
+
+  it("una etiqueta creada en la 2.ª captura queda disponible en el Select de la 3.ª tras el remonte", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValue({
+      status: "success",
+      message: "Movimiento guardado",
+      intent: "continue",
+    });
+    createTagMock.mockResolvedValueOnce({
+      ok: true,
+      tag: { id: 15, name: "Mascotas", slug: "mascotas" },
+    });
+    renderDialog();
+
+    await user.type(screen.getByLabelText("Nota"), "Uno");
+    await user.type(screen.getByLabelText("Importe (€)"), "10,00");
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Vivienda" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Guardados: 1")).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByLabelText("Nota"), "Dos");
+    await user.type(screen.getByLabelText("Importe (€)"), "20,00");
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Mascotas");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Mascotas");
+    });
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Guardados: 2")).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText("Nota")).toHaveValue("");
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Selecciona etiqueta",
+    );
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    expect(screen.getByRole("option", { name: "Mascotas" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("option", { name: "Mascotas" }));
+    await user.click(screen.getByRole("button", { name: "Guardar y cerrar" }));
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledTimes(3);
+    });
+    const thirdCall = actionMock.mock.calls[2][1] as FormData;
+    expect(thirdCall.get("tagId")).toBe("15");
   });
 });
