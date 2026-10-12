@@ -1,6 +1,6 @@
 # Contrato de UI: Ingresos mensuales regulares por miembro
 
-**Feature**: `018-ingresos-regulares` | **Componentes**: `regular-income-panel.tsx` (NUEVO, client) montado en `src/app/accounts/[accountId]/page.tsx`; Server Action `configureRegularIncome` (NUEVA) | **Intactos**: `GroupedMovementList` y diálogos de movimiento, `/summary` y `/annual` (solo ganan la materialización previa a la lectura)
+**Feature**: `018-ingresos-regulares` | **Componentes**: `regular-income-panel.tsx` (NUEVO, client) montado en `src/app/accounts/[accountId]/page.tsx`; Server Action `configureRegularIncome` (NUEVA) | **Intactos**: `GroupedMovementList` y diálogos de movimiento, `/summary` y `/annual` (no materializan: muestran los movimientos existentes — decisión del propietario 2026-10-12)
 
 Congela literales y comportamientos de la feature. Extiende los contratos de [014](../../014-formulario-nota-tags/contracts/ui-contract.md) (patrón `useActionState`, intents en botones submit, toasts) y [016](../../016-movimientos-bajo-selector-fechas/spec.md) (list-first); todo lo no mencionado queda como en ellos.
 
@@ -82,12 +82,13 @@ type ConfigureRegularIncomeState =
 ```
 
 - Validación Zod en frontera (`regularIncomeFormSchema` en la propia action, IV): reutiliza `parseAmountToCents` de `movement-form.schema.ts`; `intent="deactivate"` valida solo `accountId` y delega en `DeactivateRegularIncome`.
-- Éxito → `revalidatePath("/", "layout")` (refresca página de cuenta, `/summary` y `/annual`; la materialización del mes en curso ocurre al re-renderizar la página — [data-model §1.3](../data-model.md)).
+- Éxito → `revalidatePath("/", "layout")` (refresca la página de cuenta — donde el re-render dispara la materialización del mes en curso — y las vistas agregadas en caché; [data-model §1.3](../data-model.md)).
 - Las actions de movimiento y de tags **no cambian**.
 
 ## 6. Comportamiento observable de la materialización (FR-002/FR-003/FR-004/FR-005)
 
 - Tras guardar (o al entrar a la cuenta con config activa), el mes en curso del listado muestra **un** movimiento de ingreso con importe, día y nota de la configuración, sin etiqueta y con el mismo aspecto que un ingreso manual (computa en cierre, resumen global y cuenta anual; SC-004).
+- La materialización se dispara **solo al abrir la página de la cuenta del mes** (decisión del propietario 2026-10-12): `/summary` y `/annual` muestran el ingreso una vez materializado, sin generar movimientos.
 - El día del movimiento se clampa al último día del mes si el configurado no existe (31 → 30 en abril, 28/29 en febrero); el día configurado no se altera.
 - Reconsultar el mes (listado, `/summary`, `/annual`, recargas) **nunca duplica** el ingreso (SC-002). Meses anteriores a la activación y meses futuros no muestran ingreso regular (FR-005; `/summary` permite meses futuros por URL: quedan vacíos, sin generación).
 - El ingreso generado se **edita** y se **elimina** con los flujos existentes (diálogos de 003/014, sin cambios): las ediciones persisten y no se sobrescriben; si se elimina, **no vuelve a generarse** ese mes (FR-004).
