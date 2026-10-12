@@ -97,8 +97,8 @@ description: "Task list for feature 018 implementation"
 
 **Purpose**: Spec nueva en fichero propio con combinación cuenta/mes exclusiva (Cuenta de Miembro A + **mes en curso real dinámico**, calculado como en `panel-cuentas`; limpieza final natural por los escenarios de borrado+desactivación — research §7.6). Las 8 specs existentes quedan intactas.
 
-- [ ] T026 [US1] Crear `e2e/ingresos-regulares.spec.ts` (Cuenta de Miembro A, mes en curso dinámico): configurar 2.000 € día 1 → el listado muestra el ingreso sin alta manual (escenario 1, SC-001); reconsultar desde `/summary?month={mes}` y `/annual?year={año}` + recarga de la cuenta → exactamente 1, sin duplicados (escenario 2, SC-002); editar config a 2.100 € → el mes conserva 2.000 € (escenario 3); borrar el movimiento generado → no reaparece al reconsultar (escenario 5); desactivar → panel en estado inactivo y sin generación posterior (escenario 6) — los dos últimos pasos dejan la BD como estaba (limpieza natural, research §7)
-- [ ] T027 [US1] Ejecutar `npm run test:e2e` y verificar las 9 specs en verde (las 8 existentes sin cambios esperados — ajustar solo si un literal afectado lo exige)
+- [X] T026 [US1] Crear `e2e/ingresos-regulares.spec.ts` (Cuenta de Miembro A, mes en curso dinámico): configurar 2.000 € día 1 → el listado muestra el ingreso sin alta manual (escenario 1, SC-001); reconsultar desde `/summary?month={mes}` y `/annual?year={año}` + recarga de la cuenta → exactamente 1, sin duplicados (escenario 2, SC-002); editar config a 2.100 € → el mes conserva 2.000 € (escenario 3); borrar el movimiento generado → no reaparece al reconsultar (escenario 5); desactivar → panel en estado inactivo y sin generación posterior (escenario 6) — los dos últimos pasos dejan la BD como estaba (limpieza natural, research §7)
+- [X] T027 [US1] Ejecutar `npm run test:e2e` y verificar las 9 specs en verde (las 8 existentes sin cambios esperados — ajustar solo si un literal afectado lo exige)
 
 **Checkpoint**: Flujo crítico «configurar → consultar mes → ver ingreso sin duplicados → borrar no regenera → desactivar» cubierto end-to-end (SC-005).
 
