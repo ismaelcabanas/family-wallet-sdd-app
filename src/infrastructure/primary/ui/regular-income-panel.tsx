@@ -71,7 +71,6 @@ export function RegularIncomePanel({ accountId, memberName, config }: RegularInc
 
       {editing ? (
         <RegularIncomeConfigDialog
-          key={config === null ? "new" : `${config.activatedAtMonth}-${config.amountCents}-${config.dayOfMonth}-${config.note}-${config.active}`}
           accountId={accountId}
           memberName={memberName}
           config={config}
