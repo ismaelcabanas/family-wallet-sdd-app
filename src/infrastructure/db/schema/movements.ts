@@ -19,7 +19,10 @@ export const movements = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at"),
   },
-  (table) => [index("idx_movements_account_date").on(table.accountId, table.date)],
+  (table) => [
+    index("idx_movements_account_date").on(table.accountId, table.date),
+    index("idx_movements_tag_id").on(table.tagId),
+  ],
 );
 
 export type MovementRow = typeof movements.$inferSelect;
