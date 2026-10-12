@@ -1,6 +1,8 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
 import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
+import { GetRegularIncome } from "@/application/regular-income/GetRegularIncome";
+import { MaterializeRegularIncomes } from "@/application/regular-income/MaterializeRegularIncomes";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
 import { notFound } from "next/navigation";
@@ -9,6 +11,7 @@ import { z } from "zod";
 import { db } from "@/infrastructure/db/client";
 import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepository";
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
+import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
@@ -16,6 +19,7 @@ import { GroupedMovementList } from "@/infrastructure/primary/ui/grouped-movemen
 import { currentMonth, monthEndIsoDate, monthLabel } from "@/infrastructure/primary/ui/format";
 import { MonthStepper } from "@/infrastructure/primary/ui/month-stepper";
 import { MonthlyClosurePanel } from "@/infrastructure/primary/ui/monthly-closure-panel";
+import { RegularIncomePanel } from "@/infrastructure/primary/ui/regular-income-panel";
 
 const accountIdParamSchema = z
   .string()
@@ -40,6 +44,7 @@ export default async function AccountPage({
   const accountRepository = new DrizzleAccountRepository(db);
   const movementRepository = new DrizzleMovementRepository(db);
   const tagRepository = new DrizzleTagRepository(db);
+  const regularIncomeRepository = new DrizzleRegularIncomeRepository(db);
 
   const accounts = await new ListAccounts(accountRepository).execute();
 
@@ -55,11 +60,18 @@ export default async function AccountPage({
   const parsedMonth = monthParamSchema.safeParse(firstParam(query.month));
   const month = parsedMonth.success ? parsedMonth.data : currentMonth();
 
-  const [movements, balanceCents, tags, closure] = await Promise.all([
+  await new MaterializeRegularIncomes(regularIncomeRepository).ensureForAccountAndMonth(
+    AccountId(account.id),
+    month,
+    currentMonth(),
+  );
+
+  const [movements, balanceCents, tags, closure, regularIncome] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),
     accountRepository.getBalance(AccountId(account.id), monthEndIsoDate(month)),
     new ListActiveTags(tagRepository).execute(),
     new GetMonthlyClosure(movementRepository).execute(account.id, month),
+    new GetRegularIncome(regularIncomeRepository).execute(AccountId(account.id)),
   ]);
 
   return (
@@ -92,6 +104,14 @@ export default async function AccountPage({
       />
 
       <MonthlyClosurePanel closure={closure} month={month} />
+
+      {account.type === "personal" ? (
+        <RegularIncomePanel
+          accountId={account.id}
+          memberName={account.memberName}
+          config={regularIncome}
+        />
+      ) : null}
     </main>
   );
 }
