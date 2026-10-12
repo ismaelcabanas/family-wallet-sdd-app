@@ -6,13 +6,13 @@
 
 ## Summary
 
-La captura más repetitiva de la app —el ingreso habitual de cada miembro (p. ej. la nómina), registrado a mano mes a mes— pasa a ser **configuración**: cada miembro define una sola vez su ingreso regular (importe > 0, día del mes, nota) en su cuenta personal, y cada mes consultado desde la activación hasta el mes en curso lo trae **ya materializado como movimiento de ingreso corriente**, de forma idempotente y sin retroactivo. La aportación porcentual a la cuenta común queda como feature hija futura (p. ej. 019) que se construirá sobre este ingreso regular (decisión del propietario 2026-10-09).
+La captura más repetitiva de la app —el ingreso habitual de cada miembro (p. ej. la nómina), registrado a mano mes a mes— pasa a ser **configuración**: cada miembro define una sola vez su ingreso regular (importe > 0, día del mes, nota) en su cuenta personal, y cada mes consultado **en la página de su cuenta** desde la activación hasta el mes en curso lo trae **ya materializado como movimiento de ingreso corriente**, de forma idempotente y sin retroactivo. La aportación porcentual a la cuenta común queda como feature hija futura (p. ej. 019) que se construirá sobre este ingreso regular (decisión del propietario 2026-10-09).
 
 Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 - **Entidad `RegularIncome`** anclada a la **cuenta personal** (`account_id UNIQUE`): la propiedad miembro→cuenta ya vive en `Account.memberId`; la invariante «no en la cuenta común» usa el `AccountType` existente. Defaults: día 1, nota «Ingreso regular de {miembro}», sin etiqueta.
 - **Idempotencia por registro de meses materializados** (`regular_income_months`, `UNIQUE (config, mes)`): la materialización de un mes es «si el par no existe, crear movimiento + fila en una transacción (`ON CONFLICT DO NOTHING RETURNING`)». Así las consultas repetidas nunca duplican, **el borrado del movimiento no regenera el mes** (la fila sobrevive al borrado físico) y los cambios de config solo aplican a meses sin registro (solo-adelante, clarificación 2026-10-12). **`movements` queda intacta**: el generado es un movimiento corriente (FR-003), editable/borrable con los flujos existentes.
-- **Materialización perezosa al consultar** (serverless sin cron, asunción de la spec): caso de uso `MaterializeRegularIncomes` invocado **antes de leer** por las tres páginas que muestran datos de mes/año — cuenta (`ensureForAccountAndMonth`), `/summary` (`ensureForMonth`) y `/annual` (`ensureForYear`) — con guardas estructurales `activación ≤ mes ≤ currentMonth` (meses futuros alcanzables por URL en `/summary` quedan blindados, FR-005). Coste habitual: una SELECT.
+- **Materialización perezosa al consultar, solo en la página de la cuenta** (serverless sin cron, asunción de la spec; decisión del propietario 2026-10-12): caso de uso `MaterializeRegularIncomes.ensureForAccountAndMonth(accountId, mes)` invocado **antes de leer** en `/accounts/[accountId]` — antes del `Promise.all`, cubriendo listado, cierre y balance del mismo render —, con guardas estructurales `activación ≤ mes ≤ currentMonth` (meses futuros alcanzables por URL quedan blindados, FR-005). **`/summary` y `/annual` no materializan**: muestran los movimientos existentes; si el uso lo exige, se itera extendiendo el enganche (aditivo: una llamada por página). Coste habitual: una SELECT.
 - **Semántica de activación**: alta y reactivación fijan `activatedAtMonth = mes en curso` (sin relleno retroactivo del periodo inactivo); las **ediciones no lo tocan**. `currentMonth` entra como parámetro del adaptador (aplicación pura, sin puerto Clock).
 - **UI**: `RegularIncomePanel` al final de la página de la cuenta personal (respeta el list-first de 016) con diálogo `useActionState(configureRegularIncome)` e intents `save`/`deactivate` (patrón 014); `revalidatePath("/", "layout")` hace visible el ingreso del mes al guardar.
 - **Migración aditiva** (dos tablas nuevas, cero destructivos) y **cero dependencias nuevas**.
@@ -25,17 +25,17 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 **Storage**: SQLite (dev) / Turso (prod) vía Drizzle. **Migración aditiva nueva** (`drizzle/0003_*.sql` generada con drizzle-kit y commiteada): tablas `regular_incomes` (config, 1 por cuenta personal) y `regular_income_months` (registro de meses materializados, `UNIQUE (regular_income_id, month)`). `movements`, `accounts`, `members` y `tags` intactas; seed intacto (la config nace del usuario). Puerto nuevo `RegularIncomeRepository` (aplicación) + `DrizzleRegularIncomeRepository`.
 
-**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`RegularIncome`, helpers `calendar` con bisiestos y clamping), aplicación (`ConfigureRegularIncome`, `DeactivateRegularIncome`, `GetRegularIncome`, `MaterializeRegularIncomes` con dobles: idempotencia, solo-adelante, sin retroactivo/futuro, borrado-no-regenera, reactivación sin huecos), repositorio (libsql `:memory:`: upsert, rango, transacción `registerMaterialization` ante conflicto), action (Zod, intents, mapeo de errores) y componente (panel/diálogo). Playwright e2e: **spec nueva** `ingresos-regulares.spec.ts` (Cuenta de Miembro A + **mes en curso real dinámico**, con limpieza final natural por escenarios de borrado+desactivación — research §7) que cubre el flujo crítico «configurar → consultar mes → ver ingreso sin duplicados» (FR-008, constitución III).
+**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`RegularIncome`, helper `calendar` con bisiestos y clamping), aplicación (`ConfigureRegularIncome`, `DeactivateRegularIncome`, `GetRegularIncome`, `MaterializeRegularIncomes` con dobles: idempotencia, solo-adelante, sin retroactivo/futuro, borrado-no-regenera, reactivación sin huecos), repositorio (libsql `:memory:`: upsert, `isMaterialized`, transacción `registerMaterialization` ante conflicto), action (Zod, intents, mapeo de errores) y componente (panel/diálogo). Playwright e2e: **spec nueva** `ingresos-regulares.spec.ts` (Cuenta de Miembro A + **mes en curso real dinámico**, con limpieza final natural por escenarios de borrado+desactivación — research §7) que cubre el flujo crítico «configurar → consultar mes → ver ingreso sin duplicados» (FR-008, constitución III).
 
 **Target Platform**: Web (escritorio primero; usable en móvil), Vercel + Turso; sin cambios. La materialización en lectura es precisamente la vía viable en serverless sin estado ni planificador.
 
 **Project Type**: web-app (monolito Next.js, App Router); sin proyectos ni paquetes nuevos.
 
-**Performance Goals**: edge de la spec — la materialización no degrada la apertura del mes: caso habitual (mes ya materializado o sin config) = una SELECT sobre las tablas nuevas; primera materialización = 1 movimiento por mes pendiente (máx. 12 en la primera apertura anual). Sin metas nuevas (1-2 usuarios, 3 cuentas).
+**Performance Goals**: edge de la spec — la materialización no degrada la apertura del mes: caso habitual (mes ya materializado o sin config) = una SELECT sobre las tablas nuevas; primera consulta de un mes pendiente = 1 movimiento (la materialización es por mes consultado, nunca por lotes). Sin metas nuevas (1-2 usuarios, 3 cuentas).
 
 **Constraints**: UI en español (literales congelados en el ui-contract); TS estricto + Zod en fronteras (IV); EUR con aritmética en céntimos enteros (ADR 0007); direcciones de dependencia hexagonales (VII); formularios de movimiento (013/014) y tanda de captación intactos (asunción de la spec).
 
-**Scale/Scope**: 1-2 usuarios, 3 cuentas; 1 entidad de dominio + 2 helpers puros (+tests), 4 casos de uso + 1 puerto (+tests), 1 repositorio Drizzle (+tests), 1 migración aditiva, 1 action (+test), 1 componente UI (+test), 3 páginas tocadas (una línea de enganche cada una), 1 spec e2e nueva; documentación viva (ADR 0016, diagramas, overview) y roadmap maestro (FR-007).
+**Scale/Scope**: 1-2 usuarios, 3 cuentas; 1 entidad de dominio + 1 helper puro (+tests), 4 casos de uso + 1 puerto (+tests), 1 repositorio Drizzle (+tests), 1 migración aditiva, 1 action (+test), 1 componente UI (+test), 1 página tocada (una línea de enganche), 1 spec e2e nueva; documentación viva (ADR 0016, diagramas, overview) y roadmap maestro (FR-007).
 
 ## Constitution Check
 
@@ -49,7 +49,7 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 | IV | TypeScript Estricto + Zod | ✅ PASS | Frontera nueva `regularIncomeFormSchema` (Zod, reutiliza `parseAmountToCents`), param schemas existentes en páginas intactos; `RegularIncomeDTO` y estado de action tipados como unión discriminada; sin `any`. |
 | V | Persistencia SQLite con Drizzle | ✅ PASS | Dos tablas nuevas vía migración versionada (drizzle-kit, única vía de evolución); sin SQL ad-hoc fuera de Drizzle; sin destructivos (contraste 0002). El `UNIQUE (config, mes)` materializa en BD la invariante de idempotencia ante carreras. |
 | VI | Producto en español, código en inglés | ✅ PASS | Literales nuevos en español congelados en el ui-contract («Ingreso regular», «Configurar ingreso», «Guardar», «Desactivar», toasts y errores exactos); identificadores en inglés (`RegularIncome`, `MaterializeRegularIncomes`, `registerMaterialization`); glosario ampliado (data-model §5). |
-| VII | Arquitectura Hexagonal + DDD Táctico | ✅ PASS | `RegularIncome` y helpers `calendar` puros en dominio (sin imports de infra; `ui/format.ts` queda en el adaptador); casos de uso y puerto `RegularIncomeRepository` en aplicación; páginas, action, panel y repositorio Drizzle como adaptadores; las páginas solo orquestan (materializar antes de leer). Sin eventos, CQRS ni EDA; `movements` y su agregado intactos. |
+| VII | Arquitectura Hexagonal + DDD Táctico | ✅ PASS | `RegularIncome` y helper `calendar` puros en dominio (sin imports de infra; `ui/format.ts` queda en el adaptador); casos de uso y puerto `RegularIncomeRepository` en aplicación; página de cuenta, action, panel y repositorio Drizzle como adaptadores; la página solo orquesta (materializa antes de leer). Sin eventos, CQRS ni EDA; `movements` y su agregado intactos. |
 
 **Resultado**: sin violaciones → Phase 0 autorizada.
 
@@ -79,27 +79,27 @@ specs/018-ingresos-regulares/
 │   │   │   ├── RegularIncomeId.ts      # NUEVO: branded id (patrón MovementId)
 │   │   │   └── RegularIncomeErrors.ts  # NUEVO: InvalidRegularIncomeError, SharedAccountIncomeError, RegularIncomeNotFoundError
 │   │   ├── shared/
-│   │   │   ├── calendar.ts             # NUEVO: lastDayOfMonth + monthRange (puros; el dominio no importa ui/format)
-│   │   │   └── calendar.test.ts        # NUEVO: bisiestos, cruce de año, from > to → []
+│   │   │   ├── calendar.ts             # NUEVO: lastDayOfMonth (puro; el dominio no importa ui/format)
+│   │   │   └── calendar.test.ts        # NUEVO: bisiestos, meses de 28/29/30/31
 │   │   └── movement/, account/, member/, tag/   # INTACTOS (el ingreso materializado es un movimiento corriente)
 │   ├── application/
 │   │   └── regular-income/             # NUEVO módulo
-│   │       ├── RegularIncomeRepository.ts     # NUEVO puerto: findByAccountId, findAllActive, save (upsert), findMaterializedMonths, registerMaterialization (tx)
+│   │       ├── RegularIncomeRepository.ts     # NUEVO puerto: findByAccountId, save (upsert), isMaterialized, registerMaterialization (tx)
 │   │       ├── dto.ts                  # NUEVO: RegularIncomeDTO
 │   │       ├── ConfigureRegularIncome.ts       # NUEVO: upsert siempre-activo; cuenta común rechazada; defaults día 1 y nota «Ingreso regular de {miembro}»; edición no resetea activación
 │   │       ├── DeactivateRegularIncome.ts      # NUEVO: sin config → RegularIncomeNotFoundError
 │   │       ├── GetRegularIncome.ts             # NUEVO: DTO | null (panel)
-│   │       ├── MaterializeRegularIncomes.ts    # NUEVO: ensureForAccountAndMonth / ensureForMonth / ensureForYear; guardas activación ≤ mes ≤ currentMonth; Movement.create + registerMaterialization por mes pendiente
+│   │       ├── MaterializeRegularIncomes.ts    # NUEVO: ensureForAccountAndMonth; guardas activación ≤ mes ≤ currentMonth; Movement.create + registerMaterialization si el mes consultado está pendiente
 │   │       └── *.test.ts               # NUEVOS: dobles en memoria — idempotencia, solo-adelante, sin retroactivo/futuro, borrado-no-regenera, reactivación, clamping
 │   ├── app/
-│   │   ├── accounts/[accountId]/page.tsx      # MODIFICADO: materialize antes del Promise.all (solo lectura de datos de mes) + render de RegularIncomePanel en cuentas personales (FR-006)
-│   │   ├── summary/page.tsx                   # MODIFICADO: ensureForMonth antes de GetGlobalMonthlySummary
-│   │   └── annual/page.tsx                    # MODIFICADO: ensureForYear antes de GetAnnualIncomeStatement
+│   │   ├── accounts/[accountId]/page.tsx      # MODIFICADO: materialize antes del Promise.all (cubre listado, cierre y balance del render) + render de RegularIncomePanel en cuentas personales (FR-006)
+│   │   ├── summary/page.tsx                   # INTACTO: no materializa (decisión del propietario 2026-10-12)
+│   │   └── annual/page.tsx                    # INTACTO: no materializa (decisión del propietario 2026-10-12)
 │   └── infrastructure/
 │       ├── db/
 │       │   ├── schema/regular-incomes.ts      # NUEVO: regularIncomes + regularIncomeMonths (reexport en schema/index.ts)
-│       │   ├── DrizzleRegularIncomeRepository.ts    # NUEVO: upsert por account_id; findMaterializedMonths por rango; registerMaterialization en tx (ON CONFLICT DO NOTHING RETURNING + insert de movimiento con id max+1 en la misma tx)
-│       │   └── DrizzleRegularIncomeRepository.test.ts  # NUEVO: libsql :memory: — upsert, rango, conflicto concurrente sin duplicar movimiento, movimiento visible a listByMonthAndAccount/getBalance
+│       │   ├── DrizzleRegularIncomeRepository.ts    # NUEVO: upsert por account_id; isMaterialized; registerMaterialization en tx (ON CONFLICT DO NOTHING RETURNING + insert de movimiento con id max+1 en la misma tx)
+│       │   └── DrizzleRegularIncomeRepository.test.ts  # NUEVO: libsql :memory: — upsert, isMaterialized, conflicto concurrente sin duplicar movimiento, movimiento visible a listByMonthAndAccount/getBalance
 │       └── primary/
 │           ├── actions/
 │           │   ├── configure-regular-income.action.ts       # NUEVO: useActionState + regularIncomeFormSchema (reusa parseAmountToCents) + intents save/deactivate + revalidatePath("/", "layout")
@@ -116,11 +116,11 @@ specs/018-ingresos-regulares/
 ├── specs/001-family-wallet/spec.md           # ACTUALIZADO (implementación, FR-007): fila 018 «Completada» + nota de la decisión 2026-10-09 (aportación % a la común como feature hija futura ~019, revive alcance diferido)
 └── docs/architecture/
     ├── overview.md, diagrams/domain-model.md, diagrams/ingreso-regular-secuencia.md  # ACTUALIZADOS/NUEVO (implementación): nuevo módulo por capa + secuencia
-    ├── adr/0016-materializacion-perezosa-ingresos-regulares.md   # NUEVO: pereza al consultar, registro de meses como idempotencia, movements intacta, enganche en páginas
+    ├── adr/0016-materializacion-perezosa-ingresos-regulares.md   # NUEVO: pereza al consultar, registro de meses como idempotencia, movements intacta, enganche solo en la página de cuenta (agregados no materializan, decisión del propietario 2026-10-12)
     └── (AGENTS.md: convención «materialización perezosa» si la implementación la fija — research §8)
 ```
 
-**Structure Decision**: misma estructura por capas concéntricas que 002–017 (`docs/architecture/overview.md`). El cambio atraviesa las capas en la dirección de dependencias: `RegularIncome` + helpers calendario en el dominio (puros), cuatro casos de uso y el puerto `RegularIncomeRepository` en aplicación, y como adaptadores el repositorio Drizzle (dos tablas nuevas, migración aditiva), tres páginas que materializan antes de leer, y una action + panel de UI. `movements` y sus flujos quedan intactos (FR-003). Tests co-localizados; e2e nueva en fichero propio con combinación cuenta/mes exclusiva (`workers: 1`).
+**Structure Decision**: misma estructura por capas concéntricas que 002–017 (`docs/architecture/overview.md`). El cambio atraviesa las capas en la dirección de dependencias: `RegularIncome` + helper calendario en el dominio (puro), cuatro casos de uso y el puerto `RegularIncomeRepository` en aplicación, y como adaptadores el repositorio Drizzle (dos tablas nuevas, migración aditiva), la página de cuenta — que materializa antes de leer (único disparador; `/summary` y `/annual` intactos, decisión del propietario 2026-10-12) —, y una action + panel de UI. `movements` y sus flujos quedan intactos (FR-003). Tests co-localizados; e2e nueva en fichero propio con combinación cuenta/mes exclusiva (`workers: 1`).
 
 ## Diagramas de diseño
 
@@ -134,8 +134,8 @@ flowchart LR
 
     subgraph Inbound["Adaptadores inbound — src/app, src/infrastructure/primary"]
         AccPage["/accounts/[accountId] page.tsx (server; MODIFICADO: materializa antes de leer + panel)"]
-        SumPage["/summary page.tsx (server; MODIFICADO: materializa el mes)"]
-        AnnPage["/annual page.tsx (server; MODIFICADO: materializa el año)"]
+        SumPage["/summary page.tsx (server; INTACTO: no materializa)"]
+        AnnPage["/annual page.tsx (server; INTACTO: no materializa)"]
         Panel["RegularIncomePanel (client; NUEVO: panel + diálogo)"]
         ConfAction["configureRegularIncome (Server Action NUEVA: Zod + intents save/deactivate)"]
     end
@@ -144,7 +144,7 @@ flowchart LR
         CRI["ConfigureRegularIncome (NUEVO)"]
         DRI["DeactivateRegularIncome (NUEVO)"]
         GRI["GetRegularIncome (NUEVO)"]
-        MRI["MaterializeRegularIncomes (NUEVO: ensure*)"]
+        MRI["MaterializeRegularIncomes (NUEVO: ensureForAccountAndMonth)"]
         PortRI["«port» RegularIncomeRepository (NUEVO)"]
         PortAcc["«port» AccountRepository (existente: findAll)"]
         LM["ListMovements / GetMonthlyClosure / GetGlobalMonthlySummary / GetAnnualIncomeStatement (intactos)"]
@@ -152,7 +152,7 @@ flowchart LR
 
     subgraph Domain["Dominio — src/domain"]
         RIE["RegularIncome (NUEVA: amount/día/nota/active/activatedAtMonth, dueDateForMonth)"]
-        Cal["calendar: lastDayOfMonth, monthRange (NUEVO, puro)"]
+        Cal["calendar: lastDayOfMonth (NUEVO, puro)"]
         MovEnt["Movement / Money (existentes: el generado es un ingreso corriente)"]
         RIErr["RegularIncomeErrors (NUEVO)"]
     end
@@ -171,8 +171,6 @@ flowchart LR
     ConfAction --> CRI
     ConfAction --> DRI
     AccPage --> MRI
-    SumPage --> MRI
-    AnnPage --> MRI
     AccPage --> GRI
     AccPage --> LM
     SumPage --> LM
@@ -193,7 +191,7 @@ flowchart LR
     Panel -. pinta .-> GRI
 ```
 
-> Nota: dependencias siempre hacia el dominio (constitución VII). Las páginas (adaptadores) orquestan el orden «materializar antes de leer»; la lógica de negocio (qué meses, qué fecha, cuánto) vive en `MaterializeRegularIncomes`/dominio; la UI no decide nada de negocio (captura config, pinta estado).
+> Nota: dependencias siempre hacia el dominio (constitución VII). La página de cuenta (adaptador) orquesta el orden «materializar antes de leer» — único disparador de la materialización (decisión del propietario 2026-10-12; `/summary` y `/annual` solo leen) —; la lógica de negocio (qué meses, qué fecha, cuánto) vive en `MaterializeRegularIncomes`/dominio; la UI no decide nada de negocio (captura config, pinta estado).
 
 ### Secuencia — happy path: configurar y ver el ingreso del mes materializado
 
@@ -219,8 +217,8 @@ sequenceDiagram
     RI->>P: revalidatePath("/", "layout") + toast «Ingreso regular guardado»
     Note over P: re-render RSC de la página de cuenta
     P->>MRI: ensureForAccountAndMonth(accountId, month, currentMonth)
-    MRI->>RR: findAllActive / findByAccountId → config (activación = mes en curso)
-    MRI->>RR: findMaterializedMonths(id, month..month) → []
+    MRI->>RR: findByAccountId → config (activación = mes en curso)
+    MRI->>RR: isMaterialized(id, month) → false
     MRI->>DOM: Movement.create(ingreso · date = dueDateForMonth(month) con clamp)
     MRI->>RR: registerMaterialization(config, month, movement)
     DB->>DB: tx: INSERT regular_income_months ON CONFLICT DO NOTHING RETURNING → ok → INSERT movements (id max+1)
@@ -240,10 +238,10 @@ sequenceDiagram
 **Decisiones de diseño destacadas (sin violación, registradas para `/speckit.tasks`)**:
 
 - **Registro de meses materializados (`regular_income_months`), no marca en `movements`** (resuelve la nota de la spec sobre la marca de origen): es la única estructura que sostiene a la vez idempotencia ante carreras (`UNIQUE` + `ON CONFLICT DO NOTHING`), «el borrado del mes es definitivo» (la fila sobrevive al borrado físico del movimiento) y solo-adelante (la config solo se lee para meses sin registro); además deja `Movement` y los flujos de edición/borrado intactos (FR-003/FR-004) (research §2).
-- **Materialización en las 3 páginas lectoras, antes de leer**: cubre las cinco vías de lectura (incluido `getBalance`, que va detrás en el mismo render de la página de cuenta) y evita huecos en vistas agregadas (`/annual`); guardas `activación ≤ mes ≤ currentMonth` independientes de la UI (FR-005 con `/summary` navegable a meses futuros) (research §3).
+- **Materialización solo en la página de la cuenta, antes de leer** (decisión del propietario 2026-10-12): cubre las tres vías de lectura de esa página (listado, cierre y `getBalance`, que va detrás en el mismo render); `/summary` y `/annual` no materializan — muestran los movimientos existentes —, aceptando que un mes no consultado en su cuenta no muestre el ingreso en los agregados hasta consultarlo allí (extensión futura aditiva: una llamada por página). Guardas `activación ≤ mes ≤ currentMonth` independientes de la UI (FR-005 con meses futuros alcanzables por URL) (research §3).
 - **`currentMonth` como parámetro del adaptador**: misma convención que `?month=`/`year=`; aplicación pura y tests deterministas sin un puerto `Clock` de un solo método (research §3.3/§4).
 - **Edición no resetea `activatedAtMonth`; (re)activación sí**: exacta semántica de la clarificación 2026-10-12 y del edge «borrado + reactivación» (meses del periodo inactivo nunca se rellenan; un mes no consultado del periodo activo sí se materializa al consultarlo) (research §4).
-- **Helpers calendario propios del dominio** (`lastDayOfMonth`, `monthRange`): el dominio no puede importar `ui/format.ts` (VII); el clamping al último día conserva el día configurado (clarificación 2026-10-12) (research §5).
+- **Helper calendario propio del dominio** (`lastDayOfMonth`): el dominio no puede importar `ui/format.ts` (VII); el clamping al último día conserva el día configurado (clarificación 2026-10-12) (research §5).
 - **Panel al final de la página de la cuenta personal + diálogo `useActionState` con intents**: respeta el list-first de 016; la desactivación es un botón con intención explícita (no un switch que se envía de rebote) y no exige importe/día válidos (rama Zod propia) (research §6).
 - **Spec e2e `ingresos-regulares.spec.ts` con Miembro A + mes en curso dinámico y limpieza final natural**: los escenarios 5-6 (borrar no regenera, desactivar) dejan la BD como estaba — `registro-movimientos` (A+común, mes actual, balances exactos) corre después alfabéticamente y quedaría contaminado; combinación verificada frente a las 8 specs existentes y su orden efectivo (research §7).
 
@@ -259,6 +257,6 @@ Re-evaluación tras generar [research.md](./research.md), [data-model.md](./data
 | IV | TypeScript Estricto + Zod | ✅ PASS | `regularIncomeFormSchema` valida la frontera con mensajes congelados (rama propia para `intent="deactivate"`); `RegularIncomeDTO` y `ConfigureRegularIncomeState` uniones tipadas; branded `RegularIncomeId`; sin `any` (data-model §3/§4). |
 | V | SQLite con Drizzle | ✅ PASS | Migración aditiva versionada (única vía de evolución, sin destructivos); `UNIQUE (regular_income_id, month)` como respaldo de la invariante ante carreras; tx Drizzle para registro+movimiento; sin SQL ad-hoc (data-model §2). |
 | VI | Español / inglés | ✅ PASS | Literales congelados en el ui-contract («Ingreso regular», «Configurar ingreso», «Editar ingreso», «Desactivar», «Guardando…», toasts, errores de importe/día/dominio); defaults «día 1» y «Ingreso regular de {miembro}»; identificadores en inglés (`RegularIncome`, `MaterializeRegularIncomes`, `registerMaterialization`, `dueDateForMonth`); glosario ES↔EN ampliado (data-model §5). |
-| VII | Arquitectura Hexagonal + DDD táctico | ✅ PASS | Dominio puro (`RegularIncome`, `calendar`, errores — sin imports de infra); puerto y casos de uso en aplicación; páginas/action/panel/repositorio como adaptadores finos; la UI no duplica negocio (pinta DTO, envía FormData); sin eventos/CQRS/EDA; `Movement`/`Account` intactos (data-model §1, diagramas). |
+| VII | Arquitectura Hexagonal + DDD táctico | ✅ PASS | Dominio puro (`RegularIncome`, `calendar`, errores — sin imports de infra); puerto y casos de uso en aplicación; página de cuenta/action/panel/repositorio como adaptadores finos; la UI no duplica negocio (pinta DTO, envía FormData); sin eventos/CQRS/EDA; `Movement`/`Account` intactos (data-model §1, diagramas). |
 
 **Resultado**: diseño aprobado; sin desviaciones que justificar. El plan queda listo para `/speckit.tasks`.

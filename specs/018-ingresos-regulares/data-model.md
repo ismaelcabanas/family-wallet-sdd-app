@@ -14,14 +14,13 @@ Sin cambios: `Money` (ADR 0007), `MovementType`, `ExpenseNature`, `AccountType`,
 
 **NUEVO — `RegularIncomeId`** (`src/domain/regular-income/RegularIncomeId.ts`): branded type número entero > 0, mismo patrón que `MovementId`.
 
-**NUEVO — helpers calendario puros** (`src/domain/shared/calendar.ts`, sin dependencias — el dominio no puede importar `ui/format.ts`, VII):
+**NUEVO — helper calendario puro** (`src/domain/shared/calendar.ts`, sin dependencias — el dominio no puede importar `ui/format.ts`, VII):
 
 | Función | Regla | Ejemplo |
 |---|---|---|
 | `lastDayOfMonth(month: string): number` | `new Date(y, m, 0).getDate()` sobre `YYYY-MM` | `"2026-02"` → 28; `"2028-02"` → 29; `"2026-04"` → 30 |
-| `monthRange(from: string, to: string): string[]` | Meses inclusivos `[from, to]` con cruce de año; `from > to` → `[]` | `("2025-11","2026-02")` → `["2025-11","2025-12","2026-01","2026-02"]` |
 
-Invariante documentada del formato `YYYY-MM`: la comparación lexicográfica coincide con la cronológica (longitud fija, prefijo cero) — ordenar y comparar meses es comparar strings.
+Invariante documentada del formato `YYYY-MM`: la comparación lexicográfica coincide con la cronológica (longitud fija, prefijo cero) — ordenar, comparar y acotar meses (guardas de materialización) es comparar strings. Un helper `monthRange` solo volvería si la materialización se re-extiende a rangos (YAGNI, principio I; decisión del propietario 2026-10-12).
 
 ### 1.2 Entidad `RegularIncome` (Ingreso regular) — NUEVA
 
@@ -81,23 +80,20 @@ class GetRegularIncome {
 class MaterializeRegularIncomes {
   constructor(regularIncomes: RegularIncomeRepository)
   async ensureForAccountAndMonth(accountId: number, month: string, currentMonth: string): Promise<void>
-  async ensureForMonth(month: string, currentMonth: string): Promise<void>
-  async ensureForYear(year: string, currentMonth: string): Promise<void>
 }
 ```
 
 Orquestación de `ConfigureRegularIncome` (research §4): resolver cuenta con `accounts.findAll()` (valida existencia, rechaza `type === "shared"` con `SharedAccountIncomeError` y proporciona `memberName` para el default de nota) → nota final `input.note?.trim() || "Ingreso regular de {memberName}"` → si había config: `existing.update({...})` + `existing.activate(currentMonth)` solo si estaba inactiva; si no: `RegularIncome.create({..., activatedAtMonth: currentMonth})` → `save`.
 
-Orquestación de `MaterializeRegularIncomes` (research §3): cargar configs activas (una sola si `ensureForAccountAndMonth`) → por config, `meses = monthRange(max(activatedAtMonth, desde), min(currentMonth, hasta))` menos `findMaterializedMonths` → para cada mes pendiente en orden ascendente: `Movement.create({ accountId, type: "income", date: config.dueDateForMonth(mes), note: config.note, amount: config.amount, nature: null, tagId: null })` + `registerMaterialization(config, mes, movement)` (transaccional). Guardas estructurales: mes futuro (`mes > currentMonth`) y mes anterior a la activación nunca se materializan (FR-005); config inactiva no participa (FR-004 desactivación).
+Orquestación de `MaterializeRegularIncomes` (research §3; invocada solo por la página de cuenta, antes de leer — decisión del propietario 2026-10-12): cargar la config de la cuenta (`findByAccountId`; inexistente o inactiva → no-op) → si `activatedAtMonth ≤ mes ≤ currentMonth` (comparación lexicográfica) y `isMaterialized` es falso → `Movement.create({ accountId, type: "income", date: config.dueDateForMonth(mes), note: config.note, amount: config.amount, nature: null, tagId: null })` + `registerMaterialization(config, mes, movement)` (transaccional). Guardas estructurales: mes futuro (`mes > currentMonth`) y mes anterior a la activación nunca se materializan (FR-005); config inactiva no participa (FR-004 desactivación).
 
 ### 1.4 Puerto `RegularIncomeRepository` — NUEVO (`src/application/regular-income/RegularIncomeRepository.ts`)
 
 ```ts
 export interface RegularIncomeRepository {
   findByAccountId(accountId: AccountId): Promise<RegularIncome | null>;
-  findAllActive(): Promise<RegularIncome[]>;
   save(config: RegularIncome): Promise<RegularIncome>;            // upsert por account_id → entidad con id
-  findMaterializedMonths(regularIncomeId: RegularIncomeId, fromMonth: string, toMonth: string): Promise<string[]>;
+  isMaterialized(regularIncomeId: RegularIncomeId, month: string): Promise<boolean>;
   registerMaterialization(config: RegularIncome, month: string, movement: Movement): Promise<boolean>;
   // true  = par (config, mes) registrado ahora + movimiento creado (tx única)
   // false = el par ya existía (carrera perdida o reintentos) → NO se crea movimiento
@@ -130,9 +126,8 @@ classDiagram
     }
 
     class calendar {
-        <<Funciones puras — NUEVAS>>
+        <<Función pura — NUEVA>>
         +lastDayOfMonth(month) int$
-        +monthRange(from, to) String[]$
     }
 
     class ConfigureRegularIncome {
@@ -150,16 +145,13 @@ classDiagram
     class MaterializeRegularIncomes {
         <<Use case — NUEVO>>
         +ensureForAccountAndMonth(accountId, month, currentMonth)
-        +ensureForMonth(month, currentMonth)
-        +ensureForYear(year, currentMonth)
     }
 
     class RegularIncomeRepository {
         <<Port — NUEVO>>
         +findByAccountId(accountId) RegularIncome?
-        +findAllActive() RegularIncome[]
         +save(config) RegularIncome
-        +findMaterializedMonths(id, from, to) String[]
+        +isMaterialized(id, month) boolean
         +registerMaterialization(config, month, movement) boolean
     }
 
@@ -207,8 +199,9 @@ stateDiagram-v2
     Activa --> Inactiva : deactivate() (FR-004)
     Inactiva --> Activa : activate(mes en curso) — activatedAtMonth = mes de reactivación (edge)
     note right of Activa
-        Materializa meses [activatedAtMonth .. mes en curso]
-        al consultarlos; el registro de meses gobierna
+        Materializa el mes consultado en la página
+        de la cuenta si ∈ [activatedAtMonth .. mes
+        en curso]; el registro de meses gobierna
         idempotencia / borrado definitivo / solo-adelante.
     end note
 ```
@@ -247,9 +240,9 @@ movements, accounts, members, tags                # INTACTAS (el ingreso materia
 
 ### 2.2 Repositorio `DrizzleRegularIncomeRepository` — NUEVO
 
-- `findByAccountId` / `findAllActive` (`where active = 1`): SELECT → `RegularIncome.rehydrate`.
+- `findByAccountId`: SELECT → `RegularIncome.rehydrate`.
 - `save`: upsert `insert ... onConflictDoUpdate({ target: account_id })` returning → entidad con id.
-- `findMaterializedMonths(id, from, to)`: `SELECT month WHERE regular_income_id = ? AND month BETWEEN ? AND ?` (orden lexicográfico = cronológico).
+- `isMaterialized(id, month)`: `SELECT 1 WHERE regular_income_id = ? AND month = ? LIMIT 1` (comparación exacta de `YYYY-MM`).
 - `registerMaterialization(config, month, movement)`: **transacción Drizzle**: (1) `INSERT INTO regular_income_months (regular_income_id, month, created_at) ON CONFLICT DO NOTHING RETURNING id`; (2) solo si devolvió fila: insert del movimiento en `movements` (id con `coalesce(max(id),0)+1`, mismo patrón que `DrizzleMovementRepository.create`, dentro de la misma tx) → `true`; sin fila → `false` sin escribir. Bajo dos renders concurrentes del mismo mes, exactamente una petición inserta el movimiento.
 
 ### 2.3 Seed y migraciones
@@ -270,7 +263,7 @@ movements, accounts, members, tags                # INTACTAS (el ingreso materia
 | Un ingreso regular por miembro | — | ✅ upsert por cuenta | ✅ `account_id UNIQUE` |
 | Un movimiento por (config, mes) | — | ✅ `registerMaterialization` condicionado al registro | ✅ `UNIQUE (regular_income_id, month)` + `ON CONFLICT DO NOTHING` |
 | Meses válidos `YYYY-MM` (URL) | ✅ `monthParamSchema` existente en páginas | ✅ `activatedAtMonth` validado en la entidad | texto |
-| Sin retroactivo ni futuro | — | ✅ `monthRange(max(activación, desde), min(currentMonth, hasta))` | — |
+| Sin retroactivo ni futuro | — | ✅ guardas `activatedAtMonth ≤ mes ≤ currentMonth` (comparación lexicográfica de `YYYY-MM`) | — |
 
 **Mapeo de errores en la action** `configureRegularIncome`: Zod → `errors` por campo (`amount`/`dayOfMonth`/`note`) con `values` conservados; `InvalidMoneyError` → `amount`; `InvalidRegularIncomeError` → su campo; `SharedAccountIncomeError` / `RegularIncomeNotFoundError` / resto de `DomainError` → `_form` con su mensaje. Nunca se lanza al cliente (mismos criterios que `create-movement.action.ts`).
 
@@ -313,11 +306,10 @@ Las actions y el schema de movimientos (`create/update/delete`, `movement-form.s
 | Ingreso regular | `RegularIncome` | Entidad de dominio; término de la spec |
 | Ingreso regular del miembro | `RegularIncome` anclado a la cuenta personal | `account_id` (la propiedad vive en `Account.memberId`) |
 | Mes de activación | `activatedAtMonth` | Alta o última reactivación; no cambia al editar |
-| Materialización (del ingreso de un mes) | `registerMaterialization` / materialization | Creación perezosa del movimiento al consultar |
-| Registro de meses materializados | `regular_income_months` (tabla) / `findMaterializedMonths` | Fuente de idempotencia y borrado definitivo |
+| Materialización (del ingreso de un mes) | `registerMaterialization` / materialization | Creación perezosa del movimiento al consultar el mes en la página de la cuenta (único disparador; decisión 2026-10-12) |
+| Registro de meses materializados | `regular_income_months` (tabla) / `isMaterialized` | Fuente de idempotencia y borrado definitivo |
 | Solo hacia adelante | forward-only semantics | Emergente: solo meses sin registro leen la config vigente |
 | Último día del mes (clamp) | `lastDayOfMonth` / `dueDateForMonth` | Día 30/31 en meses cortos (clarificación 2026-10-12) |
-| Rango de meses | `monthRange(from, to)` | Comparación lexicográfica de `YYYY-MM` |
 | Desactivar / Reactivar | `deactivate` / `activate` | Reactivar resetea `activatedAtMonth` |
 | Configurar ingreso (CTA) | `configureRegularIncome` | Caso de uso + Server Action |
 

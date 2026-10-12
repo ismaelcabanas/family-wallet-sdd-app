@@ -31,6 +31,7 @@ Espejo de los 9 escenarios de aceptación de la spec + edges clave.
 
 1. Recargar la página de cuenta 5 veces; navegar a `/summary?month={mes en curso}` y `/annual?year={año en curso}` y volver.
 2. El ingreso aparece **exactamente una vez** en cada vista; `/summary` muestra el ingreso en la fila/totales del miembro; el panel de cuenta anual acumula el ingreso del miembro.
+3. Nota: el disparador único es la página de la cuenta del mes; `/summary` y `/annual` muestran el ingreso una vez materializado (decisión del propietario, 2026-10-12).
 
 ### Q3 — Cambio de importe: solo hacia adelante (escenario 3, FR-004, clarificación 2026-10-12)
 
@@ -86,4 +87,4 @@ Esperado: todo en verde (SC-005). Nueva spec e2e `e2e/ingresos-regulares.spec.ts
 
 ## Resultado esperado
 
-Configurar el ingreso habitual lleva menos de 1 minuto y elimina la captura manual mensual (SC-001): desde la configuración, cada mes consultado desde la activación ya trae el ingreso, exactamente una vez (SC-002/SC-003), computando en todas las vistas como un ingreso manual (SC-004).
+Configurar el ingreso habitual lleva menos de 1 minuto y elimina la captura manual mensual (SC-001): desde la configuración, cada mes consultado en la página de la cuenta desde la activación ya trae el ingreso, exactamente una vez (SC-002/SC-003), computando en todas las vistas como un ingreso manual (SC-004).

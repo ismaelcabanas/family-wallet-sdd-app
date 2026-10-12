@@ -23,12 +23,13 @@
 
 - Q: Cuando el día del mes configurado no existe en un mes concreto (p. ej. día 30 o 31 en febrero), ¿qué fecha recibe el movimiento de ingreso generado ese mes? → A: Ajustar al último día del mes (día 31 → 30 en abril; → 28/29 en febrero); el día configurado se conserva.
 - Q: ¿La semántica «solo hacia adelante» de FR-004 aplica también a los cambios de día y nota de la configuración, o solo a los de importe? → A: Aplica a toda la configuración (importe, día y nota): los meses ya generados conservan su movimiento; los nuevos valores rigen solo para meses aún no generados.
+- Q: La materialización al consultar, ¿se dispara también en las vistas agregadas (`/summary`, `/annual`) o solo en la página de la cuenta? → A: Solo en la página de movimientos de la cuenta, donde el usuario registraría a mano el ingreso si la feature no existiera; las vistas agregadas se limitan a mostrar los movimientos existentes, sin generar nada. Si el uso hace necesario cubrirlas, se iterará como feature futura (decisión del propietario, 2026-10-12).
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar el ingreso mensual regular y verlo generado automáticamente (Priority: P1)
 
-Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), quiero configurarlo una sola vez en mi cuenta personal para que cada mes, al consultar el mes, el ingreso aparezca ya registrado como movimiento, sin tener que darlo de alta a mano.
+Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), quiero configurarlo una sola vez en mi cuenta personal para que cada mes, al consultarlo en la página de mi cuenta, el ingreso aparezca ya registrado como movimiento, sin tener que darlo de alta a mano.
 
 **Why this priority**: Es la única historia de la feature y su razón de ser: hoy el ingreso de cada miembro se registra manualmente mes a mes; es la captura más repetitiva y predecible de toda la aplicación.
 
@@ -66,7 +67,7 @@ Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), 
 ### Functional Requirements
 
 - **FR-001 (configuración por miembro)**: El sistema MUST permitir configurar, para cada miembro con cuenta personal, un ingreso regular mensual definido por: importe (obligatorio, mayor que cero, EUR con 2 decimales), día del mes (opcional, con valor por defecto razonable) y nota (opcional, con valor por defecto descriptivo). La configuración MUST poder editarse y desactivarse en cualquier momento. La cuenta común MUST carecer de configuración de ingreso regular.
-- **FR-002 (generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes exista el movimiento de ingreso con el importe configurado. Si el día configurado no existe en el mes, el movimiento MUST fecharse el último día del mes (el día configurado no se altera). La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
+- **FR-002 (generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes en la página de la cuenta exista el movimiento de ingreso con el importe configurado. Si el día configurado no existe en el mes, el movimiento MUST fecharse el último día del mes (el día configurado no se altera). La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
 - **FR-003 (un movimiento como cualquier otro)**: El ingreso generado MUST comportarse como un movimiento de ingreso corriente: aparece en el listado de la cuenta, cierre mensual, resumen global mensual y cuenta de resultados anual computando como cualquier ingreso, y puede editarse y eliminarse con los flujos existentes. Las ediciones manuales MUST respetarse: ninguna consulta posterior las sobrescribe.
 - **FR-004 (semántica solo hacia adelante)**: Los cambios de la configuración (importe, día o nota) MUST aplicar únicamente a los meses aún no generados; los meses ya generados conservan su movimiento. La eliminación del movimiento generado de un mes MUST ser definitiva para ese mes (no se regenera). La desactivación de la configuración MUST detener la generación futura conservando los movimientos ya existentes.
 - **FR-005 (sin retroactivo ni futuro)**: El sistema MUST no generar ingresos regulares para meses anteriores a la activación ni para meses futuros, aunque dichos meses se consulten.
@@ -86,13 +87,13 @@ Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), 
 
 - **SC-001**: Configurar el ingreso regular por primera vez toma menos de 1 minuto y elimina la captura manual mensual: tras configurar, el mes en curso ya muestra el ingreso sin ningún alta manual.
 - **SC-002**: Consultas repetidas del mismo mes (5 o más) desde distintas vistas producen exactamente 1 movimiento de ingreso regular por miembro configurado: 0 duplicados.
-- **SC-003**: El 100 % de los meses desde la activación hasta el mes en curso muestra el ingreso del miembro configurado al consultarse por primera vez.
+- **SC-003**: El 100 % de los meses desde la activación hasta el mes en curso muestra el ingreso del miembro configurado al consultarse por primera vez en la página de la cuenta.
 - **SC-004**: Cierre mensual, resumen global mensual y cuenta de resultados anual computan el ingreso generado exactamente igual que un ingreso manual.
 - **SC-005**: Todas las suites (dominio, aplicación, componentes, e2e) quedan en verde, con el flujo «configurar → consultar mes → ver ingreso sin duplicados» cubierto end-to-end.
 
 ## Assumptions
 
-- **Generación perezosa al consultar** (default informado, aplicable a una app serverless sin planificador): el comportamiento observable es «al consultar el mes, el ingreso ya está»; el mecanismo interno (materialización en lectura u otra vía equivalente) es decisión del plan.
+- **Generación perezosa al consultar** (default informado, aplicable a una app serverless sin planificador): el comportamiento observable es «al consultar el mes en la página de la cuenta, el ingreso ya está»; las vistas agregadas solo muestran lo ya materializado (decisión del propietario, 2026-10-12). El mecanismo interno (materialización en lectura u otra vía equivalente) es decisión del plan.
 - **Un único ingreso regular por miembro** (decisión del propietario, 2026-10-09): un solo importe/día/nota por miembro; ingresos adicionales o irregulares se registran a mano como hoy.
 - **El borrado no regenera** (decisión del propietario, 2026-10-09): si se elimina el movimiento generado de un mes, no vuelve a generarse; la eliminación es la vía para dejar un mes sin ese ingreso.
 - **Mes de activación** = mes en curso en el momento de crear (o reactivar) la configuración; sin relleno retroactivo del histórico.
@@ -106,6 +107,7 @@ Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), 
 - **Aportación porcentual a la cuenta común** (feature hija futura, p. ej. 019): el % de los ingresos que cada miembro aporta mensualmente a la cuenta común. Construirá sobre 018 y revivirá el alcance diferido del roadmap maestro (transferencias/aportaciones).
 - Múltiples ingresos regulares por miembro (si se confirma el default de un único ingreso).
 - Transferencias entre cuentas y seguimiento del ahorro (siguen diferidos en el roadmap maestro).
+- **Materialización en las vistas agregadas** (`/summary`, `/annual`): solo la página de la cuenta dispara la generación (decisión del propietario, 2026-10-12); cubrir los agregados, si el uso lo exige, es iteración futura.
 - Notificaciones, recordatorios o generación por calendario real (cron).
 - Relleno retroactivo o importación de histórico de ingresos.
 - Cambios en cierre mensual, cuadre, resumen global o cuenta de resultados anual: los ingresos generados computan con las reglas actuales.
