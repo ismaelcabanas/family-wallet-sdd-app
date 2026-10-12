@@ -17,6 +17,13 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — configurar una vez el ingreso regular y dejar de registrarlo a mano cada mes. No aplica excepción.
 
+## Clarifications
+
+### Session 2026-10-12
+
+- Q: Cuando el día del mes configurado no existe en un mes concreto (p. ej. día 30 o 31 en febrero), ¿qué fecha recibe el movimiento de ingreso generado ese mes? → A: Ajustar al último día del mes (día 31 → 30 en abril; → 28/29 en febrero); el día configurado se conserva.
+- Q: ¿La semántica «solo hacia adelante» de FR-004 aplica también a los cambios de día y nota de la configuración, o solo a los de importe? → A: Aplica a toda la configuración (importe, día y nota): los meses ya generados conservan su movimiento; los nuevos valores rigen solo para meses aún no generados.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar el ingreso mensual regular y verlo generado automáticamente (Priority: P1)
@@ -45,6 +52,7 @@ Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), 
 
 - **Alta a mitad de mes en curso**: la configuración creada con el mes ya avanzado materializa el ingreso del mes en curso en la siguiente consulta del mes.
 - **Día de cobro posterior a la consulta**: el ingreso del mes en curso se genera completo aunque el día configurado no haya llegado aún (p. ej. día 25 consultado el día 9); no hay generación parcial ni aplazada.
+- **Día inexistente en meses cortos**: si el día configurado no existe en el mes (30/31 en febrero, 31 en meses de 30 días), el movimiento se fecha el último día del mes; el día configurado no se altera y vuelve a aplicarse tal cual en los meses donde existe.
 - **Meses anteriores a la activación**: no se generan nunca, aunque se consulten; evita duplicar el histórico ya registrado a mano.
 - **Pagas extra e ingresos irregulares** (p. ej. 14 pagas, extras de junio/diciembre): quedan fuera del ingreso regular; se registran a mano como hoy.
 - **Dos miembros**: configuraciones completamente independientes (importe, día, nota, estado); lo que ocurre con una no afecta a la otra.
@@ -58,9 +66,9 @@ Como miembro de la familia con un ingreso mensual habitual (p. ej. la nómina), 
 ### Functional Requirements
 
 - **FR-001 (configuración por miembro)**: El sistema MUST permitir configurar, para cada miembro con cuenta personal, un ingreso regular mensual definido por: importe (obligatorio, mayor que cero, EUR con 2 decimales), día del mes (opcional, con valor por defecto razonable) y nota (opcional, con valor por defecto descriptivo). La configuración MUST poder editarse y desactivarse en cualquier momento. La cuenta común MUST carecer de configuración de ingreso regular.
-- **FR-002 (generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes exista el movimiento de ingreso con el importe configurado. La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
+- **FR-002 (generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes exista el movimiento de ingreso con el importe configurado. Si el día configurado no existe en el mes, el movimiento MUST fecharse el último día del mes (el día configurado no se altera). La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
 - **FR-003 (un movimiento como cualquier otro)**: El ingreso generado MUST comportarse como un movimiento de ingreso corriente: aparece en el listado de la cuenta, cierre mensual, resumen global mensual y cuenta de resultados anual computando como cualquier ingreso, y puede editarse y eliminarse con los flujos existentes. Las ediciones manuales MUST respetarse: ninguna consulta posterior las sobrescribe.
-- **FR-004 (semántica solo hacia adelante)**: Los cambios de importe MUST aplicar únicamente a los meses aún no generados; los meses ya generados conservan su movimiento. La eliminación del movimiento generado de un mes MUST ser definitiva para ese mes (no se regenera). La desactivación de la configuración MUST detener la generación futura conservando los movimientos ya existentes.
+- **FR-004 (semántica solo hacia adelante)**: Los cambios de la configuración (importe, día o nota) MUST aplicar únicamente a los meses aún no generados; los meses ya generados conservan su movimiento. La eliminación del movimiento generado de un mes MUST ser definitiva para ese mes (no se regenera). La desactivación de la configuración MUST detener la generación futura conservando los movimientos ya existentes.
 - **FR-005 (sin retroactivo ni futuro)**: El sistema MUST no generar ingresos regulares para meses anteriores a la activación ni para meses futuros, aunque dichos meses se consulten.
 - **FR-006 (acceso desde la cuenta personal)**: La configuración del ingreso regular MUST ser accesible desde la página de la cuenta personal del miembro, con literales en español. La colocación exacta en la interfaz es decisión del plan.
 - **FR-007 (actualización del roadmap maestro)**: Al completar la feature, el roadmap maestro MUST registrar la fila 018 (Completada) y dejar constancia de que la aportación porcentual a la cuenta común queda planificada como feature hija futura que se construye sobre el ingreso regular de 018 (revive el alcance diferido sobre aportaciones a la cuenta común).
