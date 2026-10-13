@@ -69,8 +69,8 @@ src/
 │       └── dto.ts                     <-- RegularIncomeDTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
-│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts → GlobalNav + AccountCardGrid (sin searchParams, feature 012)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel → RegularIncomePanel solo en cuentas personales (features 016 + 013 + 018); desde 018 materializa ingresos regulares ANTES del Promise.all de lecturas (único disparador, ADR 0016)
+│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes, feature 012 + 020)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013); la configuración del ingreso regular NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares ANTES del Promise.all de lecturas (único disparador, ADR 0016)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── layout.tsx · globals.css
@@ -93,11 +93,11 @@ src/
         │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; revalidatePath('/', 'layout')
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
-        │   └── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de la página de cuenta dispara la materialización (ADR 0016)
+        │   └── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
-            ├── account-card-grid.tsx <-- Rejilla server de tarjetas-Link del panel de cuentas (/ lanzador puro: nombre+tipo, feature 012)
+            ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítem «Ingreso regular» con estado derivado de regularIncomeMenuStatus, diálogo montado por tarjeta; hogar de las opciones de cuenta — 012 + 020)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
@@ -109,7 +109,7 @@ src/
             ├── global-summary-panel.tsx  <-- Panel del resumen global: KPIs + desgloses por tag y por miembro (solo formatea)
             ├── annual-statement-panel.tsx <-- Panel de la cuenta anual: tabla mensual Ene–Dic + desglose por tag (solo formatea, ADR 0013)
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
-            ├── regular-income-panel.tsx   <-- Panel «Ingreso regular» de la página de cuenta personal: 3 estados + diálogo useActionState con intents save/deactivate + desactivación directa sin abrir diálogo (018)
+            ├── regular-income-config-dialog.tsx <-- Diálogo «Ingreso regular» (extraído de regular-income-panel en 020): useActionState(configureRegularIncome) con intents save/deactivate, vacío o precargado según config; única vía de desactivación desde 020; lo abre el ítem del menú ⋮ de la tarjeta
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018)
 ```
 

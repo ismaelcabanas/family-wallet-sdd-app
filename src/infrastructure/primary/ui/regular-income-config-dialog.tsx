@@ -14,110 +14,16 @@ import { Button } from "./components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { formatAmountCents, formatCentsForInput } from "./format";
+import { formatCentsForInput } from "./format";
 
-interface RegularIncomePanelProps {
-  accountId: number;
-  memberName: string | null;
-  config: RegularIncomeDTO | null;
-}
-
-export function RegularIncomePanel({ accountId, memberName, config }: RegularIncomePanelProps) {
-  const [editing, setEditing] = useState(false);
-
-  return (
-    <section
-      aria-labelledby="regular-income-title"
-      data-testid="regular-income-panel"
-      className="rounded-lg border bg-card p-4 text-card-foreground"
-    >
-      <h2 id="regular-income-title" className="text-sm font-medium text-muted-foreground">
-        Ingreso regular
-      </h2>
-
-      {config === null ? (
-        <div className="mt-2 flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            Configura tu ingreso mensual habitual y aparecerá cada mes sin registrarlo a mano.
-          </p>
-          <Button type="button" className="self-start" onClick={() => setEditing(true)}>
-            Configurar ingreso
-          </Button>
-        </div>
-      ) : config.active ? (
-        <div className="mt-2 flex flex-col gap-3">
-          <p className="text-xl font-semibold tabular-nums">
-            {formatAmountCents(config.amountCents)} el día {config.dayOfMonth} de cada mes
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Nota: {config.note} <span aria-hidden="true">·</span>{" "}
-            <span className="text-foreground">Activa</span>
-          </p>
-          <div className="flex items-center gap-2 self-start">
-            <Button type="button" variant="outline" onClick={() => setEditing(true)}>
-              Editar ingreso
-            </Button>
-            <PanelDeactivateForm accountId={accountId} />
-          </div>
-        </div>
-      ) : (
-        <div className="mt-2 flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">Ingreso regular desactivado.</p>
-          <Button type="button" variant="outline" className="self-start" onClick={() => setEditing(true)}>
-            Editar ingreso
-          </Button>
-        </div>
-      )}
-
-      {editing ? (
-        <RegularIncomeConfigDialog
-          accountId={accountId}
-          memberName={memberName}
-          config={config}
-          onClose={() => setEditing(false)}
-        />
-      ) : null}
-    </section>
-  );
-}
-
-function PanelDeactivateForm({ accountId }: { accountId: number }) {
-  const [state, formAction, isPending] = useActionState(configureRegularIncome, {
-    status: "idle",
-  } satisfies ConfigureRegularIncomeState);
-
-  const handledRef = useRef(false);
-
-  useEffect(() => {
-    if (state.status !== "success" || handledRef.current) return;
-    handledRef.current = true;
-    toast.success(state.message);
-  }, [state]);
-
-  return (
-    <form action={formAction}>
-      <input type="hidden" name="accountId" value={accountId} />
-      <input type="hidden" name="intent" value="deactivate" />
-      <Button type="submit" variant="outline" disabled={isPending}>
-        {isPending ? "Guardando…" : "Desactivar"}
-      </Button>
-      {state.status === "error" && state.errors._form ? (
-        <p role="alert" className="mt-2 text-sm text-red-600">
-          {state.errors._form[0]}
-        </p>
-      ) : null}
-    </form>
-  );
-}
-
-interface RegularIncomeConfigDialogProps {
+export interface RegularIncomeConfigDialogProps {
   accountId: number;
   memberName: string | null;
   config: RegularIncomeDTO | null;
   onClose: () => void;
 }
 
-function RegularIncomeConfigDialog({
+export function RegularIncomeConfigDialog({
   accountId,
   memberName,
   config,
