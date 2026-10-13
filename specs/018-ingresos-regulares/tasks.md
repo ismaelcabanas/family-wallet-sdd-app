@@ -108,14 +108,14 @@ description: "Task list for feature 018 implementation"
 
 **Purpose**: Documentación viva, ADR y roadmap maestro actualizados en el mismo cambio (constitución III DoD, research §8, FR-007).
 
-- [ ] T028 [P] Crear `docs/architecture/adr/0016-materializacion-perezosa-ingresos-regulares.md`: pereza al consultar en serverless sin cron, registro de meses (`regular_income_months`) como fuente de idempotencia/borrado-definitivo/solo-adelante, `movements` intacta, enganche solo en la página de cuenta (`/summary` y `/annual` no materializan: decisión del propietario 2026-10-12, iteración futura aditiva), `currentMonth` como parámetro del adaptador (research §2/§3/§8)
-- [ ] T029 [P] Actualizar `docs/architecture/diagrams/domain-model.md`: `RegularIncome`, helper `calendar` y puerto/casos de uso nuevos (base: data-model §1.5)
-- [ ] T030 [P] Crear `docs/architecture/diagrams/ingreso-regular-secuencia.md`: secuencia del happy path «configurar → consultar mes → ingreso materializado» (base: plan.md §Diagramas de diseño)
-- [ ] T031 [P] Actualizar `docs/architecture/overview.md`: módulo `regular-income` en dominio/aplicación, repositorio Drizzle nuevo y enganche de la página de cuenta
-- [ ] T032 Actualizar el roadmap maestro `specs/001-family-wallet/spec.md` (FR-007): fila `018-ingresos-regulares` «Completada» + nota de la decisión 2026-10-09 (aportación % a la cuenta común como feature hija futura ~019 sobre el ingreso regular de 018, revive el alcance diferido)
-- [ ] T033 Documentar en `AGENTS.md` la convención «materialización perezosa» (la página de cuenta invoca `MaterializeRegularIncomes` antes de leer — los agregados no materializan, decisión 2026-10-12 —; la idempotencia vive en el registro de meses `regular_income_months`, nunca en la existencia del movimiento) (regla de oro 6, research §8)
-- [ ] T034 Validar manualmente los escenarios Q1–Q10 de `specs/018-ingresos-regulares/quickstart.md` con `npm run dev` sobre BD migrada y sembrada (`npm run db:migrate && npm run db:seed`)
-- [ ] T035 Ejecutar los gates completos `npm run lint && npm run typecheck && npm run test && npm run test:e2e` y verificar todo en verde (SC-005, DoD)
+- [X] T028 [P] Crear `docs/architecture/adr/0016-materializacion-perezosa-ingresos-regulares.md`: pereza al consultar en serverless sin cron, registro de meses (`regular_income_months`) como fuente de idempotencia/borrado-definitivo/solo-adelante, `movements` intacta, enganche solo en la página de cuenta (`/summary` y `/annual` no materializan: decisión del propietario 2026-10-12, iteración futura aditiva), `currentMonth` como parámetro del adaptador (research §2/§3/§8)
+- [X] T029 [P] Actualizar `docs/architecture/diagrams/domain-model.md`: `RegularIncome`, helper `calendar` y puerto/casos de uso nuevos (base: data-model §1.5)
+- [X] T030 [P] Crear `docs/architecture/diagrams/ingreso-regular-secuencia.md`: secuencia del happy path «configurar → consultar mes → ingreso materializado» (base: plan.md §Diagramas de diseño)
+- [X] T031 [P] Actualizar `docs/architecture/overview.md`: módulo `regular-income` en dominio/aplicación, repositorio Drizzle nuevo y enganche de la página de cuenta
+- [X] T032 Actualizar el roadmap maestro `specs/001-family-wallet/spec.md` (FR-007): fila `018-ingresos-regulares` «Completada» + nota de la decisión 2026-10-09 (aportación % a la cuenta común como feature hija futura ~019 sobre el ingreso regular de 018, revive el alcance diferido)
+- [X] T033 Documentar en `AGENTS.md` la convención «materialización perezosa» (la página de cuenta invoca `MaterializeRegularIncomes` antes de leer — los agregados no materializan, decisión 2026-10-12 —; la idempotencia vive en el registro de meses `regular_income_months`, nunca en la existencia del movimiento) (regla de oro 6, research §8)
+- [X] T034 Validar manualmente los escenarios Q1–Q10 de `specs/018-ingresos-regulares/quickstart.md` con `npm run dev` sobre BD migrada y sembrada (`npm run db:migrate && npm run db:seed`)
+- [X] T035 Ejecutar los gates completos `npm run lint && npm run typecheck && npm run test && npm run test:e2e` y verificar todo en verde (SC-005, DoD)
 
 **Checkpoint**: Documentación viva, ADR, roadmap y quickstart sincronizados con la implementación; feature entregada.
 

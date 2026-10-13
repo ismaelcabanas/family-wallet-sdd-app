@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009, 014 y 017)
+# Clases: modelo de dominio (features 002, 006, 009, 014, 017 y 018)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -82,6 +82,28 @@ classDiagram
         +deriveTagSlug(name) String$
     }
 
+    class lastDayOfMonth {
+        <<Función pura de 018 · src/domain/shared/calendar.ts>>
+        +lastDayOfMonth(month YYYY-MM) int$
+    }
+
+    class RegularIncome {
+        <<Entidad de 018 · raíz del agregado>>
+        +id: RegularIncomeId?
+        +accountId: AccountId (cuenta personal, única por cuenta)
+        +amount: Money
+        +dayOfMonth: int (1–31, se conserva aunque el mes no lo tenga)
+        +note: String (default «Ingreso regular de {miembro}» en el caso de uso)
+        +active: boolean
+        +activatedAtMonth: String YYYY-MM (solo (re)activación lo resetea)
+        +create(input)$ RegularIncome
+        +rehydrate(persistence)$ RegularIncome
+        +update(amount?, dayOfMonth?, note?) RegularIncome
+        +deactivate() RegularIncome
+        +activate(currentMonth) RegularIncome
+        +dueDateForMonth(month) String
+    }
+
     class DomainError {
         <<abstract>>
     }
@@ -93,6 +115,16 @@ classDiagram
     class MovementNotFoundError
     class DuplicateTagNameError
     class InactiveTagError
+    class InvalidRegularIncomeError {
+        <<018>>
+        +field: RegularIncomeField
+    }
+    class SharedAccountIncomeError {
+        <<018>>
+    }
+    class RegularIncomeNotFoundError {
+        <<018>>
+    }
 
     class MonthlyClosure {
         <<Value Object de 005 (reutilizado)>>
@@ -213,7 +245,13 @@ classDiagram
     DomainError <|-- InvalidMovementError
     DomainError <|-- DuplicateTagNameError
     DomainError <|-- InactiveTagError
+    DomainError <|-- InvalidRegularIncomeError
+    DomainError <|-- SharedAccountIncomeError
+    DomainError <|-- RegularIncomeNotFoundError
     deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
+    RegularIncome "1" *-- "1" Money : amount
+    RegularIncome ..> lastDayOfMonth : dueDateForMonth clamp (018)
+    RegularIncome --> Account : accountId (solo personal, SharedAccountIncomeError)
     ClosureMovementInput <|-- GlobalSummaryMovementInput
     GlobalSummaryMovementInput <|-- AnnualStatementMovementInput
     GlobalMonthlySummary *-- MonthlyClosure : compone (KPIs agregados, ADR 0012)
@@ -243,6 +281,7 @@ classDiagram
 - **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`.
 - **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015).
+- **`RegularIncome`** (018, ADR 0016): anclada a la cuenta personal (`accountId` UNIQUE en BD; la cuenta común la rechaza `ConfigureRegularIncome` con `SharedAccountIncomeError`); `dayOfMonth` 1–31 se conserva tal cual y `dueDateForMonth` clampa al `lastDayOfMonth` del mes consultado (helper puro, el dominio no importa `ui/format.ts`); `update` nunca toca `active`/`activatedAtMonth` (solo-adelante), `activate(currentMonth)` resetea la activación (reactivación sin relleno retroactivo). La idempotencia de la materialización vive en `regular_income_months` (puerto `RegularIncomeRepository.isMaterialized`/`registerMaterialization` transaccional), **nunca** en la existencia del movimiento: el borrado físico no regenera el mes.
 - **Balance**: no es un campo de `Account`; query derivada `SUM` (ADR 0009).
 - **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).

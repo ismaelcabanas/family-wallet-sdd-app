@@ -12,7 +12,8 @@ El código reside en `src/` organizado por capas concéntricas aisladas:
 src/
 ├── domain/                      <-- NÚCLEO: Dominio Puro (Sin dependencias externas)
 │   ├── shared/
-│   │   └── DomainError.ts       <-- Excepción base de dominio
+│   │   ├── DomainError.ts       <-- Excepción base de dominio
+│   │   └── calendar.ts          <-- lastDayOfMonth(month): función pura de calendario (018)
 │   ├── member/
 │   │   ├── Member.ts            <-- Entidad
 │   │   ├── MemberId.ts          <-- Value Object (ID con brand)
@@ -30,10 +31,14 @@ src/
 │   │   ├── MovementId.ts · MovementType.ts · ExpenseNature.ts
 │   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError, MovementNotFoundError
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
-│   └── tag/
-│       ├── Tag.ts · TagId.ts · TagStatus.ts
-│       ├── TagSlug.ts            <-- deriveTagSlug(name): función pura slug (ADR 0015)
-│       └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ...
+│   ├── tag/
+│   │   ├── Tag.ts · TagId.ts · TagStatus.ts
+│   │   ├── TagSlug.ts            <-- deriveTagSlug(name): función pura slug (ADR 0015)
+│   │   └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ...
+│   └── regular-income/          <-- 018 (ADR 0016)
+│       ├── RegularIncome.ts     <-- Entidad ingreso regular (update/deactivate/activate, dueDateForMonth con clamp a lastDayOfMonth)
+│       ├── RegularIncomeId.ts
+│       └── RegularIncomeErrors.ts <-- InvalidRegularIncomeError, SharedAccountIncomeError, RegularIncomeNotFoundError
 │
 ├── application/                 <-- ORQUESTACIÓN: Casos de Uso y PUERTOS (depende solo de domain)
 │   ├── movement/
@@ -54,24 +59,31 @@ src/
 │   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015)
 │   │   ├── ListActiveTags.ts
 │   │   └── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa
-│   └── member/
-│       └── MemberRepository.ts  <-- PUERTO
+│   ├── member/
+│   │   └── MemberRepository.ts  <-- PUERTO
+│   └── regular-income/          <-- 018 (ADR 0016)
+│       ├── RegularIncomeRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
+│       ├── ConfigureRegularIncome.ts  <-- Upsert siempre-activo; nota default «Ingreso regular de {miembro}»; edición no resetea activación
+│       ├── DeactivateRegularIncome.ts · GetRegularIncome.ts
+│       ├── MaterializeRegularIncomes.ts <-- ensureForAccountAndMonth: guardas activación ≤ mes ≤ currentMonth, materializa por mes consultado
+│       └── dto.ts                     <-- RegularIncomeDTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
 │   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts → GlobalNav + AccountCardGrid (sin searchParams, feature 012)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013; sin formulario embebido)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel → RegularIncomePanel solo en cuentas personales (features 016 + 013 + 018); desde 018 materializa ingresos regulares ANTES del Promise.all de lecturas (único disparador, ADR 0016)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
     ├── db/                      <-- ADAPTADOR OUTBOUND: Persistencia Drizzle
-    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada)
+    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017) · DrizzleMemberRepository.ts
+    │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 12 tags)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
@@ -80,7 +92,8 @@ src/
         │   ├── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008); revalida '/' y '/accounts/[accountId]' (patrón "page")
         │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; revalidatePath('/', 'layout')
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
-        │   └── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
+        │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
+        │   └── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de la página de cuenta dispara la materialización (ADR 0016)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
@@ -96,7 +109,8 @@ src/
             ├── global-summary-panel.tsx  <-- Panel del resumen global: KPIs + desgloses por tag y por miembro (solo formatea)
             ├── annual-statement-panel.tsx <-- Panel de la cuenta anual: tabla mensual Ene–Dic + desglose por tag (solo formatea, ADR 0013)
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
-            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros)
+            ├── regular-income-panel.tsx   <-- Panel «Ingreso regular» de la página de cuenta personal: 3 estados + diálogo useActionState con intents save/deactivate + desactivación directa sin abrir diálogo (018)
+            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018)
 ```
 
 ---
@@ -180,4 +194,5 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Secuencia del panel de cuentas](./diagrams/panel-cuentas-sequence.md) (feature 012: `/` como lanzador de cuentas)
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)
+- [Secuencia del ingreso regular: configurar → consultar mes → materialización](./diagrams/ingreso-regular-secuencia.md) (ADR 0016, feature 018)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)
