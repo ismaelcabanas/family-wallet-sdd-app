@@ -1,13 +1,13 @@
 # Secuencia: ingreso regular — configurar → consultar mes → ingreso materializado (018)
 
-Happy path de la feature 018: el miembro configura su ingreso regular y la siguiente consulta de la página de la cuenta del mes materializa el ingreso exactamente una vez (base: `specs/018-ingresos-regulares/plan.md` §Diagramas de diseño).
+Happy path de la feature 018: el miembro configura su ingreso regular y la siguiente consulta de la página de la cuenta del mes materializa el ingreso exactamente una vez (base: `specs/018-ingresos-regulares/plan.md` §Diagramas de diseño). Desde 020 la entrada al diálogo es el ítem «Ingreso regular» del menú ⋮ de la tarjeta en `/` (el diálogo y la action no cambian).
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Usuario (miembro)
     participant P as /accounts/[accountId] page.tsx (server)
-    participant RI as RegularIncomePanel + configureRegularIncome (client/action)
+    participant RI as Menú ⋮ de la tarjeta (/) + RegularIncomeConfigDialog + configureRegularIncome (client/action)
     participant CRI as ConfigureRegularIncome (aplicación)
     participant MRI as MaterializeRegularIncomes (aplicación)
     participant DOM as RegularIncome (dominio)
@@ -15,7 +15,7 @@ sequenceDiagram
     participant DB as DrizzleRegularIncomeRepository + libSQL
     participant LM as ListMovements (intacto)
 
-    U->>RI: «Configurar ingreso» → 2.000,00 € · día 1 · nota vacía → «Guardar»
+    U->>RI: ⋮ «Configuración de Cuenta de …» → ítem «Ingreso regular» → 2.000,00 € · día 1 · nota vacía → «Guardar»
     RI->>CRI: execute({ accountId, amountCents, dayOfMonth: 1, note: null, currentMonth })
     CRI->>RR: accounts.findAll() → cuenta personal ✓ (memberName)
     CRI->>DOM: RegularIncome.create({ …, activatedAtMonth: currentMonth, nota default })

@@ -20,7 +20,8 @@ vi.mock("sonner", async (importOriginal) => {
 });
 
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
-import { RegularIncomePanel } from "./regular-income-panel";
+import { useState } from "react";
+import { RegularIncomeConfigDialog } from "./regular-income-config-dialog";
 
 const activeConfig: RegularIncomeDTO = {
   accountId: 1,
@@ -33,8 +34,30 @@ const activeConfig: RegularIncomeDTO = {
 
 const inactiveConfig: RegularIncomeDTO = { ...activeConfig, active: false };
 
-function renderPanel(config: RegularIncomeDTO | null = activeConfig) {
-  return render(<RegularIncomePanel accountId={1} memberName="Miembro A" config={config} />);
+function DialogHost({
+  config,
+  onClose,
+}: {
+  config: RegularIncomeDTO | null;
+  onClose?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  if (!open) return null;
+  return (
+    <RegularIncomeConfigDialog
+      accountId={1}
+      memberName="Miembro A"
+      config={config}
+      onClose={() => {
+        setOpen(false);
+        onClose?.();
+      }}
+    />
+  );
+}
+
+function renderDialog(config: RegularIncomeDTO | null = activeConfig, onClose?: () => void) {
+  return render(<DialogHost config={config} onClose={onClose} />);
 }
 
 afterEach(() => {
@@ -42,44 +65,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("RegularIncomePanel", () => {
-  it("sin config: muestra la descripción y el CTA «Configurar ingreso»", () => {
-    renderPanel(null);
-
-    expect(
-      screen.getByText(
-        "Configura tu ingreso mensual habitual y aparecerá cada mes sin registrarlo a mano.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Configurar ingreso" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Desactivar" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Editar ingreso" })).not.toBeInTheDocument();
-  });
-
-  it("config activa: resumen con importe y día, nota, estado «Activa» y botones", () => {
-    renderPanel(activeConfig);
-
-    const panel = screen.getByTestId("regular-income-panel");
-    expect(within(panel).getByText(/2000,00[\s\u00A0]€ el día 1 de cada mes/u)).toBeInTheDocument();
-    expect(within(panel).getByText(/Nota: Ingreso regular de Miembro A/)).toBeInTheDocument();
-    expect(within(panel).getByText("Activa")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Editar ingreso" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
-  });
-
-  it("config inactiva: «Ingreso regular desactivado.» con Editar y sin Desactivar", () => {
-    renderPanel(inactiveConfig);
-
-    expect(screen.getByText("Ingreso regular desactivado.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Editar ingreso" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Desactivar" })).not.toBeInTheDocument();
-  });
-
-  it("el CTA abre el diálogo vacío con día 1 y placeholder de nota por miembro", async () => {
-    const user = userEvent.setup();
-    renderPanel(null);
-
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
+describe("RegularIncomeConfigDialog", () => {
+  it("sin config: abre vacío con día 1 y placeholder de nota por miembro, sin «Desactivar»", () => {
+    renderDialog(null);
 
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
     expect(within(dialog).getByLabelText("Importe (€)")).toHaveValue("");
@@ -92,11 +80,8 @@ describe("RegularIncomePanel", () => {
     expect(within(dialog).queryByRole("button", { name: "Desactivar" })).not.toBeInTheDocument();
   });
 
-  it("«Editar ingreso» abre el diálogo precargado con la config", async () => {
-    const user = userEvent.setup();
-    renderPanel({ ...activeConfig, dayOfMonth: 5, note: "Nómina" });
-
-    await user.click(screen.getByRole("button", { name: "Editar ingreso" }));
+  it("con config activa: abre precargado con los valores y botón «Desactivar»", () => {
+    renderDialog({ ...activeConfig, dayOfMonth: 5, note: "Nómina" });
 
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
     expect(within(dialog).getByLabelText("Importe (€)")).toHaveValue("2000,00");
@@ -105,11 +90,18 @@ describe("RegularIncomePanel", () => {
     expect(within(dialog).getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
   });
 
-  it("el diálogo abre con el foco en «Importe (€)»", async () => {
-    const user = userEvent.setup();
-    renderPanel(null);
+  it("con config inactiva: abre precargado sin botón «Desactivar» (reactivar editando y guardando)", () => {
+    renderDialog(inactiveConfig);
 
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
+    const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
+    expect(within(dialog).getByLabelText("Importe (€)")).toHaveValue("2000,00");
+    expect(within(dialog).getByLabelText("Día del mes")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("Nota")).toHaveValue("Ingreso regular de Miembro A");
+    expect(within(dialog).queryByRole("button", { name: "Desactivar" })).not.toBeInTheDocument();
+  });
+
+  it("abre con el foco en «Importe (€)»", async () => {
+    renderDialog(null);
 
     await waitFor(() => {
       expect(screen.getByLabelText("Importe (€)")).toHaveFocus();
@@ -118,10 +110,10 @@ describe("RegularIncomePanel", () => {
 
   it("guardar con éxito tuesta «Ingreso regular guardado», cierra y envía intent save", async () => {
     const user = userEvent.setup();
+    const onClose = vi.fn();
     actionMock.mockResolvedValueOnce({ status: "success", message: "Ingreso regular guardado" });
-    renderPanel(null);
+    renderDialog(null, onClose);
 
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
     await user.type(within(dialog).getByLabelText("Importe (€)"), "2000,00");
     await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
@@ -129,6 +121,7 @@ describe("RegularIncomePanel", () => {
     await waitFor(() => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Ingreso regular guardado");
     });
+    expect(onClose).toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -148,9 +141,8 @@ describe("RegularIncomePanel", () => {
       errors: { amount: ["El importe es obligatorio."], dayOfMonth: ["El día del mes debe estar entre 1 y 31."] },
       values: { amount: "", dayOfMonth: "40", note: "Nómina" },
     });
-    renderPanel(null);
+    renderDialog(null);
 
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
@@ -170,9 +162,8 @@ describe("RegularIncomePanel", () => {
         resolveAction = resolve;
       }),
     );
-    renderPanel(null);
+    renderDialog(null);
 
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
@@ -186,35 +177,14 @@ describe("RegularIncomePanel", () => {
     });
   });
 
-  it("«Desactivar» del panel actúa sin abrir el diálogo y tuesta al terminar", async () => {
-    const user = userEvent.setup();
-    actionMock.mockResolvedValueOnce({
-      status: "success",
-      message: "Ingreso regular desactivado",
-    });
-    renderPanel(activeConfig);
-
-    await user.click(screen.getByRole("button", { name: "Desactivar" }));
-
-    await waitFor(() => {
-      expect(toastSuccessMock).toHaveBeenCalledWith("Ingreso regular desactivado");
-    });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    const formData = actionMock.mock.calls[0][1] as FormData;
-    expect(formData.get("accountId")).toBe("1");
-    expect(formData.get("intent")).toBe("deactivate");
-  });
-
   it("el «Desactivar» del diálogo viaja con intent deactivate", async () => {
     const user = userEvent.setup();
     actionMock.mockResolvedValueOnce({
       status: "success",
       message: "Ingreso regular desactivado",
     });
-    renderPanel(activeConfig);
+    renderDialog(activeConfig);
 
-    await user.click(screen.getByRole("button", { name: "Editar ingreso" }));
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
     await user.click(within(dialog).getByRole("button", { name: "Desactivar" }));
 
@@ -222,16 +192,18 @@ describe("RegularIncomePanel", () => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Ingreso regular desactivado");
     });
     const formData = actionMock.mock.calls[0][1] as FormData;
+    expect(formData.get("accountId")).toBe("1");
     expect(formData.get("intent")).toBe("deactivate");
   });
 
   it("«Cancelar» cierra el diálogo sin llamar a la action", async () => {
     const user = userEvent.setup();
-    renderPanel(null);
+    const onClose = vi.fn();
+    renderDialog(null, onClose);
 
-    await user.click(screen.getByRole("button", { name: "Configurar ingreso" }));
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
+    expect(onClose).toHaveBeenCalled();
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
