@@ -33,4 +33,5 @@
 
 - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
 - Resueltos los 3 marcadores [NEEDS CLARIFICATION] por el propietario (2026-10-09): base de cálculo = ingreso regular (018); representación = gasto único en la cuenta personal con etiqueta «Aportación Común», sin doble anotación por ahora (la naturaleza «común» del gasto es default informado, revisable en clarify/plan). Checklist completo.
-- Dependencia dura: esta feature no se planifica ni implementa antes de que `018-ingresos-regulares` esté completada.
+- Actualizada el 2026-10-14 tras completarse 020: FR-007 enmendado — la configuración vive en el menú ⋮ de la tarjeta de cuenta (020), no en la página de cuenta. Checklist sigue completo.
+- Dependencia satisfecha: `018-ingresos-regulares` está completada (2026-10-13, ADR 0016).
