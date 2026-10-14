@@ -139,8 +139,8 @@ classDiagram
         -percentage: ContributionPercentage
         -active: boolean
         -activatedAtMonth: string
-        +create(input)$ CommonContribution
-        +rehydrate(id, input)$ CommonContribution
+        +create(input) CommonContribution$
+        +rehydrate(id, input) CommonContribution$
         +update(percentage) CommonContribution
         +deactivate() CommonContribution
         +activate(currentMonth) CommonContribution
@@ -156,10 +156,10 @@ classDiagram
 
     class CommonContributionRepository {
         <<Port — NUEVO>> aplicación
-        +findByAccountId(accountId)* CommonContribution?
-        +save(config)* CommonContribution
-        +isMaterialized(id, month)* boolean
-        +registerMaterialization(config, month, movement)* boolean
+        +findByAccountId(accountId) CommonContribution?
+        +save(config) CommonContribution
+        +isMaterialized(id, month) boolean
+        +registerMaterialization(config, month, movement) boolean
     }
 
     class ConfigureCommonContribution {
@@ -203,7 +203,7 @@ classDiagram
 
     class configureCommonContribution {
         <<Server Action — NUEVA>>
-        intent save|deactivate
+        intent save o deactivate
     }
     class CommonContributionConfigDialog {
         <<Client — NUEVO>> espejo diálogo 018

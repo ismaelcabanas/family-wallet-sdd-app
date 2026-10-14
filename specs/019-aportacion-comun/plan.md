@@ -140,10 +140,10 @@ flowchart LR
     U((Usuario))
 
     subgraph Inbound["Adaptadores inbound — src/app, src/infrastructure/primary"]
-        HomePage["/ page.tsx (server; MODIFICADO: ListAccounts + GetRegularIncome + GetCommonContribution por cuenta personal)"]
+        HomePage["/ page.tsx (server; MODIFICADO: lee GetCommonContribution por cuenta personal)"]
         AccountPage["/accounts/[accountId] page.tsx (server; MODIFICADO: añade MaterializeCommonContributions antes de las lecturas)"]
-        Action["configureCommonContribution (action NUEVA; Zod, intent save|deactivate, revalidatePath layout)"]
-        Grid["AccountCardGrid + AccountSettingsMenu (client MODIFICADO: ítem «Aportación» + estado)"]
+        Action["configureCommonContribution (action NUEVA; Zod, intent save/deactivate, revalidatePath layout)"]
+        Grid["AccountCardGrid + AccountSettingsMenu (client MODIFICADO: ítem «Aportación» con estado)"]
         Dialog["CommonContributionConfigDialog (client NUEVO; useActionState)"]
     end
 
@@ -173,7 +173,7 @@ flowchart LR
 
     SQL[("SQLite / Turso — movements y regular_incomes sin cambios")]
 
-    U -->|"⋮ → «Aportación»"| Grid
+    U -->|"clic en ⋮, ítem «Aportación»"| Grid
     Grid -->|"monta condicional"| Dialog
     Dialog -->|"useActionState (FormData)"| Action
     Action --> ConfUC
@@ -188,15 +188,17 @@ flowchart LR
     GetUC --> PortCC
     MatUC --> PortCC
     MatUC -. base de cálculo .-> PortRI
-    MatUC -. ensure etiqueta por slug .-> PortTag
+    MatUC -. ensure de etiqueta por slug .-> PortTag
     MatUC -. memberName .-> PortAcc
     ConfUC --> CC
     MatUC --> CC
-    CC *-- Pct
-    MatUC ..>|"create expense/personal/tag día 1"| Movement
+    CC -->|"se compone de"| Pct
+    MatUC -.->|"create: gasto propia, día 1, con etiqueta"| Movement
     DrizzleCC -. implementa .-> PortCC
     DrizzleCC --> Schema
-    DrizzleRest -. implementan .-> PortRI & PortTag & PortAcc
+    DrizzleRest -. implementa .-> PortRI
+    DrizzleRest -. implementa .-> PortTag
+    DrizzleRest -. implementa .-> PortAcc
     DrizzleCC --> SQL
     DrizzleRest --> SQL
     Seed --> SQL
@@ -219,37 +221,36 @@ sequenceDiagram
     participant MUC as MaterializeCommonContributions (aplicación)
     participant PortCC as CommonContributionRepository (puerto)
     participant PortRI as RegularIncomeRepository (puerto)
-    participant Dom as CommonContribution + ContributionPercentage (dominio)
+    participant Dom as Dominio CommonContribution y porcentaje
     participant Mov as Movement (dominio)
 
-    U->>P: abre / (panel de cuentas)
-    P-->>U: tarjetas; ⋮ solo en personales (intacto 020)
-    U->>Grid: clic ⋮ («Configuración de {cuenta}»)
-    U->>Grid: selecciona «Aportación · Sin configurar»
+    U->>P: GET / (panel de cuentas)
+    P-->>U: tarjetas, menú solo en cuentas personales (intacto 020)
+    U->>Grid: abre menú «Configuración de la cuenta» y elige «Aportación»
     Grid->>Dlg: monta diálogo dentro de la tarjeta (instancia fresca)
-    U->>Dlg: «25» → «Guardar» (FormData { accountId, percentage, intent: "save" })
+    U->>Dlg: «25» y «Guardar» (FormData: accountId, percentage, intent save)
     Dlg->>A: useActionState submit (controles disabled)
-    A->>A: Zod: patrón + parsePercentageToBasisPoints → 2 500 bp ∈ (0, 10 000]
-    A->>CUC: execute({ accountId, percentageBasisPoints, currentMonth })
+    A->>A: Zod valida el patrón y parsePercentageToBasisPoints da 2500 bp (rango 0 a 10000)
+    A->>CUC: execute(accountId, percentageBasisPoints, currentMonth)
     CUC->>PortRI: findByAccountId (dependencia FR-006)
     PortRI-->>CUC: ingreso regular activo (importe)
-    CUC->>Dom: ContributionPercentage.fromBasisPoints + appliedToCents ≥ 1 céntimo
-    CUC->>PortCC: save(CommonContribution.create — nace Activa, activatedAtMonth = mes en curso)
-    A-->>Dlg: success + revalidatePath("/", "layout")
+    CUC->>Dom: fromBasisPoints y appliedToCents sobre el importe (mínimo 1 céntimo)
+    CUC->>PortCC: save de la config nueva (nace Activa, activatedAtMonth = mes en curso)
+    A-->>Dlg: success y revalidatePath("/", "layout")
     Dlg-->>U: toast «Aportación guardada» y cierre
 
-    U->>AP: consulta el mes en curso de su cuenta
+    U->>AP: GET /accounts/1 (mes en curso)
     AP->>AP: MaterializeRegularIncomes (018, intacto)
     AP->>MUC: ensureForAccountAndMonth(accountId, mes, mesEnCurso)
-    MUC->>PortCC: findByAccountId → activa; !isMaterialized(mes)
+    MUC->>PortCC: config Activa y mes sin registrar (isMaterialized false)
     MUC->>PortRI: ingreso regular existe y activo (base al momento de generar)
-    MUC->>MUC: percentage.appliedToCents(incomeCents) — floor((cents×bp+5 000)/10 000) half-up
-    MUC->>MUC: ensure etiqueta por slug «aportacion-comun» (crea si falta)
-    MUC->>Mov: create expense / nature personal / día 1 / nota «Aportación común de {miembro}»
-    MUC->>PortCC: registerMaterialization — tx: registro (config, mes) ON CONFLICT DO NOTHING + movimiento
-    Note over PortCC: si otro render ganó la carrera: sin fila → no inserta movimiento (idempotente)
-    AP->>AP: Promise.all(listado, balance, cierre) — lecturas ven el movimiento
-    AP-->>U: listado del mes con el gasto −500,00 € con etiqueta «Aportación Común», exactamente 1 vez
+    MUC->>MUC: appliedToCents con floor((cents*bp + 5000) / 10000), redondeo half-up
+    MUC->>MUC: ensure de etiqueta por slug aportacion-comun (crea si falta)
+    MUC->>Mov: create: gasto propia, día 1, nota «Aportación común del miembro», con etiqueta
+    MUC->>PortCC: registerMaterialization en tx: registro (config, mes) ON CONFLICT DO NOTHING y movimiento
+    Note over PortCC: si otro render ganó la carrera (sin fila), no inserta el movimiento (idempotente)
+    AP->>AP: Promise.all de listado, balance y cierre ya ve el movimiento
+    AP-->>U: listado del mes con el gasto -500,00 € y etiqueta «Aportación Común», exactamente 1 vez
 ```
 
 ## Complexity Tracking
