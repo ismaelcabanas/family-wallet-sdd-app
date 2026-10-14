@@ -19,6 +19,14 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — configurar una vez el porcentaje y dejar de calcular y registrar la aportación a mano cada mes. No aplica excepción.
 
+## Clarifications
+
+### Session 2026-10-14
+
+- Q: ¿Qué naturaleza (propia o común) debe tener el gasto automático de la aportación en la cuenta personal del miembro? → A: Propia.
+- Q: Si un miembro desactiva su aportación y la reactiva meses después, ¿se conservan sin generar los meses del periodo inactivo? → A: Sí: al reactivar, el mes de activación se resetea al mes en curso y el hueco inactivo no se genera nunca (misma semántica que 018).
+- Q: ¿Qué regla de redondeo determinística se aplica al calcular el importe de la aportación al céntimo? → A: Half-up al céntimo más próximo (.5 hacia arriba; 375,125 → 375,13 €).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Configurar el porcentaje de aportación y verlo generado automáticamente cada mes (Priority: P1)
@@ -41,12 +49,13 @@ Como miembro de la familia con ingreso regular, quiero configurar qué porcentaj
 8. **Given** la cuenta común, **When** se busca dónde configurar la aportación, **Then** no existe configuración de aportación para la cuenta común: la configuración vive en los miembros con cuenta personal.
 9. **Given** una aportación activa y el mes en curso consultado, **When** se navega a un mes futuro, **Then** ese mes futuro no muestra ninguna aportación generada.
 10. **Given** un miembro sin ingreso regular configurado (018), **When** consulta un mes, **Then** no se genera ninguna aportación para ese miembro y la configuración de aportación refleja con claridad que falta el ingreso regular.
+11. **Given** una aportación desactivada hace varios meses, **When** el miembro la reactiva, **Then** el mes de activación se resetea al mes en curso y los meses del periodo inactivo no se generan aunque se consulten posteriormente.
 
 ---
 
 ### Edge Cases
 
-- **Redondeo al céntimo**: porcentajes que no producen importes exactos (p. ej. 33,33 % de 2.000 € = 666,60 €; 25 % de 1.500,50 €) se resuelven con una regla de redondeo determinística al céntimo; la misma entrada produce siempre el mismo importe.
+- **Redondeo al céntimo**: porcentajes que no producen importes exactos (p. ej. 33,33 % de 2.000 € = 666,60 €; 25 % de 1.500,50 € = 375,125 € → 375,13 €) se resuelven con redondeo **half-up** al céntimo más próximo (.5 hacia arriba); la misma entrada produce siempre el mismo importe.
 - **Porcentaje con decimales** (p. ej. 12,5 %): se admite con precisión limitada (hasta 2 decimales); precisiones mayores se rechazan o redondean con mensaje claro.
 - **Alta a mitad de mes en curso**: la configuración creada con el mes ya avanzado materializa la aportación del mes en curso en la siguiente consulta del mes.
 - **Meses anteriores a la activación**: no se generan nunca, aunque se consulten; evita duplicar el histórico ya registrado a mano.
@@ -64,9 +73,9 @@ Como miembro de la familia con ingreso regular, quiero configurar qué porcentaj
 ### Functional Requirements
 
 - **FR-001 (configuración por miembro)**: El sistema MUST permitir configurar, para cada miembro con cuenta personal, una aportación mensual a la cuenta común definida por: porcentaje de los ingresos (obligatorio, mayor que cero y como máximo 100, hasta 2 decimales) y estado (activa/inactiva). La configuración MUST poder editarse y desactivarse en cualquier momento. La cuenta común MUST carecer de configuración de aportación.
-- **FR-002 (cálculo y generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes exista la aportación del miembro con importe igual al porcentaje aplicado sobre su ingreso regular configurado (018), redondeado al céntimo con regla determinística. La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
-- **FR-003 (representación contable)**: La aportación generada MUST materializarse como **un único movimiento de gasto en la cuenta personal del miembro, con la etiqueta «Aportación Común»** (la etiqueta MUST existir en el catálogo), sin contrapartida automática en la cuenta común. La aportación MUST computar en cierre mensual, resumen global mensual y cuenta de resultados anual con las reglas actuales de cada vista, y MUST ser editable y eliminable con los flujos existentes.
-- **FR-004 (semántica solo hacia adelante)**: Los cambios de porcentaje o del importe del ingreso regular (018) MUST aplicar únicamente a los meses aún no generados; los meses ya generados conservan su aportación. La eliminación de la aportación de un mes MUST ser definitiva para ese mes (no se regenera). La desactivación MUST detener la generación futura conservando lo ya generado.
+- **FR-002 (cálculo y generación automática e idempotente)**: El sistema MUST garantizar que, para cada mes desde el mes de activación de la configuración hasta el mes en curso inclusive, al consultar el mes exista la aportación del miembro con importe igual al porcentaje aplicado sobre su ingreso regular configurado (018), redondeado al céntimo con redondeo half-up (al céntimo más próximo, .5 hacia arriba). La generación MUST ser idempotente: consultas repetidas del mismo mes, desde cualquier vista, nunca producen duplicados.
+- **FR-003 (representación contable)**: La aportación generada MUST materializarse como **un único movimiento de gasto de naturaleza propia en la cuenta personal del miembro, con la etiqueta «Aportación Común»** (la etiqueta MUST existir en el catálogo), sin contrapartida automática en la cuenta común. Al ser de naturaleza propia, no suma a los KPIs compartidos («Gastos compartidos» del resumen global, «Sin gastos personales» de la cuenta anual), que reflejan solo el consumo real pagado desde la cuenta común. La aportación MUST computar en cierre mensual, resumen global mensual y cuenta de resultados anual con las reglas actuales de cada vista, y MUST ser editable y eliminable con los flujos existentes.
+- **FR-004 (semántica solo hacia adelante)**: Los cambios de porcentaje o del importe del ingreso regular (018) MUST aplicar únicamente a los meses aún no generados; los meses ya generados conservan su aportación. La eliminación de la aportación de un mes MUST ser definitiva para ese mes (no se regenera). La desactivación MUST detener la generación futura conservando lo ya generado. La reactivación MUST resetear el mes de activación al mes en curso, sin generar los meses del periodo inactivo (misma semántica que 018: mes de activación = mes en curso al crear o reactivar).
 - **FR-005 (sin retroactivo ni futuro)**: El sistema MUST no generar aportaciones para meses anteriores a la activación ni para meses futuros, aunque dichos meses se consulten.
 - **FR-006 (requisito: ingreso regular)**: Si el miembro no tiene ingreso regular configurado (018) y la base de cálculo lo requiere, el sistema MUST no generar aportaciones y la interfaz de configuración MUST indicar con claridad esa dependencia.
 - **FR-007 (acceso desde el menú de configuración de la tarjeta)**: La configuración de la aportación MUST ser accesible desde el menú de configuración (⋮) de la tarjeta de la cuenta personal en el panel de cuentas (`/`), añadiendo su entrada junto a «Ingreso regular» y con indicación de su estado (sin configurar / activa / desactivada), conforme al menú definido en `020-menu-configuracion-cuenta`. La página de la cuenta MUST permanecer libre de configuración (020). Los literales exactos y el marcado del estado se congelan en el ui-contract del plan.
@@ -78,7 +87,7 @@ Como miembro de la familia con ingreso regular, quiero configurar qué porcentaj
 - **Aportación común (nuevo)**: Configuración propiedad de un miembro: porcentaje, estado (activa/inactiva) y mes de activación. Calcula un importe mensual (porcentaje sobre el ingreso regular) y materializa el gasto de la aportación. Término de dominio; nombre en código (p. ej. `CommonContribution`) y glosario definitivo en el data-model del plan.
 - **Ingreso regular (018, sin cambios)**: base sobre la que se aplica el porcentaje.
 - **Menú de configuración de la tarjeta (020, afectado)**: gana el ítem «Aportación» (o literal equivalente) con su estado, junto a «Ingreso regular»; la aportación no añade superficies de configuración nuevas.
-- **Movimiento (sin cambios estructurales)**: la aportación generada es un movimiento de gasto corriente (etiqueta «Aportación Común», obligatoria en gastos); su naturaleza se fija en las suposiciones de esta spec.
+- **Movimiento (sin cambios estructurales)**: la aportación generada es un movimiento de gasto corriente de **naturaleza propia** (decisión de clarify, 2026-10-14) con la etiqueta «Aportación Común» (obligatoria en gastos).
 
 ## Success Criteria *(mandatory)*
 
@@ -94,7 +103,7 @@ Como miembro de la familia con ingreso regular, quiero configurar qué porcentaj
 
 - **Generación perezosa al consultar** (mismo default informado que 018, aplicable a una app serverless sin planificador): el comportamiento observable es «al consultar el mes, la aportación ya está»; el mecanismo interno (materialización en lectura u otra vía equivalente) es decisión del plan.
 - **Sin doble anotación** (decisión del propietario, 2026-10-09): la aportación solo genera el gasto en la cuenta personal; la cuenta común no recibe contrapartida automática. Reflejar la entrada en la común queda manual, como hoy.
-- **Naturaleza del gasto generado** (default informado): común — la aportación es dinero destinado a los gastos comunes; coherente con la etiqueta «Aportación Común». Si el plan detecta distorsión en los agregados (p. ej. doble cómputo frente a los gastos anotados en la cuenta común), se revisa en clarify/plan.
+- **Naturaleza del gasto generado** (decisión del propietario, clarify 2026-10-14): **propia** — la aportación computa como gasto personal del miembro. Con «común» (default informado original) se confirmó doble cómputo: la aportación sumaría a «Gastos compartidos» del resumen global y a «Sin gastos personales» anual junto con los gastos reales pagados desde la cuenta común que esa aportación financia.
 - **Base de cálculo** (decisión del propietario, 2026-10-09): el ingreso regular configurado (018), estable y predecible; los extras manuales no la alteran.
 - **Aportaciones extraordinarias** (p. ej. la aportación fija extraordinaria del histórico): se registran a mano como hoy; la generación automática solo cubre el porcentaje mensual.
 - **Valores por defecto** de día y nota de las anotaciones generadas: coherentes con 018 (día 1 y nota descriptiva; literales exactos en el plan).
