@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009, 014, 017 y 018)
+# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018 y 019)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -104,6 +104,29 @@ classDiagram
         +dueDateForMonth(month) String
     }
 
+    class CommonContribution {
+        <<Entidad de 019 · raíz del agregado · ADR 0017>>
+        +id: CommonContributionId?
+        +accountId: AccountId (cuenta personal, única por cuenta)
+        +percentage: ContributionPercentage
+        +active: boolean
+        +activatedAtMonth: String YYYY-MM (solo (re)activación lo resetea)
+        +create(input)$ CommonContribution
+        +rehydrate(id, input)$ CommonContribution
+        +update(percentage?) CommonContribution
+        +deactivate() CommonContribution
+        +activate(currentMonth) CommonContribution
+        +dueDateForMonth(month) String (día 1 fijo)
+    }
+
+    class ContributionPercentage {
+        <<Value Object de 019 · puntos base enteros · ADR 0017>>
+        +basisPoints: int (1–10 000; 1 % = 100 bp)
+        +fromBasisPoints(bp)$ ContributionPercentage
+        +appliedToCents(amountCents) int (floor((cents×bp+5 000)/10 000), half-up entero)
+        +equals(other) boolean
+    }
+
     class DomainError {
         <<abstract>>
     }
@@ -124,6 +147,19 @@ classDiagram
     }
     class RegularIncomeNotFoundError {
         <<018>>
+    }
+    class InvalidCommonContributionError {
+        <<019>>
+        +field: CommonContributionField (percentage | activatedAtMonth)
+    }
+    class SharedAccountContributionError {
+        <<019>>
+    }
+    class CommonContributionNotFoundError {
+        <<019>>
+    }
+    class MissingRegularIncomeError {
+        <<019>>
     }
 
     class MonthlyClosure {
@@ -248,10 +284,18 @@ classDiagram
     DomainError <|-- InvalidRegularIncomeError
     DomainError <|-- SharedAccountIncomeError
     DomainError <|-- RegularIncomeNotFoundError
+    DomainError <|-- InvalidCommonContributionError
+    DomainError <|-- SharedAccountContributionError
+    DomainError <|-- CommonContributionNotFoundError
+    DomainError <|-- MissingRegularIncomeError
     deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
     RegularIncome "1" *-- "1" Money : amount
     RegularIncome ..> lastDayOfMonth : dueDateForMonth clamp (018)
     RegularIncome --> Account : accountId (solo personal, SharedAccountIncomeError)
+    CommonContribution "1" *-- "1" ContributionPercentage : percentage
+    ContributionPercentage ..> Money : appliedToCents → fromCents (materialización)
+    CommonContribution --> Account : accountId (solo personal, SharedAccountContributionError)
+    CommonContribution ..> RegularIncome : base de cálculo vía puerto (solo lectura, FR-006)
     ClosureMovementInput <|-- GlobalSummaryMovementInput
     GlobalSummaryMovementInput <|-- AnnualStatementMovementInput
     GlobalMonthlySummary *-- MonthlyClosure : compone (KPIs agregados, ADR 0012)
@@ -282,6 +326,8 @@ classDiagram
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`.
 - **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015).
 - **`RegularIncome`** (018, ADR 0016): anclada a la cuenta personal (`accountId` UNIQUE en BD; la cuenta común la rechaza `ConfigureRegularIncome` con `SharedAccountIncomeError`); `dayOfMonth` 1–31 se conserva tal cual y `dueDateForMonth` clampa al `lastDayOfMonth` del mes consultado (helper puro, el dominio no importa `ui/format.ts`); `update` nunca toca `active`/`activatedAtMonth` (solo-adelante), `activate(currentMonth)` resetea la activación (reactivación sin relleno retroactivo). La idempotencia de la materialización vive en `regular_income_months` (puerto `RegularIncomeRepository.isMaterialized`/`registerMaterialization` transaccional), **nunca** en la existencia del movimiento: el borrado físico no regenera el mes.
+- **`CommonContribution`** (019, ADR 0017): espejo del ciclo de vida de `RegularIncome` (misma semántica de `activatedAtMonth` y `activate` con reset) anclada a la cuenta personal (UNIQUE por cuenta; `SharedAccountContributionError` en la común) pero **sin** importe/día/nota: el importe se deriva como `ContributionPercentage.appliedToCents(ingreso regular)` en el momento de materializar (solo-adelante). Requiere ingreso regular configurado (`MissingRegularIncomeError` al configurar; no-op al materializar si falta o está inactivo, FR-006). La idempotencia vive en `common_contribution_months` (`UNIQUE (config, mes)` + `ON CONFLICT DO NOTHING RETURNING` en la misma tx que el movimiento); el borrado del gasto generado es definitivo y la etiqueta «Aportación Común» se resuelve por slug en cada generación (triple garantía seed + migración + ensure).
+- **`ContributionPercentage`** (019): `basisPoints` entero 1–10 000 (equivale a > 0 % y ≤ 100 % con ≤ 2 decimales); `appliedToCents` usa división entera pura `floor((amountCents × bp + 5_000)/10_000)` (half-up, extensión de ADR 0007, sin flotantes ni `Math.round`); el importe resultante < 1 céntimo se rechaza al configurar y es no-op sin registrar al materializar (edge §7 de la spec).
 - **Balance**: no es un campo de `Account`; query derivada `SUM` (ADR 0009).
 - **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).

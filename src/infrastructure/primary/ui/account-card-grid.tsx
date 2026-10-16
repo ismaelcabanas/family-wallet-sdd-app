@@ -6,7 +6,9 @@ import { EllipsisVerticalIcon } from "lucide-react";
 
 import type { AccountDTO } from "@/application/movement/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
+import type { CommonContributionDTO } from "@/application/common-contribution/dto";
 
+import { CommonContributionConfigDialog } from "./common-contribution-config-dialog";
 import { RegularIncomeConfigDialog } from "./regular-income-config-dialog";
 import {
   DropdownMenu,
@@ -26,12 +28,22 @@ export function regularIncomeMenuStatus(config: RegularIncomeDTO | null): string
   return config.active ? "Activa" : "Desactivada";
 }
 
+export function commonContributionMenuStatus(
+  contribution: CommonContributionDTO | null,
+  regularIncome: RegularIncomeDTO | null,
+): "Requiere ingreso regular" | "Sin configurar" | "Activa" | "Desactivada" {
+  if (regularIncome === null) return "Requiere ingreso regular";
+  if (contribution === null) return "Sin configurar";
+  return contribution.active ? "Activa" : "Desactivada";
+}
+
 interface AccountCardGridProps {
   accounts: AccountDTO[];
   regularIncomes: Record<number, RegularIncomeDTO | null>;
+  commonContributions: Record<number, CommonContributionDTO | null>;
 }
 
-export function AccountCardGrid({ accounts, regularIncomes }: AccountCardGridProps) {
+export function AccountCardGrid({ accounts, regularIncomes, commonContributions }: AccountCardGridProps) {
   return (
     <ul aria-label="Cuentas" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {accounts.map((account) => (
@@ -47,7 +59,8 @@ export function AccountCardGrid({ accounts, regularIncomes }: AccountCardGridPro
             {account.type === "personal" ? (
               <AccountSettingsMenu
                 account={account}
-                config={regularIncomes[account.id] ?? null}
+                regularIncome={regularIncomes[account.id] ?? null}
+                commonContribution={commonContributions[account.id] ?? null}
               />
             ) : null}
           </div>
@@ -59,12 +72,17 @@ export function AccountCardGrid({ accounts, regularIncomes }: AccountCardGridPro
 
 function AccountSettingsMenu({
   account,
-  config,
+  regularIncome,
+  commonContribution,
 }: {
   account: AccountDTO;
-  config: RegularIncomeDTO | null;
+  regularIncome: RegularIncomeDTO | null;
+  commonContribution: CommonContributionDTO | null;
 }) {
   const [configOpen, setConfigOpen] = useState(false);
+  const [contributionOpen, setContributionOpen] = useState(false);
+  const contributionStatus = commonContributionMenuStatus(commonContribution, regularIncome);
+  const contributionBlocked = regularIncome === null;
 
   return (
     <>
@@ -79,8 +97,18 @@ function AccountSettingsMenu({
           <DropdownMenuItem onSelect={() => setConfigOpen(true)} className="gap-4">
             <span>Ingreso regular</span>
             <span className="ml-auto text-muted-foreground">
-              {regularIncomeMenuStatus(config)}
+              {regularIncomeMenuStatus(regularIncome)}
             </span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              if (!contributionBlocked) setContributionOpen(true);
+            }}
+            disabled={contributionBlocked}
+            className="gap-4"
+          >
+            <span>Aportación</span>
+            <span className="ml-auto text-muted-foreground">{contributionStatus}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -88,8 +116,16 @@ function AccountSettingsMenu({
         <RegularIncomeConfigDialog
           accountId={account.id}
           memberName={account.memberName}
-          config={config}
+          config={regularIncome}
           onClose={() => setConfigOpen(false)}
+        />
+      ) : null}
+      {contributionOpen ? (
+        <CommonContributionConfigDialog
+          accountId={account.id}
+          memberName={account.memberName}
+          config={commonContribution}
+          onClose={() => setContributionOpen(false)}
         />
       ) : null}
     </>

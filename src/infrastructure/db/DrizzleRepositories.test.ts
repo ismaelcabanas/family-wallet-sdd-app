@@ -183,7 +183,7 @@ describe("DrizzleTagRepository", () => {
 
     const active = await repository.findAllActive();
 
-    expect(active.map((tag) => tag.slug)).toEqual(["luz", "sin-clasificar"]);
+    expect(active.map((tag) => tag.slug)).toEqual(["aportacion-comun", "luz", "sin-clasificar"]);
   });
 
   it("findBySlug resuelve la tag por defecto (FR-006)", async () => {

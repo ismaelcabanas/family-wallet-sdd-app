@@ -1,13 +1,16 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
+import { GetCommonContribution } from "@/application/common-contribution/GetCommonContribution";
 import { GetRegularIncome } from "@/application/regular-income/GetRegularIncome";
 import { connection } from "next/server";
 
 import { db } from "@/infrastructure/db/client";
 import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepository";
+import { DrizzleCommonContributionRepository } from "@/infrastructure/db/DrizzleCommonContributionRepository";
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { AccountCardGrid } from "@/infrastructure/primary/ui/account-card-grid";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { AccountId } from "@/domain/account/AccountId";
+import type { CommonContributionDTO } from "@/application/common-contribution/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
 
 export default async function Home() {
@@ -15,15 +18,20 @@ export default async function Home() {
 
   const accountRepository = new DrizzleAccountRepository(db);
   const regularIncomeRepository = new DrizzleRegularIncomeRepository(db);
+  const commonContributionRepository = new DrizzleCommonContributionRepository(db);
 
   const accounts = await new ListAccounts(accountRepository).execute();
 
   const regularIncomes: Record<number, RegularIncomeDTO | null> = {};
+  const commonContributions: Record<number, CommonContributionDTO | null> = {};
   for (const account of accounts) {
     if (account.type !== "personal") continue;
     regularIncomes[account.id] = await new GetRegularIncome(regularIncomeRepository).execute(
       AccountId(account.id),
     );
+    commonContributions[account.id] = await new GetCommonContribution(
+      commonContributionRepository,
+    ).execute(AccountId(account.id));
   }
 
   return (
@@ -33,7 +41,11 @@ export default async function Home() {
         <GlobalNav active="panel" />
       </div>
 
-      <AccountCardGrid accounts={accounts} regularIncomes={regularIncomes} />
+      <AccountCardGrid
+        accounts={accounts}
+        regularIncomes={regularIncomes}
+        commonContributions={commonContributions}
+      />
     </main>
   );
 }

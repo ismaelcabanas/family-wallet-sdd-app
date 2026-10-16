@@ -21,6 +21,15 @@ export function formatCentsForInput(cents: number): string {
   return `${sign}${integerPart},${decimalPart}`;
 }
 
+export function formatBasisPointsForInput(basisPoints: number): string {
+  const integerPart = Math.floor(basisPoints / 100);
+  const decimals = basisPoints % 100;
+  if (decimals === 0) return String(integerPart);
+  const padded = String(decimals).padStart(2, "0");
+  const decimalPart = padded.endsWith("0") ? padded.slice(0, 1) : padded;
+  return `${integerPart},${decimalPart}`;
+}
+
 export function formatDate(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   return new Intl.DateTimeFormat("es-ES", {

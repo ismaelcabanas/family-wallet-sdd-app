@@ -6,6 +6,7 @@ import {
   currentMonth,
   currentYear,
   formatAmountCents,
+  formatBasisPointsForInput,
   formatCentsForInput,
   formatDate,
   formatSignedAmountCents,
@@ -73,6 +74,22 @@ describe("formatCentsForInput", () => {
 
   it("rellena un decimal incompleto a dos dígitos", () => {
     expect(formatCentsForInput(1_205)).toBe("12,05");
+  });
+});
+
+describe("formatBasisPointsForInput", () => {
+  it("convierte puntos base a texto de porcentaje con coma decimal (2500 → 25)", () => {
+    expect(formatBasisPointsForInput(2500)).toBe("25");
+    expect(formatBasisPointsForInput(10_000)).toBe("100");
+  });
+
+  it("recorta el cero final (1250 → 12,5)", () => {
+    expect(formatBasisPointsForInput(1250)).toBe("12,5");
+  });
+
+  it("conserva dos decimales cuando ambos cuentan (3333 → 33,33)", () => {
+    expect(formatBasisPointsForInput(3333)).toBe("33,33");
+    expect(formatBasisPointsForInput(1)).toBe("0,01");
   });
 });
 

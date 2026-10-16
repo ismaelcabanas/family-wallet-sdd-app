@@ -394,7 +394,7 @@ describe("DrizzleMovementRepository", () => {
       expect(remainingMovements).toHaveLength(0);
 
       const catalogTags = await testDb.db.select().from(tags);
-      expect(catalogTags.map((tag) => tag.id)).toEqual([2, 3]);
+      expect(catalogTags.map((tag) => tag.id)).toEqual([2, 3, 100]);
     });
   });
 
