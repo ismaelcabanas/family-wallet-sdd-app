@@ -331,7 +331,9 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent('Ya existe una etiqueta con el nombre "luz".');
     expect(screen.getByLabelText("Nombre de la etiqueta")).toHaveValue("luz");
-    expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Crear" })).toBeEnabled();
+    });
   });
 
   it("nombre vacío muestra «El nombre de la etiqueta es obligatorio.»", async () => {
