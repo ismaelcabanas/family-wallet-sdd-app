@@ -39,6 +39,11 @@ src/
 │       ├── RegularIncome.ts     <-- Entidad ingreso regular (update/deactivate/activate, dueDateForMonth con clamp a lastDayOfMonth)
 │       ├── RegularIncomeId.ts
 │       └── RegularIncomeErrors.ts <-- InvalidRegularIncomeError, SharedAccountIncomeError, RegularIncomeNotFoundError
+│   └── common-contribution/     <-- 019 (ADR 0017)
+│       ├── CommonContribution.ts <-- Entidad aportación (ciclo espejo de RegularIncome; dueDateForMonth = día 1 fijo)
+│       ├── ContributionPercentage.ts <-- VO puntos base 1–10 000; appliedToCents half-up entero floor((cents×bp+5 000)/10 000)
+│       ├── CommonContributionId.ts
+│       └── CommonContributionErrors.ts <-- InvalidCommonContributionError, SharedAccountContributionError, CommonContributionNotFoundError, MissingRegularIncomeError
 │
 ├── application/                 <-- ORQUESTACIÓN: Casos de Uso y PUERTOS (depende solo de domain)
 │   ├── movement/
@@ -67,24 +72,31 @@ src/
 │       ├── DeactivateRegularIncome.ts · GetRegularIncome.ts
 │       ├── MaterializeRegularIncomes.ts <-- ensureForAccountAndMonth: guardas activación ≤ mes ≤ currentMonth, materializa por mes consultado
 │       └── dto.ts                     <-- RegularIncomeDTO
+│   └── common-contribution/     <-- 019 (ADR 0017)
+│       ├── CommonContributionRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
+│       ├── ConfigureCommonContribution.ts  <-- Guardas: cuenta personal + ingreso regular existente (MissingRegularIncomeError) + appliedToCents ≥ 1; reactivación resetea activación
+│       ├── DeactivateCommonContribution.ts · GetCommonContribution.ts
+│       ├── MaterializeCommonContributions.ts <-- Segundo materializador perezoso (patrón ADR 0016): guardas §1.2.1 + ensure de etiqueta por slug «aportacion-comun»
+│       └── dto.ts                          <-- CommonContributionDTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
-│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes, feature 012 + 020)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013); la configuración del ingreso regular NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares ANTES del Promise.all de lecturas (único disparador, ADR 0016)
+│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome/GetCommonContribution por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes + commonContributions, features 012 + 020 + 019)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013); la configuración del ingreso regular NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares y desde 019 aportaciones comunes, ambos ANTES del Promise.all de lecturas en dos awaits secuenciales (único disparador, ADR 0016/0017)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
     ├── db/                      <-- ADAPTADOR OUTBOUND: Persistencia Drizzle
-    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016)
+    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
-    │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 12 tags)
+    │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months)
+    │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 13 tags con «Aportación Común» desde 019)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
         ├── actions/
@@ -93,11 +105,13 @@ src/
         │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; revalidatePath('/', 'layout')
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
-        │   └── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
+        │   ├── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
+        │   ├── contribution-form.schema.ts   <-- Patrón porcentual + parsePercentageToBasisPoints por manipulación de cadenas (019)
+        │   └── configure-common-contribution.action.ts <-- 'use server' (019): espejo de la de 018 (Zod, intents, revalidatePath '/', 'layout'; ADR 0017)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
-            ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítem «Ingreso regular» con estado derivado de regularIncomeMenuStatus, diálogo montado por tarjeta; hogar de las opciones de cuenta — 012 + 020)
+            ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular» y «Aportación» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
@@ -110,7 +124,8 @@ src/
             ├── annual-statement-panel.tsx <-- Panel de la cuenta anual: tabla mensual Ene–Dic + desglose por tag (solo formatea, ADR 0013)
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             ├── regular-income-config-dialog.tsx <-- Diálogo «Ingreso regular» (extraído de regular-income-panel en 020): useActionState(configureRegularIncome) con intents save/deactivate, vacío o precargado según config; única vía de desactivación desde 020; lo abre el ítem del menú ⋮ de la tarjeta
-            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018)
+            ├── common-contribution-config-dialog.tsx <-- Diálogo «Aportación a la cuenta común» (019): espejo estructural del de 018 con un único campo «Porcentaje (%)» (formatBasisPointsForInput); lo abre el ítem «Aportación» del menú ⋮
+            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018/019); formatBasisPointsForInput para el input de porcentaje (019)
 ```
 
 ---
@@ -195,4 +210,5 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)
 - [Secuencia del ingreso regular: configurar → consultar mes → materialización](./diagrams/ingreso-regular-secuencia.md) (ADR 0016, feature 018)
+- [Secuencia de la aportación común: configurar porcentaje → consultar mes → materialización](./diagrams/aportacion-comun-secuencia.md) (ADR 0017, feature 019)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)

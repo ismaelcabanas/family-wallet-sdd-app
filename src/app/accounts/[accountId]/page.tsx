@@ -1,6 +1,7 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
 import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
+import { MaterializeCommonContributions } from "@/application/common-contribution/MaterializeCommonContributions";
 import { MaterializeRegularIncomes } from "@/application/regular-income/MaterializeRegularIncomes";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
@@ -9,6 +10,7 @@ import { z } from "zod";
 
 import { db } from "@/infrastructure/db/client";
 import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepository";
+import { DrizzleCommonContributionRepository } from "@/infrastructure/db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
@@ -43,6 +45,7 @@ export default async function AccountPage({
   const movementRepository = new DrizzleMovementRepository(db);
   const tagRepository = new DrizzleTagRepository(db);
   const regularIncomeRepository = new DrizzleRegularIncomeRepository(db);
+  const commonContributionRepository = new DrizzleCommonContributionRepository(db);
 
   const accounts = await new ListAccounts(accountRepository).execute();
 
@@ -63,6 +66,13 @@ export default async function AccountPage({
     month,
     currentMonth(),
   );
+
+  await new MaterializeCommonContributions(
+    commonContributionRepository,
+    regularIncomeRepository,
+    tagRepository,
+    accountRepository,
+  ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
   const [movements, balanceCents, tags, closure] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),

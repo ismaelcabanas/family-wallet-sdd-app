@@ -1,6 +1,6 @@
 # Secuencia — Panel de cuentas (feature 012)
 
-Happy path: abrir `/` y entrar a una cuenta desde el panel de tarjetas. `/` es un lanzador (nombre + tipo, sin datos financieros) renderizado dinámicamente por petición (`await connection()`); lee `ListAccounts` y, desde 020, `GetRegularIncome` por cada cuenta personal para hidratar el estado del ítem del menú ⋮ de configuración.
+Happy path: abrir `/` y entrar a una cuenta desde el panel de tarjetas. `/` es un lanzador (nombre + tipo, sin datos financieros) renderizado dinámicamente por petición (`await connection()`); lee `ListAccounts` y, desde 020/019, `GetRegularIncome` y `GetCommonContribution` por cada cuenta personal para hidratar el estado de los ítems del menú ⋮ de configuración.
 
 ```mermaid
 sequenceDiagram
@@ -76,6 +76,10 @@ sequenceDiagram
 Notas de la variante (decisiones de 020, `specs/020-menu-configuracion-cuenta/research.md`):
 
 - **Patrón stretched-link**: el `<Link>` de la tarjeta se estira con `after:inset-0` y el trigger ⋮ queda por encima (`relative z-10`): el clic en ⋮ nunca navega y el resto de la tarjeta sí; HTML válido (el botón no está dentro del `<a>`).
-- **El menú solo donde hay opciones**: hoy únicamente cuentas personales (ítem «Ingreso regular»); es el hogar de las opciones de cuenta (la aportación % de 019 añadirá ahí su entrada).
+- **El menú solo donde hay opciones**: hoy únicamente cuentas personales (ítems «Ingreso regular» y «Aportación»); es el hogar de las opciones de cuenta.
 - **Diálogo por tarjeta** (excepción consciente de «diálogos por fila»): el catálogo de cuentas es estable, no desaparece tras `revalidatePath`; instancia fresca de `useActionState` por apertura (patrón 014/018).
 - **La página de cuenta queda en movimientos + cierre + balance**: la materialización sigue disparándose solo allí, antes del `Promise.all` (ADR 0016); la configuración ya no vive en ella.
+
+## Variante — configurar la aportación común desde la tarjeta (feature 019)
+
+Espejo de la variante de 020 con el segundo ítem del menú ⋮: `/` lee además `GetCommonContribution` por cada cuenta personal (mismo bucle serial que `GetRegularIncome`) y pasa `commonContributions` como prop a `AccountCardGrid`. El ítem «Aportación» (bajo «Ingreso regular») muestra su estado vía la función pura `commonContributionMenuStatus(contribution, regularIncome)` — «Requiere ingreso regular» (deshabilitado, sin diálogo) / «Sin configurar» / «Activa» / «Desactivada» — y abre `CommonContributionConfigDialog` dentro de la tarjeta (misma excepción documentada). El diálogo guarda vía `configureCommonContribution` (Zod + intents `save`/`deactivate`, `revalidatePath("/", "layout")`) y la posterior consulta de la página de la cuenta materializa el gasto propio exactamente una vez (`MaterializeCommonContributions` tras `MaterializeRegularIncomes`; secuencia completa en [aportacion-comun-secuencia.md](./aportacion-comun-secuencia.md), ADR 0017).

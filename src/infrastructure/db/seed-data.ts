@@ -21,4 +21,5 @@ export const SEED_TAGS = [
   { name: "Sin Clasificar", slug: "sin-clasificar" },
   { name: "Vivienda", slug: "vivienda" },
   { name: "Hipoteca", slug: "hipoteca" },
+  { name: "Aportación Común", slug: "aportacion-comun" },
 ] as const;
