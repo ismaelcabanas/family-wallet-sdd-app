@@ -11,9 +11,9 @@ Mantenimiento del catálogo de etiquetas — la vía que faltaba al catálogo `T
 Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 - **Comportamiento de dominio**: `Tag.rename(name)` (slug e id inmutables — 019 localiza la etiqueta por slug) y `Tag.withStatus(status)`; módulo puro `SystemTags` como único dueño del slug protegido (`isProtectedTagSlug`), que 019 pasa a importar; nuevo error `ProtectedTagError`.
-- **Cinco casos de uso** (`RenameTag`, `MergeTags`, `DeactivateTag`, `ReactivateTag`, `ListTags`) contra el puerto `TagRepository` ampliado (`findById`, `findAll`, `update`, `mergeInto`) y `countByTag` en `MovementRepository`. Duplicados con `findByName` excluyéndose a sí misma (edge solo-caja «luz»→«Luz» permitido).
+- **Cinco casos de uso** (`RenameTag`, `MergeTags`, `DeactivateTag`, `ReactivateTag`, `ListTags`) contra el puerto `TagRepository` ampliado (`findById`, `findAll`, `update`, `mergeInto`). Duplicados con `findByName` excluyéndose a sí misma (edge solo-caja «luz»→«Luz» permitido). **Sin recuento de movimientos por fila** (decisión del propietario 2026-10-17): la cifra no aporta; `ListTags` compone un solo puerto y las confirmaciones expresan la consecuencia con nombres, no con cifras.
 - **Fusión transaccional**: `mergeInto` (reasignar `movements.tag_id` → borrar la absorbida) en una sola `db.transaction` — obligado por `ON DELETE RESTRICT` (ADR 0014) — sin tocar `updated_at` (FR-006). Las vistas derivadas (joins vivos) recalculan solas (FR-009/SC-002).
-- **Vista `/tags`**: lista con estado, recuento de movimientos y menú ⋮ por fila; diálogos montados a nivel del listado (patrón canónico de fila); AlertDialog para desactivar y confirmación integrada en fusión (FR-008); **reactivar** como action directa + `useTransition` (familia ADR 0015, sin formulario que preservar).
+- **Vista `/tags`**: lista con estado y menú ⋮ por fila; diálogos montados a nivel del listado (patrón canónico de fila); AlertDialog para desactivar y confirmación integrada en fusión (FR-008); **reactivar** como action directa + `useTransition` (familia ADR 0015, sin formulario que preservar).
 - **Sin migración** (el esquema ya soporta todo) y **cero dependencias nuevas**.
 
 ## Technical Context
@@ -24,7 +24,7 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 **Storage**: SQLite (dev) / Turso (prod) vía Drizzle. **Sin cambios de esquema y sin migración**: `tags` (unicidad `lower(name)` desde 0000) y `movements.tag_id` FK `ON DELETE RESTRICT` + índice `idx_movements_tag_id` ya materializan las invariantes; la fusión es reasignación + borrado dentro de una transacción (research §3).
 
-**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`Tag.rename/withStatus`, `SystemTags`), aplicación (5 casos de uso con fake en memoria: duplicados, solo-caja, protección en los cuatro papeles, colisión de reactivación), repositorio (`update`, `mergeInto` transaccional, `countByTag` contra libsql `:memory:`), actions (4 nuevas con Zod y mapeo de errores) y componentes (catálogo, 3 diálogos, nav). Playwright e2e: **spec nueva** `gestion-tags.spec.ts` (Miembro B + **septiembre 2026**, combinación verificada libre — research §6) que cubre el flujo crítico «renombrar + fusionar + desactivar verificando el histórico» más reactivar y protección (FR-011, constitución III).
+**Testing**: Vitest (projects node/ui, co-localizados) — dominio (`Tag.rename/withStatus`, `SystemTags`), aplicación (5 casos de uso con fake en memoria: duplicados, solo-caja, protección en los cuatro papeles, colisión de reactivación), repositorio (`update`, `mergeInto` transaccional contra libsql `:memory:`), actions (4 nuevas con Zod y mapeo de errores) y componentes (catálogo, 3 diálogos, nav). Playwright e2e: **spec nueva** `gestion-tags.spec.ts` (Miembro B + **septiembre 2026**, combinación verificada libre — research §6) que cubre el flujo crítico «renombrar + fusionar + desactivar verificando el histórico» más reactivar y protección (FR-011, constitución III).
 
 **Target Platform**: Web (escritorio primero; usable en móvil), Vercel + Turso; sin cambios.
 
@@ -34,7 +34,7 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 
 **Constraints**: UI en español (literales congelados en el ui-contract); integridad del histórico (FR-006: ninguna operación toca importes/fechas/notas/cuentas/`updated_at`); protección total de «Aportación Común» (FR-007); formularios de movimiento y vistas de desglose sin cambios de código.
 
-**Scale/Scope**: 1 usuario, 3 cuentas; 1 módulo de dominio nuevo (`SystemTags`) + 2 métodos en `Tag` + 1 error (+tests), 5 casos de uso + 5 métodos de puerto (+tests), 2 repositorios ampliados (+tests), 4 actions nuevas (+tests), 1 ruta/página + 4 componentes UI nuevos + nav ampliada (+tests), 1 spec e2e nueva; documentación viva (ADR 0018, diagramas) y roadmap maestro (FR-010).
+**Scale/Scope**: 1 usuario, 3 cuentas; 1 módulo de dominio nuevo (`SystemTags`) + 2 métodos en `Tag` + 1 error (+tests), 5 casos de uso + 4 métodos de puerto (+tests), 1 repositorio ampliado (+tests), 4 actions nuevas (+tests), 1 ruta/página + 4 componentes UI nuevos + nav ampliada (+tests), 1 spec e2e nueva; documentación viva (ADR 0018, diagramas) y roadmap maestro (FR-010).
 
 ## Constitution Check
 
@@ -46,7 +46,7 @@ Enfoque técnico (detalles y alternativas en [research.md](./research.md)):
 | II | Spec-Driven Development | ✅ PASS | Este plan deriva de `specs/004-gestion-tags/spec.md` (fila del roadmap maestro US5/FR-005, reducida por el propietario 2026-10-04; clarificación de protección total 2026-10-17). Una única US pequeña con valor propio; las cuatro operaciones comparten vista y recorrido UI (granularidad justificada en la propia spec). |
 | III | Calidad Verificada | ✅ PASS | Lógica nueva (duplicados con autoexclusión, fusión transaccional con integridad de totales, protección en cuatro papeles, colisión de reactivación) cubierta por tests de dominio/aplicación/repositorio/action; flujo crítico «renombrar + fusionar + desactivar con histórico verificado» cubierto por e2e nueva (FR-011, exigencia explícita de la spec). |
 | IV | TypeScript Estricto + Zod | ✅ PASS | Cuatro fronteras nuevas con Zod (`renameTag`, `mergeTags`, `deactivateTag`, `reactivateTag`); estados tipados como unión discriminada `TagActionState` / `ReactivateTagResult`; DTO nuevo `CatalogTagDTO` con `status` y `isProtected`; sin `any`. |
-| V | Persistencia SQLite con Drizzle | ✅ PASS | Sin cambios de esquema ni migración; `update`/`mergeInto`/`countByTag` viven en los repositorios Drizzle; `ON DELETE RESTRICT` existente queda como auditoría del borrado (la fusión reasigna antes de borrar, en una tx); sin SQL ad-hoc fuera de Drizzle. |
+| V | Persistencia SQLite con Drizzle | ✅ PASS | Sin cambios de esquema ni migración; `update`/`mergeInto` viven en los repositorios Drizzle; `ON DELETE RESTRICT` existente queda como auditoría del borrado (la fusión reasigna antes de borrar, en una tx); sin SQL ad-hoc fuera de Drizzle. |
 | VI | Producto en español, código en inglés | ✅ PASS | Literales nuevos en español congelados en el ui-contract («Etiquetas», «Renombrar…», «Fusionar en otra…», «Desactivar…», «Reactivar», «Sistema», toasts y mensajes de error); identificadores en inglés (`RenameTag`, `mergeInto`, `withStatus`, `isProtectedTagSlug`); glosario actualizado (data-model §5). |
 | VII | Arquitectura Hexagonal + DDD Táctico | ✅ PASS | `Tag.rename/withStatus` y `SystemTags` son dominio puro (sin deps); los 5 casos de uso y los puertos ampliados viven en aplicación; `DrizzleTagRepository`/`DrizzleMovementRepository` y las 4 actions son adaptadores; la UI solo lista y delega. Sin CQRS/EDA/eventos; la tx queda encapsulada en el adaptador (precedente 018/019). |
 
@@ -81,14 +81,12 @@ specs/004-gestion-tags/
 │   ├── application/
 │   │   ├── tag/
 │   │   │   ├── TagRepository.ts             # MODIFICADO: + findById, findAll, update, mergeInto (transaccional)
-│   │   │   ├── dto.ts                       # NUEVO: CatalogTagDTO { id, name, slug, status, movementCount, isProtected }
-│   │   │   ├── ListTags.ts (+test)          # NUEVO: findAll + countByTag → DTO ordenado (activas→inactivas, alfabético)
+│   │   │   ├── dto.ts                       # NUEVO: CatalogTagDTO { id, name, slug, status, isProtected }
+│   │   │   ├── ListTags.ts (+test)          # NUEVO: findAll → DTO ordenado (activas→inactivas, alfabético)
 │   │   │   ├── RenameTag.ts (+test)         # NUEVO: findById, protección, rename, findByName ≠ sí misma, update
 │   │   │   ├── MergeTags.ts (+test)         # NUEVO: ambas existen, distintas, protegida absorbida O resultante → error; mergeInto
 │   │   │   ├── DeactivateTag.ts (+test)     # NUEVO: protección; idempotente si ya inactiva; withStatus
 │   │   │   └── ReactivateTag.ts (+test)     # NUEVO: findByName ajena → DuplicateTagNameError; withStatus
-│   │   ├── movement/
-│   │   │   └── MovementRepository.ts        # MODIFICADO: + countByTag(tagId)
 │   │   └── common-contribution/
 │   │       └── MaterializeCommonContributions.ts  # MODIFICADO: importa CONTRIBUTION_TAG_SLUG de SystemTags (elimina copia local)
 │   ├── app/
@@ -97,8 +95,7 @@ specs/004-gestion-tags/
 │   └── infrastructure/
 │       ├── db/
 │       │   ├── DrizzleTagRepository.ts      # MODIFICADO: + findById, findAll, update (traducción de carrera), mergeInto (tx: UPDATE movements → DELETE tag)
-│       │   ├── DrizzleMovementRepository.ts # MODIFICADO: + countByTag
-│       │   └── DrizzleRepositories.test.ts  # AMPLIADO: update (renombre/estado, carrera lower(name)), mergeInto (reasigna+borra, sin movimientos), countByTag
+│       │   └── DrizzleRepositories.test.ts  # AMPLIADO: update (renombre/estado, carrera lower(name)), mergeInto (reasigna+borra, sin movimientos)
 │       └── primary/
 │           ├── actions/
 │           │   ├── tag-actions.schema.ts    # NUEVO: Zod de las 4 fronteras (ids numéricos + nombre trim min 1)
@@ -108,10 +105,10 @@ specs/004-gestion-tags/
 │           │   └── reactivate-tag.action.ts (+test)    # NUEVO: action directa (resultado, no estado de form) — familia ADR 0015
 │           └── ui/
 │               ├── global-nav.tsx (+test)   # MODIFICADO: enlace «Etiquetas» + active "tags"
-│               ├── tag-catalog.tsx (+test)  # NUEVO (client): lista con estado/recuento, menú ⋮ por fila, host de los 3 diálogos (DTO en estado)
+│               ├── tag-catalog.tsx (+test)  # NUEVO (client): lista con estado, menú ⋮ por fila, host de los 3 diálogos (DTO en estado)
 │               ├── rename-tag-dialog.tsx (+test)    # NUEVO: form + useActionState; error conserva nombre tecleado
 │               ├── merge-tags-dialog.tsx (+test)    # NUEVO: Select destino (excluye propia y protegidas; inactivas visibles); confirmación integrada
-│               └── deactivate-tag-dialog.tsx (+test) # NUEVO: AlertDialog con consecuencia (n movimientos)
+│               └── deactivate-tag-dialog.tsx (+test) # NUEVO: AlertDialog con consecuencia explícita (sin cifras)
 ├── e2e/
 │   └── gestion-tags.spec.ts       # NUEVO: renombrar+fusionar+desactivar con histórico verificado; reactivar; protección; nav (Miembro B, septiembre 2026)
 │   (resto de specs)               # INTACTAS (combinación cuenta/mes verificada — research §6)
@@ -154,7 +151,6 @@ flowchart LR
         DT["DeactivateTag (NUEVO)"]
         RRT["ReactivateTag (NUEVO)"]
         PortTag["«port» TagRepository (+ findById, findAll, update, mergeInto)"]
-        PortMov["«port» MovementRepository (+ countByTag)"]
     end
 
     subgraph Domain["Dominio — src/domain"]
@@ -165,7 +161,6 @@ flowchart LR
 
     subgraph Outbound["Adaptadores outbound — src/infrastructure/db"]
         DrizzleTag["DrizzleTagRepository (MODIFICADO: update, mergeInto transaccional)"]
-        DrizzleMov["DrizzleMovementRepository (MODIFICADO: countByTag)"]
         LibSQL[("SQLite / Turso — tags, movements SIN cambios; RESTRICT como auditoría")]
     end
 
@@ -185,7 +180,6 @@ flowchart LR
     DeactAction --> DT
     ReactAction --> RRT
     LT --> PortTag
-    LT --> PortMov
     RT --> PortTag
     MT --> PortTag
     DT --> PortTag
@@ -197,9 +191,7 @@ flowchart LR
     DT -. llama .-> TagEnt
     RRT -. llama .-> TagEnt
     DrizzleTag -. implementa .-> PortTag
-    DrizzleMov -. implementa .-> PortMov
     DrizzleTag --> LibSQL
-    DrizzleMov --> LibSQL
     RenameAction -. revalidatePath("/", "layout") .-> TagsPage
 ```
 
@@ -231,10 +223,10 @@ sequenceDiagram
     R->>R: tx: UPDATE movements SET tag_id=target WHERE tag_id=absorbed → n
     R->>R: tx: DELETE tags WHERE id=absorbed (tras reasignar, RESTRICT permite)
     R-->>UC: { reassignedMovements: n }
-    UC-->>A: recuento
+    UC-->>A: ok
     A->>P: revalidatePath("/", "layout") — Select de alta/edición y desgloses frescos (FR-009)
     A-->>M: { status: "success", message }
-    M-->>U: cierra + toast «Etiquetas fusionadas (n movimientos reasignados)»
+    M-->>U: cierra + toast «Etiquetas fusionadas»
     P-->>U: lista sin «gas-casa» (server render revalidado)
     Note over U,P: listados, cierres, /summary y /annual recalculan por sí mismos (joins vivos): «gas» acumula ambos importes, totales globales idénticos (SC-002)
 ```
@@ -249,7 +241,8 @@ sequenceDiagram
 
 **Decisiones de diseño destacadas (sin violación, registradas para `/speckit.tasks`)**:
 
-- **`mergeInto` como operación transaccional del puerto**, no dos llamadas orquestadas: `ON DELETE RESTRICT` (ADR 0014) exige reasignar los movimientos **antes** de borrar la absorbida y ambas escrituras deben ser atómicas; el recuento devuelto alimenta toast y tests. La tx vive en el adaptador, como en 018/019 (research §3).
+- **`mergeInto` como operación transaccional del puerto**, no dos llamadas orquestadas: `ON DELETE RESTRICT` (ADR 0014) exige reasignar los movimientos **antes** de borrar la absorbida y ambas escrituras deben ser atómicas; el recuento devuelto alimenta los tests. La tx vive en el adaptador, como en 018/019 (research §3).
+- **Sin recuento de movimientos por fila** (decisión del propietario 2026-10-17): la cifra no aporta en la vista de mantenimiento; `ListTags` compone un solo puerto (`TagRepository.findAll`) y las confirmaciones de FR-008 expresan la consecuencia con nombres, no con cifras.
 - **Slug inmutable en el renombrado** (el id tampoco cambia): «Aportación Común» se localiza por slug (019) y los slugs son identidad estable del catálogo; re-derivar crearía colisiones inexistentes y rompería la materialización.
 - **Protección por slug en el dominio (`SystemTags`)** y no por columna `is_system`: un único caso real hoy (la spec lo fija expresamente); 019 pasa a importar la constante (un solo dueño del literal); futuras etiquetas de sistema solo se añaden a la lista (research §1).
 - **Duplicados con `findByName` autoexcluyéndose**: permite el edge «luz»→«Luz» (no es duplicada de sí misma) y bloquea cualquier otra colisión, activa o inactiva; el índice `lower(name)` sigue como red de seguridad en el UPDATE (carrera) (research §2).
@@ -264,11 +257,11 @@ Re-evaluación tras generar [research.md](./research.md), [data-model.md](./data
 
 | # | Principio | Estado post-diseño | Notas |
 |---|-----------|--------------------|-------|
-| I | Simplicidad Primero | ✅ PASS | El diseño añade un módulo puro, dos métodos de entidad, un error, cinco casos de uso, cuatro métodos de puerto/repositorio y una vista con tres diálogos; reutiliza índices, restricciones, patrones de fila/AlertDialog y el `findByName` de 017. Sin migraciones, librerías ni abstracciones nuevas (research §1–§4). |
+| I | Simplicidad Primero | ✅ PASS | El diseño añade un módulo puro, dos métodos de entidad, un error, cinco casos de uso, cuatro métodos de puerto/repositorio y una vista con tres diálogos; reutiliza índices, restricciones, patrones de fila/AlertDialog y el `findByName` de 017. Sin migraciones, librerías ni abstracciones nuevas; sin recuento de movimientos (decisión del propietario 2026-10-17: `ListTags` compone un solo puerto) (research §1–§4). |
 | II | Spec-Driven Development | ✅ PASS | Cada FR traza a artefacto: FR-001 → ui-contract §1/§2 + ListTags (data-model §1.2); FR-002 → RenameTag + ui-contract §3.1; FR-003 → MergeTags/mergeInto + ui-contract §3.2; FR-004 → DeactivateTag + §3.3; FR-005 → ReactivateTag + §3.4; FR-006 → mergeInto sin `updated_at` + matriz §3 del data-model; FR-007 → SystemTags (protección en los 4 papeles, clarificación 2026-10-17); FR-008 → AlertDialog/confirmación integrada; FR-009 → revalidación + joins vivos (§4); FR-010 → research §7; FR-011 → research §6 + quickstart gates. Los 6 escenarios y 9 edge cases de la spec quedan cubiertos en ui-contract/quickstart/research. |
 | III | Calidad Verificada | ✅ PASS | Quickstart con 6 escenarios (espejo de los de aceptación) + gates; suites nuevas por capa donde la feature arriesga (autoexclusión de duplicado, fusión transaccional con integridad de totales, protección en cuatro papeles, colisión de reactivación); flujo crítico e2e nuevo con aislamiento verificado (SC-005, constitución III). |
 | IV | TypeScript Estricto + Zod | ✅ PASS | Cuatro fronteras Zod (ids numéricos, nombre trim min 1); `TagActionState`/`ReactivateTagResult` uniones discriminadas; `CatalogTagDTO` tipado con `status`/`isProtected`; sin `any` (data-model §3/§4, ui-contract §5). |
-| V | SQLite con Drizzle | ✅ PASS | Sin esquema nuevo ni migración: `lower(name)` UNIQUE, `slug` UNIQUE y FK RESTRICT existentes materializan las invariantes; `update`/`mergeInto`/`countByTag` son Drizzle puro, con tx reutilizando el patrón de 018/019 (data-model §2). |
+| V | SQLite con Drizzle | ✅ PASS | Sin esquema nuevo ni migración: `lower(name)` UNIQUE, `slug` UNIQUE y FK RESTRICT existentes materializan las invariantes; `update`/`mergeInto` son Drizzle puro, con tx reutilizando el patrón de 018/019 (data-model §2). |
 | VI | Español / inglés | ✅ PASS | Literales congelados en el ui-contract («Etiquetas», «Renombrar…», «Fusionar en otra…», «Desactivar…», «Reactivar», «Sistema», «Activa/Inactiva», toasts y errores); identificadores en inglés (`renameTag`, `mergeInto`, `withStatus`, `isProtectedTagSlug`, `TagCatalog`); glosario ES↔EN ampliado (data-model §5). |
 | VII | Hexagonal + DDD táctico | ✅ PASS | `Tag.rename/withStatus` y `SystemTags` puros en dominio; reglas y puertos en aplicación; Drizzle y las actions como adaptadores; la UI lista y delega sin duplicar negocio (decide con `isProtected` del DTO, calculado en dominio); sin eventos, CQRS ni EDA; la tx encapsulada en el outbound (data-model §1, diagramas). |
 

@@ -71,7 +71,7 @@ class ReactivateTag {
   async execute(input: { id: TagId }): Promise<Tag>
 }
 class ListTags {
-  constructor(tags: TagRepository, movements: MovementRepository)
+  constructor(tags: TagRepository)
   async execute(): Promise<CatalogTagDTO[]>
 }
 ```
@@ -84,7 +84,7 @@ class ListTags {
 
 **`ReactivateTag`**: 1) cargar → `TagNotFoundError`; 2) `findByName(tag.name)` → `DuplicateTagNameError(tag.name)` si es **otra** etiqueta (edge colisión con activa); 3) `update(tag.withStatus("active"))`.
 
-**`ListTags`**: `findAll()` + `countByTag(id)` por etiqueta → `CatalogTagDTO`; orden: activas primero, luego inactivas, cada bloque alfabético (`es`); `isProtected = isProtectedTagSlug(slug)`.
+**`ListTags`**: `findAll()` → `CatalogTagDTO`; orden: activas primero, luego inactivas, cada bloque alfabético (`es`); `isProtected = isProtectedTagSlug(slug)`. **Sin recuento de movimientos** (decisión del propietario 2026-10-17): la cifra no aporta en la vista de mantenimiento y evita el puerto `countByTag`.
 
 ### 1.3 Puertos — EXTENDIDOS (definidos en aplicación, constitución VII)
 
@@ -102,10 +102,9 @@ export interface TagRepository {
   mergeInto(absorbedId: TagId, targetId: TagId): Promise<{ reassignedMovements: number }>;
                                                            // NUEVO: transaccional — reasigna movimientos y borra la absorbida
 }
-
-// MovementRepository (puerto existente) gana:
-countByTag(tagId: TagId): Promise<number>;                 // NUEVO: nº de movimientos con esa etiqueta (listado /tags)
 ```
+
+`MovementRepository` y el resto de puertos **sin cambios**.
 
 ### 1.4 Diagrama de clases (diseño)
 
@@ -176,8 +175,7 @@ classDiagram
     }
 
     class MovementRepository {
-        <<Port — extendido>>
-        +countByTag(tagId) int
+        <<Port — intacto>>
     }
 
     class DrizzleTagRepository {
@@ -194,13 +192,12 @@ classDiagram
     DeactivateTag ..> TagRepository : usa (update)
     ReactivateTag ..> TagRepository : usa (update/findByName)
     ListTags ..> TagRepository : findAll
-    ListTags ..> MovementRepository : countByTag
     DrizzleTagRepository ..|> TagRepository : implementa
     SystemTags ..> ProtectedTagError : lanza (vía use cases)
     Movement "0..*" --> "1" Tag : tagId FK (reasignable en fusión)
 ```
 
-> Diferencias con `docs/architecture/diagrams/domain-model.md` (vivo, a actualizar en implementación): `Tag` gana `rename`/`withStatus`; aparece `SystemTags`/`ProtectedTagError`; `TagRepository` gana `findById`/`findAll`/`update`/`mergeInto`; `MovementRepository` gana `countByTag`. `Movement`, `Money` y relaciones intactas.
+> Diferencias con `docs/architecture/diagrams/domain-model.md` (vivo, a actualizar en implementación): `Tag` gana `rename`/`withStatus`; aparece `SystemTags`/`ProtectedTagError`; `TagRepository` gana `findById`/`findAll`/`update`/`mergeInto`. `Movement`, `Money` y relaciones intactas.
 
 ### 1.5 Transiciones de estado
 
@@ -249,7 +246,7 @@ movements                                  # INTACTA: la fusión solo reasigna t
 - `mergeInto(absorbedId, targetId)`: **`db.transaction`**: (1) `update(movements).set({ tagId: targetId }).where(eq(movements.tagId, absorbedId))` → recuento; (2) `delete(tags).where(eq(tags.id, absorbedId))`. Tras (1), RESTRICT no bloquea (2); ambas escrituras son atómicas. **No** se toca `movements.updated_at` (FR-006: operación de catálogo, no edición).
 - `save`/`findAllActive`/`findByIds`/`findBySlug`/`findByName` intactos.
 
-`DrizzleMovementRepository` gana `countByTag(tagId)`: `select count(*)` filtrando por `tagId` (uso del índice existente).
+`DrizzleMovementRepository` y el resto de repositorios **sin cambios** (sin recuento de movimientos por fila — decisión del propietario 2026-10-17, research §4).
 
 ### 2.3 Seed y catálogo
 
@@ -267,7 +264,6 @@ movements                                  # INTACTA: la fusión solo reasigna t
 | Etiqueta de sistema intocable (renombrar, desactivar, absorbida, resultante) | — | ✅ `isProtectedTagSlug` en `RenameTag`/`DeactivateTag`/`MergeTags` → `ProtectedTagError` | — (protección por regla, no por esquema — research §1) |
 | Fusión: ambas existen, distintas | ✅ ids numéricos en FormData | ✅ `MergeTags`: `TagNotFoundError` / `InvalidTagError` («Elige dos etiquetas distintas.») | FK + tx |
 | Totales/importes/fechas intactos (FR-006) | — | ✅ la fusión solo reasigna `tag_id`; renombrado/desactivación solo tocan `tags` | RESTRICT protege el borrado con referencias |
-| Recuento de movimientos por etiqueta (consecuencia) | — | ✅ `countByTag` (puerto) + `ListTags` | índice `idx_movements_tag_id` |
 
 **Mapeo de errores en las actions**: `InvalidTagError`/`DuplicateTagNameError`/`ProtectedTagError`/`TagNotFoundError` → mensaje exacto del error de dominio en el estado del formulario (o toast en reactivar); cualquier otro `DomainError` → mensaje genérico; nunca se lanza al cliente.
 
@@ -282,7 +278,6 @@ export interface CatalogTagDTO {
   name: string;
   slug: string;
   status: TagStatus;        // "active" | "inactive"
-  movementCount: number;    // nº de movimientos con esta etiqueta
   isProtected: boolean;     // fila «Sistema» — sin menú de acciones
 }
 
@@ -321,7 +316,6 @@ reactivateTag(tagId: number): Promise<ReactivateTagResult> // action directa + u
 | Etiqueta resultante | target tag (`targetId`) | Recibe los movimientos; puede estar inactiva |
 | Desactivar / Reactivar | `DeactivateTag` / `ReactivateTag` (`Tag.withStatus`) | Transición de estado sin borrado |
 | Etiqueta de sistema | protected/system tag (`isProtectedTagSlug`, `SYSTEM_TAG_SLUGS`) | Protegida por slug; hoy solo «Aportación Común» |
-| Recuento de movimientos | `movementCount` / `countByTag` | Consecuencia mostrada en la fila y confirmaciones |
 | Vista de administración | `TagCatalog` (`/tags`) | Lista con menús por fila; diálogos a nivel del listado |
 | Reasignación | tag reassignment (`mergeInto`) | `UPDATE movements SET tag_id` transaccional |
 
