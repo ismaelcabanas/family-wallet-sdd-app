@@ -17,6 +17,12 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — mantener el catálogo de etiquetas limpio a medida que evoluciona. Las operaciones comparten una misma vista de catálogo y un mismo recorrido UI, por lo que constituyen una sola historia; no aplica excepción.
 
+## Clarifications
+
+### Session 2026-10-17
+
+- Q: ¿Puede «Aportación Común» ser elegida como etiqueta resultante en una fusión, o debe quedar protegida también en ese papel? (FR-007) → A: No; protegida también como resultante — prohibición total de las cuatro operaciones (renombrar, desactivar, absorbida y resultante de fusión).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Mantener el catálogo de etiquetas sin perder el histórico (Priority: P1)
@@ -45,7 +51,7 @@ Como único usuario de la aplicación, quiero gestionar el catálogo de etiqueta
 - **Reactivar una inactiva cuyo nombre colisiona con una activa** (p. ej. inactiva «Luz» existiendo activa «LUZ»): la reactivación se rechaza como duplicado con mensaje claro; resolver la colisión (renombrando una de las dos) queda en manos del usuario.
 - **Fusionar hacia una etiqueta inactiva**: permitido si el usuario la elige como resultante (es visible con su estado); los movimientos absorbidos computan bajo una etiqueta que seguirá sin ofrecerse para nuevos movimientos.
 - **Fusionar dos etiquetas sin movimientos**: permitido; la absorbida desaparece y la resultante queda igual.
-- **Etiqueta usada por la aportación común (019)**: la etiqueta «Aportación Común» está ligada a la materialización de la aportación mensual; renombrarla, desactivarla o usarla como absorbida en una fusión rompería esa automatización, por lo que queda protegida de las tres operaciones (ver FR-007).
+- **Etiqueta usada por la aportación común (019)**: la etiqueta «Aportación Común» está ligada a la materialización de la aportación mensual; renombrarla, desactivarla o usarla como absorbida **o como resultante** en una fusión rompería esa automatización o la haría irreversible, por lo que queda protegida de las cuatro operaciones (ver FR-007).
 - **Etiqueta desactivada seleccionada en un formulario abierto**: si se desactiva mientras un diálogo de alta/edición la tiene seleccionada, el movimiento en curso puede guardarse con ella; la restricción aplica a nuevas selecciones, no a envíos en vuelo.
 - **Doble envío de una operación**: los controles se deshabilitan mientras la operación se procesa (mismo patrón de doble envío que el guardado del movimiento).
 - **Fusionar/renombrar actualiza los desgloses del mismo render**: cierres, resúmenes y cuenta anual son vistas derivadas; tras una operación de catálogo muestran el resultado recalculado sin pasos manuales.
@@ -60,7 +66,7 @@ Como único usuario de la aplicación, quiero gestionar el catálogo de etiqueta
 - **FR-004 (desactivar)**: El sistema MUST permitir desactivar una etiqueta activa: deja de ofrecerse para nuevos movimientos (alta y edición) y los movimientos históricos la conservan, computando en todos los desgloses como hasta ahora. La desactivación NO borra la etiqueta ni su histórico.
 - **FR-005 (reactivar)**: El sistema MUST permitir reactivar una etiqueta inactiva, aplicando la misma regla de unicidad ignorando mayúsculas/minúsculas frente a las etiquetas activas existentes; una reactivación válida la devuelve al selector de alta y edición con su nombre e histórico intactos.
 - **FR-006 (integridad del histórico)**: Ninguna operación de catálogo MUST alterar importes, fechas, notas, cuentas ni totales de movimientos existentes: las operaciones solo actúan sobre la dimensión etiqueta. Los movimientos generados automáticamente (ingresos regulares de 018, aportaciones de 019) MUST permanecer intactos.
-- **FR-007 (protección de la etiqueta de sistema)**: La etiqueta «Aportación Común» (usada por la materialización de la aportación de 019) MUST estar protegida: no puede renombrarse, desactivarse ni ser la absorbida de una fusión; las acciones correspondientes no se ofrecen o se rechazan con mensaje claro. El resto del catálogo (incluida «Sin Clasificar», etiqueta corriente desde 014) se gestiona con normalidad.
+- **FR-007 (protección de la etiqueta de sistema)**: La etiqueta «Aportación Común» (usada por la materialización de la aportación de 019) MUST estar protegida: no puede renombrarse, desactivarse, ser la absorbida de una fusión **ni ser la etiqueta resultante de una fusión** (la prohibición cubre las cuatro operaciones); las acciones correspondientes no se ofrecen o se rechazan con mensaje claro. El resto del catálogo (incluida «Sin Clasificar», etiqueta corriente desde 014) se gestiona con normalidad.
 - **FR-008 (confirmaciones)**: Las operaciones con efecto sobre múltiples movimientos (fusión) o que retiran una etiqueta del uso diario (desactivación) MUST pedir confirmación explícita mostrando su consecuencia de forma comprensible antes de ejecutarse.
 - **FR-009 (disponibilidad inmediata)**: Tras cualquier operación de catálogo, los selectores de etiqueta de alta y edición y los desgloses MUST reflejar el estado resultante en los usos siguientes de la aplicación, sin pasos manuales de refresco.
 - **FR-010 (actualización del roadmap maestro)**: Al completar la feature, el roadmap maestro MUST marcar la fila `004-gestion-tags` como Completada y dejar constancia de que FR-005 queda íntegramente cubierto (crear → 017; renombrar, fusionar, desactivar y reactivar → 004).
