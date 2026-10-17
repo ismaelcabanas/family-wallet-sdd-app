@@ -14,15 +14,14 @@ Congela los literales y comportamientos de la vista de administración (FR-001) 
 
 ```text
 ┌ Catálogo de etiquetas ────────────────────────────────────────────┐
-│ Hogar            [Activa]   12 movimientos      ⋮ Acciones       │
-│ Sin Clasificar   [Activa]    3 movimientos      ⋮ Acciones       │
-│ Luz (apagada)    [Inactiva]  7 movimientos      ⋮ Reactivar      │
-│ Aportación Común [Activa]    4 movimientos      🔒 Sistema       │
+│ Hogar            [Activa]                        ⋮ Acciones       │
+│ Sin Clasificar   [Activa]                        ⋮ Acciones       │
+│ Luz (apagada)    [Inactiva]                       ⋮ Reactivar     │
+│ Aportación Común [Activa]                         🔒 Sistema       │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
 - Chip de estado: **«Activa»** / **«Inactiva»** (visible siempre, FR-001).
-- **{n} movimientos**: recuento total histórico de la etiqueta; para 0 → «Sin movimientos».
 - **Fila protegida** («Aportación Común»): distintivo **«Sistema»** y **sin menú** de acciones (FR-007: «no se ofrecen»); el resto de filas ofrecen menú ⋮.
 
 ## 2. Menú por fila (⋮ «Acciones de {nombre}», FR-001)
@@ -50,11 +49,11 @@ Congela los literales y comportamientos de la vista de administración (FR-001) 
 - Select **«Etiqueta resultante»**: todas las etiquetas **excepto** la propia absorbida y las **protegidas**; las inactivas aparecen con sufijo «(inactiva)» (edge fusión hacia inactiva — permitida y visible).
 - Botones `[Cancelar] [Fusionar]` (destructivo). Sin destino elegido, «Fusionar» deshabilitado.
 - Confirmación integrada: el propio texto de consecuencia + botón destructivo constituyen la confirmación explícita (FR-008); al pulsar, botón **«Fusionando…»** y controles deshabilitados (edge doble envío).
-- Éxito: toast **«Etiquetas fusionadas ({n} movimientos reasignados)»** (n = 0 → «Etiquetas fusionadas (sin movimientos)»), diálogo cerrado, la absorbida desaparece de la lista.
+- Éxito: toast **«Etiquetas fusionadas»**, diálogo cerrado, la absorbida desaparece de la lista.
 
 ### 3.3 Desactivar… (FR-004, FR-008, escenario 3)
 
-- `AlertDialog` título **«Desactivar etiqueta»**, texto: **«"{nombre}" dejará de ofrecerse para nuevos movimientos. Los {n} movimientos existentes la conservarán y seguirán computando en los desgloses.»** (n = 0 → «…Sin movimientos que la usen.» simplificado: «"{nombre}" dejará de ofrecerse para nuevos movimientos.»)
+- `AlertDialog` título **«Desactivar etiqueta»**, texto: **«"{nombre}" dejará de ofrecerse para nuevos movimientos. Los movimientos existentes la conservarán y seguirán computando en los desgloses.»**
 - Botones `[Cancelar] [Desactivar]` (destructivo). En vuelo: deshabilitados.
 - Éxito: toast **«Etiqueta desactivada»**, la fila pasa a «Inactiva» y su menú queda en «Reactivar».
 
@@ -91,7 +90,7 @@ type TagActionState =
 
 - Trigger ⋮ con nombre accesible («Acciones de {nombre}»); menú en portal con navegación por flechas (Radix).
 - Diálogos con foco inicial en el primer control (input «Nombre» / Select destino); errores `role="alert"` asociados por `aria-describedby`; cierre por Escape/Cancelar sin efectos.
-- El chip de estado y el recuento son texto (no solo color); la fila protegida comunica «Sistema» textualmente.
+- El chip de estado es texto (no solo color); la fila protegida comunica «Sistema» textualmente.
 - Tras éxito, el foco vuelve al listado (fila afectada) y el toast es `role="status"`.
 
 ## 7. Fuera de alcance

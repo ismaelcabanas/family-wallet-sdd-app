@@ -23,7 +23,7 @@ Espejo de los 6 escenarios de aceptación + edges clave.
 
 ### Q1 — Vista de administración y acceso (escenario 5, FR-001)
 
-1. Desde cualquier página, pulsar **«Etiquetas»** en la navegación global: llega a `/tags` con la lista completa (activas e inactivas), cada fila con su estado («Activa»/«Inactiva») y su recuento de movimientos; «Aportación Común» muestra **«Sistema»** y **no tiene menú** ⋮.
+1. Desde cualquier página, pulsar **«Etiquetas»** en la navegación global: llega a `/tags` con la lista completa (activas e inactivas), cada fila con su estado («Activa»/«Inactiva»); «Aportación Común» muestra **«Sistema»** y **no tiene menú** ⋮.
 
 ### Q2 — Renombrar sin perder histórico (escenario 1, FR-002, SC-002)
 
@@ -38,7 +38,7 @@ Espejo de los 6 escenarios de aceptación + edges clave.
 ### Q4 — Fusionar dos etiquetas (escenario 2, FR-003/FR-008, SC-002)
 
 1. Menú ⋮ de «super-casa» → **Fusionar en otra…**: el diálogo explica la consecuencia y el Select de destino ofrece todas menos la propia y «Aportación Común».
-2. Elegir «supermercado» → **Fusionar**: toast «Etiquetas fusionadas (1 movimiento reasignado)»; «super-casa» desaparece del catálogo.
+2. Elegir «supermercado» → **Fusionar**: toast «Etiquetas fusionadas»; «super-casa» desaparece del catálogo.
 3. En la cuenta: el gasto de −30,00 muestra «supermercado»; el desglose acumula −80,00 bajo «supermercado»; **los totales globales no cambian**; ninguna otra etiqueta afectada.
 
 ### Q5 — Desactivar con histórico y reactivar (escenarios 3 y 4, FR-004/FR-005, SC-003)
