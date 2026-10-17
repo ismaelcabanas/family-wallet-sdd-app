@@ -9,7 +9,7 @@ export function GlobalNav({
   active,
   month,
 }: {
-  active: "panel" | "summary" | "annual";
+  active: "panel" | "summary" | "annual" | "tags";
   month?: string;
 }) {
   const contextMonth = month ?? currentMonth();
@@ -37,6 +37,13 @@ export function GlobalNav({
         className={active === "annual" ? ACTIVE_LINK_CLASSES : LINK_CLASSES}
       >
         Cuenta de resultados
+      </Link>
+      <Link
+        href="/tags"
+        aria-current={active === "tags" ? "page" : undefined}
+        className={active === "tags" ? ACTIVE_LINK_CLASSES : LINK_CLASSES}
+      >
+        Etiquetas
       </Link>
     </nav>
   );

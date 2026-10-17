@@ -14,6 +14,10 @@ describe("ListActiveTags", () => {
       findBySlug: vi.fn(),
       findByName: vi.fn(),
       save: vi.fn(),
+      findById: vi.fn(),
+      findAll: vi.fn(),
+      update: vi.fn(),
+      mergeInto: vi.fn(),
     };
     const useCase = new ListActiveTags(repository);
 

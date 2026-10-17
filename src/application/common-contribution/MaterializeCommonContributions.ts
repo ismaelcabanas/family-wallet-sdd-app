@@ -4,11 +4,11 @@ import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRep
 import type { TagRepository } from "../tag/TagRepository";
 import { Movement } from "@/domain/movement/Movement";
 import { Money } from "@/domain/movement/Money";
+import { CONTRIBUTION_TAG_SLUG } from "@/domain/tag/SystemTags";
 import { Tag } from "@/domain/tag/Tag";
 
 import type { CommonContributionRepository } from "./CommonContributionRepository";
 
-const CONTRIBUTION_TAG_SLUG = "aportacion-comun";
 const CONTRIBUTION_TAG_NAME = "Aportación Común";
 
 export class MaterializeCommonContributions {

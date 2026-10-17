@@ -41,6 +41,22 @@ class InMemoryTagRepository implements TagRepository {
     this.stored.push(persisted);
     return persisted;
   }
+
+  async findById(): Promise<Tag | null> {
+    return null;
+  }
+
+  async findAll(): Promise<Tag[]> {
+    return [...this.stored];
+  }
+
+  async update(tag: Tag): Promise<Tag> {
+    return tag;
+  }
+
+  async mergeInto(): Promise<{ reassignedMovements: number }> {
+    return { reassignedMovements: 0 };
+  }
 }
 
 describe("CreateTag", () => {

@@ -6,6 +6,7 @@ import { asc, eq, inArray, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import { mapRowToTag } from "./mappers/tag.mapper";
+import { movements } from "./schema/movements";
 import { tags } from "./schema/tags";
 import type * as schema from "./schema";
 
@@ -57,6 +58,48 @@ export class DrizzleTagRepository implements TagRepository {
     } catch (error) {
       throw this.translateUniqueViolation(error, tag);
     }
+  }
+
+  async findById(id: TagId): Promise<Tag | null> {
+    const rows = await this.db.select().from(tags).where(eq(tags.id, id)).limit(1);
+    return rows.length > 0 ? mapRowToTag(rows[0]) : null;
+  }
+
+  async findAll(): Promise<Tag[]> {
+    const rows = await this.db.select().from(tags).orderBy(asc(tags.name));
+    return rows.map(mapRowToTag);
+  }
+
+  async update(tag: Tag): Promise<Tag> {
+    if (tag.id === null) {
+      throw new RangeError("update requiere una etiqueta persistida");
+    }
+    try {
+      const rows = await this.db
+        .update(tags)
+        .set({ name: tag.name, status: tag.status })
+        .where(eq(tags.id, tag.id))
+        .returning();
+      return mapRowToTag(rows[0]);
+    } catch (error) {
+      throw this.translateUniqueViolation(error, tag);
+    }
+  }
+
+  async mergeInto(
+    absorbedId: TagId,
+    targetId: TagId,
+  ): Promise<{ reassignedMovements: number }> {
+    return this.db.transaction(async (tx) => {
+      const reassigned = await tx
+        .update(movements)
+        .set({ tagId: targetId })
+        .where(eq(movements.tagId, absorbedId));
+
+      await tx.delete(tags).where(eq(tags.id, absorbedId));
+
+      return { reassignedMovements: reassigned.rowsAffected };
+    });
   }
 
   private translateUniqueViolation(error: unknown, tag: Tag): Error {

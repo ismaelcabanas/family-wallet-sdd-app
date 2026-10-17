@@ -37,4 +37,16 @@ export class Tag {
   static rehydrate(id: number, name: string, slug: string, status: TagStatus): Tag {
     return new Tag(TagId(id), name, slug, status);
   }
+
+  rename(name: string): Tag {
+    const trimmed = name.trim();
+    if (trimmed === "") {
+      throw new InvalidTagError("El nombre de la etiqueta es obligatorio.");
+    }
+    return new Tag(this.id, trimmed, this.slug, this.status);
+  }
+
+  withStatus(status: TagStatus): Tag {
+    return new Tag(this.id, this.name, this.slug, status);
+  }
 }

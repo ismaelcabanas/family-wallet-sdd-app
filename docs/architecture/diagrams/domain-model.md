@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018 y 019)
+# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018, 019 y 004)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -65,16 +65,25 @@ classDiagram
     class Tag {
         +id: TagId?
         +name: String
-        +slug: String (derivado por deriveTagSlug desde 017)
+        +slug: String (derivado por deriveTagSlug desde 017; inmutable tras la creación, 004)
         +status: TagStatus
         +create(input)$ Tag
         +rehydrate(id, name, slug, status)$ Tag
+        +rename(name) Tag (004: trimea, conserva id/slug/status)
+        +withStatus(status) Tag (004: desactivar/reactivar)
     }
 
     class TagStatus {
         <<enum>>
         active
         inactive
+    }
+
+    class SystemTags {
+        <<Módulo puro de 004 · src/domain/tag/SystemTags.ts>>
+        +CONTRIBUTION_TAG_SLUG$ String ("aportacion-comun"; único dueño, 019 lo importa)
+        +SYSTEM_TAG_SLUGS$
+        +isProtectedTagSlug(slug) boolean$
     }
 
     class deriveTagSlug {
@@ -138,6 +147,9 @@ classDiagram
     class MovementNotFoundError
     class DuplicateTagNameError
     class InactiveTagError
+    class ProtectedTagError {
+        <<004>>
+    }
     class InvalidRegularIncomeError {
         <<018>>
         +field: RegularIncomeField
@@ -281,6 +293,7 @@ classDiagram
     DomainError <|-- InvalidMovementError
     DomainError <|-- DuplicateTagNameError
     DomainError <|-- InactiveTagError
+    DomainError <|-- ProtectedTagError
     DomainError <|-- InvalidRegularIncomeError
     DomainError <|-- SharedAccountIncomeError
     DomainError <|-- RegularIncomeNotFoundError
@@ -289,6 +302,7 @@ classDiagram
     DomainError <|-- CommonContributionNotFoundError
     DomainError <|-- MissingRegularIncomeError
     deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
+    SystemTags ..> Tag : isProtectedTagSlug protege rename/desactivar/fusionar (004)
     RegularIncome "1" *-- "1" Money : amount
     RegularIncome ..> lastDayOfMonth : dueDateForMonth clamp (018)
     RegularIncome --> Account : accountId (solo personal, SharedAccountIncomeError)
@@ -324,7 +338,7 @@ classDiagram
 - **`Money`**: `amountCents` entero; `fromCents` exige `0 < cents ≤ 99.999.999.999` (999.999.999,99 €); `fromCentsOrZero` admite ≤ 0 (balances); sin conversión a/from float (ADR 0007).
 - **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`.
-- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015).
+- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015). Desde 004 (ADR 0018): `rename` trimea y **conserva id/slug/status** (el slug es identidad estable — 019 localiza «Aportación Común» por slug); `withStatus` cubre desactivar/reactivar con nueva instancia congelada; el duplicado en renombrado/reactivación se valida en el caso de uso con `findByName` **autoexcluyéndose** (edge «luz»→«Luz» permitido); la protección de etiquetas de sistema es por slug en el dominio (`SystemTags.isProtectedTagSlug`, `ProtectedTagError` en los cuatro papeles: renombrar, desactivar, absorbida y resultante de fusión); el puerto gana `findById`/`findAll`/`update`/`mergeInto` (fusión transaccional: reasignar `movements.tag_id` → borrar la absorbida, sin tocar `updated_at`).
 - **`RegularIncome`** (018, ADR 0016): anclada a la cuenta personal (`accountId` UNIQUE en BD; la cuenta común la rechaza `ConfigureRegularIncome` con `SharedAccountIncomeError`); `dayOfMonth` 1–31 se conserva tal cual y `dueDateForMonth` clampa al `lastDayOfMonth` del mes consultado (helper puro, el dominio no importa `ui/format.ts`); `update` nunca toca `active`/`activatedAtMonth` (solo-adelante), `activate(currentMonth)` resetea la activación (reactivación sin relleno retroactivo). La idempotencia de la materialización vive en `regular_income_months` (puerto `RegularIncomeRepository.isMaterialized`/`registerMaterialization` transaccional), **nunca** en la existencia del movimiento: el borrado físico no regenera el mes.
 - **`CommonContribution`** (019, ADR 0017): espejo del ciclo de vida de `RegularIncome` (misma semántica de `activatedAtMonth` y `activate` con reset) anclada a la cuenta personal (UNIQUE por cuenta; `SharedAccountContributionError` en la común) pero **sin** importe/día/nota: el importe se deriva como `ContributionPercentage.appliedToCents(ingreso regular)` en el momento de materializar (solo-adelante). Requiere ingreso regular configurado (`MissingRegularIncomeError` al configurar; no-op al materializar si falta o está inactivo, FR-006). La idempotencia vive en `common_contribution_months` (`UNIQUE (config, mes)` + `ON CONFLICT DO NOTHING RETURNING` en la misma tx que el movimiento); el borrado del gasto generado es definitivo y la etiqueta «Aportación Común» se resuelve por slug en cada generación (triple garantía seed + migración + ensure).
 - **`ContributionPercentage`** (019): `basisPoints` entero 1–10 000 (equivale a > 0 % y ≤ 100 % con ≤ 2 decimales); `appliedToCents` usa división entera pura `floor((amountCents × bp + 5_000)/10_000)` (half-up, extensión de ADR 0007, sin flotantes ni `Math.round`); el importe resultante < 1 céntimo se rechaza al configurar y es no-op sin registrar al materializar (edge §7 de la spec).

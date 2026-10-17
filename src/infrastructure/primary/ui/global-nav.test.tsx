@@ -13,19 +13,20 @@ function getLink(name: string) {
 }
 
 describe("GlobalNav", () => {
-  it("muestra el landmark de navegación con los 3 enlaces en orden", () => {
+  it("muestra el landmark de navegación con los 4 enlaces en orden", () => {
     render(<GlobalNav active="panel" month="2026-03" />);
 
     const nav = screen.getByRole("navigation", { name: "Navegación principal" });
     const links = screen.getAllByRole("link");
     expect(nav).toContainElement(links[0]);
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(4);
     expect(links[0]).toHaveTextContent("Panel");
     expect(links[1]).toHaveTextContent("Resumen global");
     expect(links[2]).toHaveTextContent("Cuenta de resultados");
+    expect(links[3]).toHaveTextContent("Etiquetas");
   });
 
-  it.each(["panel", "summary", "annual"] as const)(
+  it.each(["panel", "summary", "annual", "tags"] as const)(
     "marca aria-current solo en el enlace activo cuando active=%s",
     (active) => {
       render(<GlobalNav active={active} month="2026-03" />);
@@ -35,29 +36,29 @@ describe("GlobalNav", () => {
           ? "Panel"
           : active === "summary"
             ? "Resumen global"
-            : "Cuenta de resultados",
+            : active === "annual"
+              ? "Cuenta de resultados"
+              : "Etiquetas",
       );
       expect(activeLink).toHaveAttribute("aria-current", "page");
 
       const inactive = screen
         .getAllByRole("link")
         .filter((link) => link !== activeLink);
-      expect(inactive).toHaveLength(2);
+      expect(inactive).toHaveLength(3);
       for (const link of inactive) {
         expect(link).not.toHaveAttribute("aria-current");
       }
     },
   );
 
-  it("con month prop usa ese mes en los destinos y Panel enlaza a / sin query", () => {
+  it("el enlace «Etiquetas» es estático con href /tags sin contexto temporal", () => {
     render(<GlobalNav active="panel" month="2026-03" />);
 
-    expect(getLink("Panel")).toHaveAttribute("href", "/");
-    expect(getLink("Resumen global")).toHaveAttribute("href", "/summary?month=2026-03");
-    expect(getLink("Cuenta de resultados")).toHaveAttribute("href", "/annual?year=2026");
+    expect(getLink("Etiquetas")).toHaveAttribute("href", "/tags");
   });
 
-  it("sin month prop cae a currentMonth() para los destinos", () => {
+  it("sin month prop cae a currentMonth() para los destinos y Etiquetas sigue estático", () => {
     render(<GlobalNav active="summary" />);
 
     const month = currentMonth();
@@ -70,6 +71,16 @@ describe("GlobalNav", () => {
       "href",
       `/annual?year=${month.slice(0, 4)}`,
     );
+    expect(getLink("Etiquetas")).toHaveAttribute("href", "/tags");
+  });
+
+  it("con month prop usa ese mes en los destinos y Panel enlaza a / sin query", () => {
+    render(<GlobalNav active="panel" month="2026-03" />);
+
+    expect(getLink("Panel")).toHaveAttribute("href", "/");
+    expect(getLink("Resumen global")).toHaveAttribute("href", "/summary?month=2026-03");
+    expect(getLink("Cuenta de resultados")).toHaveAttribute("href", "/annual?year=2026");
+    expect(getLink("Etiquetas")).toHaveAttribute("href", "/tags");
   });
 
   it("la página de cuenta (active=panel) marca Panel como activo", () => {
