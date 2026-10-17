@@ -32,9 +32,11 @@ src/
 │   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError, MovementNotFoundError
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
 │   ├── tag/
-│   │   ├── Tag.ts · TagId.ts · TagStatus.ts
+│   │   ├── Tag.ts                <-- Entidad congelada; +rename/withStatus desde 004 (rename conserva id/slug/status — ADR 0018)
+│   │   ├── TagId.ts · TagStatus.ts
 │   │   ├── TagSlug.ts            <-- deriveTagSlug(name): función pura slug (ADR 0015)
-│   │   └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ...
+│   │   ├── SystemTags.ts          <-- CONTRIBUTION_TAG_SLUG + isProtectedTagSlug: protección por slug de etiquetas de sistema (004, ADR 0018; 019 importa la constante)
+│   │   └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ProtectedTagError (004), ...
 │   └── regular-income/          <-- 018 (ADR 0016)
 │       ├── RegularIncome.ts     <-- Entidad ingreso regular (update/deactivate/activate, dueDateForMonth con clamp a lastDayOfMonth)
 │       ├── RegularIncomeId.ts
@@ -61,9 +63,14 @@ src/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance con corte opcional asOf inclusive, ADR 0009)
 │   │   └── ListAccounts.ts
 │   ├── tag/
-│   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015)
+│   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015; +findById/findAll/update/mergeInto transaccional desde 004, ADR 0018)
 │   │   ├── ListActiveTags.ts
-│   │   └── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa
+│   │   ├── dto.ts                <-- CatalogTagDTO { id, name, slug, status, isProtected } (004)
+│   │   ├── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa
+│   │   ├── ListTags.ts           <-- Catálogo completo → DTO ordenado activas→inactivas, alfabético es; isProtected del dominio (004)
+│   │   ├── RenameTag.ts          <-- findById → protección → rename → duplicado con autoexclusión → update (004)
+│   │   ├── MergeTags.ts          <-- valida ambas, distintas, ninguna protegida (absorbida ni resultante) → mergeInto (004)
+│   │   ├── DeactivateTag.ts · ReactivateTag.ts <-- withStatus con protección/idempotencia y colisión de reactivación (004)
 │   ├── member/
 │   │   └── MemberRepository.ts  <-- PUERTO
 │   └── regular-income/          <-- 018 (ADR 0016)
@@ -84,6 +91,7 @@ src/
 │   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013); la configuración del ingreso regular NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares y desde 019 aportaciones comunes, ambos ANTES del Promise.all de lecturas en dos awaits secuenciales (único disparador, ADR 0016/0017)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
+│   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004): GlobalNav active="tags" (sin contexto temporal) + ListTags → TagCatalog
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
@@ -93,7 +101,7 @@ src/
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
-    │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017) · DrizzleMemberRepository.ts
+    │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017; +findById/findAll/update y mergeInto transaccional UPDATE movements → DELETE tag sin tocar updated_at — 004, ADR 0018) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
     │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months)
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 13 tags con «Aportación Común» desde 019)
@@ -107,10 +115,13 @@ src/
         │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
         │   ├── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
         │   ├── contribution-form.schema.ts   <-- Patrón porcentual + parsePercentageToBasisPoints por manipulación de cadenas (019)
-        │   └── configure-common-contribution.action.ts <-- 'use server' (019): espejo de la de 018 (Zod, intents, revalidatePath '/', 'layout'; ADR 0017)
+        │   ├── configure-common-contribution.action.ts <-- 'use server' (019): espejo de la de 018 (Zod, intents, revalidatePath '/', 'layout'; ADR 0017)
+        │   ├── tag-actions.schema.ts  <-- Schemas Zod de las 4 fronteras de catálogo + TagActionState (004)
+        │   ├── rename-tag.action.ts · merge-tags.action.ts · deactivate-tag.action.ts <-- 'use server' (004): useActionState-style, mapeo de errores de dominio, revalidatePath('/', 'layout')
+        │   └── reactivate-tag.action.ts <-- 'use server' (004): action directa → ReactivateTagResult {ok} (familia ADR 0015)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
-            ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados; aria-current, mes por prop con currentMonth() por defecto, feature 012)
+            ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados · Etiquetas; aria-current, mes por prop con currentMonth() por defecto, features 012 + 004)
             ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular» y «Aportación» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
@@ -125,6 +136,10 @@ src/
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             ├── regular-income-config-dialog.tsx <-- Diálogo «Ingreso regular» (extraído de regular-income-panel en 020): useActionState(configureRegularIncome) con intents save/deactivate, vacío o precargado según config; única vía de desactivación desde 020; lo abre el ítem del menú ⋮ de la tarjeta
             ├── common-contribution-config-dialog.tsx <-- Diálogo «Aportación a la cuenta común» (019): espejo estructural del de 018 con un único campo «Porcentaje (%)» (formatBasisPointsForInput); lo abre el ítem «Aportación» del menú ⋮
+            ├── tag-catalog.tsx (client de /tags, 004: lista con chips de estado y distintivo «Sistema» sin menú, menú ⋮ por fila según estado, host de los tres diálogos a nivel del listado — convención de fila —, Reactivar como action directa + useTransition con toast)
+            ├── rename-tag-dialog.tsx (004: input controlado — React 19 resetea los no controlados al resolver la action; error conserva el nombre tecleado, SC-004)
+            ├── merge-tags-dialog.tsx (004: Select destino excluye propia y protegidas, inactivas con sufijo; confirmación integrada texto+destructivo, FR-008)
+            ├── deactivate-tag-dialog.tsx (004: AlertDialog con consecuencia explícita sin cifras, FR-008)
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018/019); formatBasisPointsForInput para el input de porcentaje (019)
 ```
 
@@ -211,4 +226,5 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)
 - [Secuencia del ingreso regular: configurar → consultar mes → materialización](./diagrams/ingreso-regular-secuencia.md) (ADR 0016, feature 018)
 - [Secuencia de la aportación común: configurar porcentaje → consultar mes → materialización](./diagrams/aportacion-comun-secuencia.md) (ADR 0017, feature 019)
+- [Secuencia del mantenimiento del catálogo de etiquetas: fusión](./diagrams/gestion-tags-secuencia.md) (ADR 0018, feature 004)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)

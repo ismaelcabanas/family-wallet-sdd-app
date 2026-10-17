@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { DrizzleAccountRepository } from "./DrizzleAccountRepository";
 import { DrizzleMemberRepository } from "./DrizzleMemberRepository";
+import { DrizzleMovementRepository } from "./DrizzleMovementRepository";
 import { DrizzleTagRepository } from "./DrizzleTagRepository";
 import { accounts } from "./schema/accounts";
 import { members } from "./schema/members";
@@ -262,6 +263,104 @@ describe("DrizzleTagRepository", () => {
     const tag = Tag.create({ name: "LUZ", slug: "luz-2", status: "active" });
 
     await expect(repository.save(tag)).rejects.toThrowError(new DuplicateTagNameError("LUZ"));
+  });
+
+  it("findAll devuelve activas e inactivas ordenadas por nombre", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const all = await repository.findAll();
+
+    expect(all.map((tag) => tag.slug)).toEqual([
+      "aportacion-comun",
+      "inactiva",
+      "luz",
+      "sin-clasificar",
+    ]);
+  });
+
+  it("findById resuelve la entidad y devuelve null si no existe", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const found = await repository.findById(TagId(1));
+    const missing = await repository.findById(TagId(999));
+
+    expect(found?.name).toBe("Luz");
+    expect(missing).toBeNull();
+  });
+
+  it("update persiste el renombrado con slug estable y devuelve la entidad rehidratada", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = await repository.findById(TagId(1));
+
+    const updated = await repository.update(
+      (tag as Tag).rename("Hogar"),
+    );
+
+    expect(updated.name).toBe("Hogar");
+    expect(updated.slug).toBe("luz");
+    const reloaded = await repository.findById(TagId(1));
+    expect(reloaded?.name).toBe("Hogar");
+    expect(reloaded?.slug).toBe("luz");
+  });
+
+  it("update persiste el cambio de estado", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = await repository.findById(TagId(1));
+
+    const updated = await repository.update((tag as Tag).withStatus("inactive"));
+
+    expect(updated.status).toBe("inactive");
+    expect((await repository.findById(TagId(1)))?.status).toBe("inactive");
+  });
+
+  it("update hacia lower(name) ajeno lanza DuplicateTagNameError (carrera del índice)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = await repository.findById(TagId(1));
+
+    await expect(repository.update((tag as Tag).rename("Sin Clasificar"))).rejects.toThrowError(
+      new DuplicateTagNameError("Sin Clasificar"),
+    );
+  });
+
+  it("mergeInto reasigna los movimientos a la resultante, borra la absorbida y no toca updated_at (FR-006)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const movementRepository = new DrizzleMovementRepository(testDb.db);
+    for (const note of ["Uno", "Dos"]) {
+      const movement = buildMovement({ note, tagId: TagId(1) });
+      await testDb.db.insert(movements).values({
+        accountId: movement.accountId as number,
+        type: movement.type,
+        date: movement.date,
+        note: movement.note,
+        tagId: movement.tagId as number,
+        amountCents: movement.amount.amountCents,
+        nature: movement.nature,
+        createdAt: movement.createdAt,
+      });
+    }
+
+    const result = await repository.mergeInto(TagId(1), TagId(9));
+
+    expect(result.reassignedMovements).toBe(2);
+    expect(await repository.findById(TagId(1))).toBeNull();
+    const rows = await testDb.db.select().from(movements);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.tagId === 9)).toBe(true);
+    expect(rows.every((row) => row.updatedAt === null)).toBe(true);
+
+    const listed = await movementRepository.listByMonthAndAccount(AccountId(1), "2026-09");
+    expect(listed).toHaveLength(2);
+    expect(listed.every((dto) => dto.tag?.name === "Sin Clasificar")).toBe(true);
+  });
+
+  it("mergeInto con absorbida sin movimientos devuelve 0 y borra", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const result = await repository.mergeInto(TagId(1), TagId(9));
+
+    expect(result.reassignedMovements).toBe(0);
+    expect(await repository.findById(TagId(1))).toBeNull();
+    expect((await repository.findAll()).map((tag) => tag.slug)).not.toContain("luz");
   });
 });
 

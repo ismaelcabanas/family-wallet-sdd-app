@@ -83,6 +83,10 @@ describe("CreateMovement", () => {
         findBySlug: async (slug) => tags.find((tag) => tag.slug === slug) ?? null,
         findByName: async () => null,
         save: async (tag) => tag,
+        findById: async () => null,
+        findAll: async () => tags,
+        update: async (tag) => tag,
+        mergeInto: async () => ({ reassignedMovements: 0 }),
       },
     );
   });

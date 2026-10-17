@@ -135,6 +135,22 @@ class InMemoryTagRepository implements TagRepository {
     this.savedTags.push(persisted);
     return persisted;
   }
+
+  async findById(): Promise<Tag | null> {
+    return null;
+  }
+
+  async findAll(): Promise<Tag[]> {
+    return [...this.tags];
+  }
+
+  async update(tag: Tag): Promise<Tag> {
+    return tag;
+  }
+
+  async mergeInto(): Promise<{ reassignedMovements: number }> {
+    return { reassignedMovements: 0 };
+  }
 }
 
 class InMemoryAccountRepository implements AccountRepository {

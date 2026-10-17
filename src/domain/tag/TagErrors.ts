@@ -23,3 +23,9 @@ export class TagNotFoundError extends DomainError {
     super(message);
   }
 }
+
+export class ProtectedTagError extends DomainError {
+  constructor(name: string) {
+    super(`La etiqueta "${name}" pertenece al sistema y no puede modificarse.`);
+  }
+}
