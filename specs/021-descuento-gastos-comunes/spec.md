@@ -12,6 +12,12 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — la aportación del mes refleja automáticamente los gastos comunes ya pagados, sin edición manual del movimiento generado. No aplica excepción.
 
+## Clarifications
+
+### Session 2026-10-18
+
+- Q: Si la aportación se desactiva a mitad del mes en curso con el movimiento ya generado, ¿deben los gastos comunes registrados después seguir reduciendo ese movimiento? → A: Sí: el ajuste del mes en curso continúa mientras el movimiento de aportación exista; la desactivación detiene la generación futura, no congela el importe del mes en curso.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Aportación neta de los gastos comunes del mes (Priority: P1)
@@ -36,6 +42,7 @@ Como miembro con aportación configurada (019), quiero que cada gasto de natural
 10. **Given** la aportación generada del mes en curso, **When** el miembro la elimina, **Then** no se regenera al consultar de nuevo ese mes (el borrado sigue siendo definitivo, como en 019).
 11. **Given** consultas repetidas de la cuenta (5 o más) sin cambios en los gastos del mes, **Then** la aportación aparece exactamente una vez y con el mismo importe neto.
 12. **Given** la ventana temporal de 019 (meses anteriores a la activación o futuros), **When** se consultan, **Then** no se genera aportación neta alguna: la regla de descuento no amplía la ventana de generación.
+13. **Given** la aportación desactivada a mitad del mes en curso con su movimiento ya generado, **When** se registran gastos comunes nuevos en ese mes y se consulta la cuenta, **Then** la aportación del mes en curso sigue reduciéndose (la desactivación detiene la generación futura, no congela el importe del mes en curso).
 
 ---
 
@@ -50,7 +57,7 @@ Como miembro con aportación configurada (019), quiero que cada gasto de natural
 - **Gasto común de importe con céntimos** (p. ej. 120,55 €): la resta es exacta al céntimo sobre el bruto redondeado (parte porcentual con redondeo half-up de 019, luego sustracción en céntimos enteros).
 - **Gasto común eliminado del mes en curso**: la aportación sube de nuevo en la siguiente consulta (el descuento desaparece con el gasto).
 - **Etiqueta del gasto común**: el descuento aplica a cualquier gasto de naturaleza común con independencia de su etiqueta.
-- **Miembro sin aportación configurada o desactivada**: la regla no genera nada nuevo; sin cambios respecto a 019.
+- **Miembro sin aportación configurada o desactivada**: la regla no genera nada nuevo; sin cambios respecto a 019. Si la aportación estaba activa y se desactiva a mitad del mes en curso, el movimiento ya generado del mes en curso sigue ajustándose a la regla (descuenta gastos comunes) mientras exista; la desactivación detiene la generación de meses futuros, no congela el importe del mes en curso.
 - **Ingresos**: los movimientos de ingreso carecen de naturaleza (regla de dominio) y nunca computan en el descuento.
 - **Rendimiento**: el cálculo con descuento no degrada apreciablemente la apertura del mes.
 - **Arranque de la regla**: los meses ya materializados antes de la puesta en marcha conservan su importe; la regla aplica al mes en curso y a los meses aún no materializados desde entonces.
@@ -65,7 +72,7 @@ Como miembro con aportación configurada (019), quiero que cada gasto de natural
 - **FR-004 (suelo cero sin arrastre)**: El importe neto MUST nunca ser negativo. Si resulta cero, ese mes MUST carecer de movimiento de aportación. El excedente de gastos comunes sobre el bruto MUST NOT descontarse de otros meses ni acumularse.
 - **FR-005 (alcance del descuento)**: Solo computan en el descuento los gastos de naturaleza común de la **cuenta personal del miembro** cuya aportación se calcula. Los movimientos de la cuenta común y los de otras cuentas personales MUST permanecer sin efecto sobre la aportación. La cuenta común MUST seguir sin configuración de aportación (019).
 - **FR-006 (borrado definitivo)**: La eliminación manual del movimiento de aportación de un mes MUST seguir siendo definitiva para ese mes (019): consultas posteriores no lo regeneran, aunque el importe neto cambie. La regla de descuento ajusta el movimiento generado solo mientras este exista.
-- **FR-007 (semántica temporal de 019 intacta)**: La ventana de generación (desde el mes de activación hasta el mes en curso, sin retroactivo ni futuro), la dependencia del ingreso regular, la desactivación y la reactivación con reset del mes de activación MUST conservar la semántica de 019; la regla de descuento solo altera el **importe** calculado, no las condiciones de generación.
+- **FR-007 (semántica temporal de 019 intacta)**: La ventana de generación (desde el mes de activación hasta el mes en curso, sin retroactivo ni futuro), la dependencia del ingreso regular, la desactivación y la reactivación con reset del mes de activación MUST conservar la semántica de 019; la regla de descuento solo altera el **importe** calculado, no las condiciones de generación. La desactivación detiene la generación futura pero NO congela el ajuste del mes en curso: mientras el movimiento de aportación del mes en curso exista, el importe sigue reflejando los gastos comunes del mes (FR-002).
 - **FR-008 (vistas y agregados)**: Cierre mensual, resumen global mensual y cuenta de resultados anual MUST computar la aportación neta con las reglas actuales de cada vista, leyendo los movimientos como hoy; las reglas de esas vistas no cambian.
 - **FR-009 (actualización de documentación)**: Al completar la feature, el roadmap maestro MUST registrar la fila 021 (Completada) y la decisión MUST registrarse como ADR, dejando constancia de la modificación del cálculo de 019 (aportación neta de gastos comunes del mes).
 - **FR-010 (cobertura de tests)**: La feature MUST estar cubierta por tests: unidad/dominio-aplicación del cálculo neto (suelo cero, exactitud al céntimo, alcance solo cuenta personal, congelado de meses cerrados, idempotencia del ajuste, borrado definitivo), y un flujo e2e que configure ingreso regular y porcentaje, consulte el mes, registre un gasto común y verifique la aportación ajustada sin duplicados, con su propia combinación cuenta/mes (convención de aislamiento e2e; constitución III).
@@ -91,6 +98,7 @@ Como miembro con aportación configurada (019), quiero que cada gasto de natural
 - **Alcance del descuento (default informado)**: «gasto de naturaleza común que se genere en el mes» = gastos de naturaleza común **fechados en ese mes y registrados en la cuenta personal del miembro**. La cuenta común no pertenece a ningún miembro, por lo que sus gastos no pueden descontar la aportación de nadie; los gastos de otros miembros tampoco.
 - **Momento del ajuste (default informado, coherente con 018/019)**: el ajuste ocurre al consultar el mes (materialización perezosa, mismo disparador que 019: la página de cuenta); el mecanismo interno exacto (actualizar el movimiento generado, recrearlo, o equivalente) es decisión del plan.
 - **Mes en curso vs. cerrado (default informado)**: «en el mes» se interpreta como el mes mientras está en curso: la aportación del mes en curso se recalcula conforme cambian sus gastos comunes y su configuración; los meses cerrados quedan congelados con el último importe vigente. Un mes materializado justo antes de cerrarse conserva ese importe definitivo.
+- **Desactivación a mitad del mes en curso** (decisión del propietario, clarify 2026-10-18): el ajuste del mes en curso sigue activo aunque la aportación se desactive — desactivar detiene la generación de meses futuros, no congela el importe del mes en curso; el movimiento generado del mes en curso continúa descontando gastos comunes mientras exista.
 - **Edición manual del movimiento generado**: durante el mes en curso, el importe de la aportación la fija la regla y las ediciones manuales se sustituyen en el siguiente recálculo; la vía para fijar un importe manual es eliminar la aportación (definitiva) y registrar un gasto a mano.
 - **Arranque sin retroactivo**: los meses ya materializados antes de la puesta en marcha de esta regla conservan su importe histórico; no se recalculan.
 - **Redondeo**: la parte porcentual mantiene el redondeo half-up de 019; la sustracción de gastos (céntimos exactos) no introduce redondeo adicional. Moneda EUR con aritmética en céntimos enteros (ADR 0007).
