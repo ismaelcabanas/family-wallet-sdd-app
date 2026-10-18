@@ -39,6 +39,10 @@ class InMemoryMovementRepository implements MovementRepository {
   async update(): Promise<void> {}
 
   async delete(): Promise<void> {}
+
+  async sumSharedExpenseCents(): Promise<number> {
+    return 0;
+  }
 }
 
 describe("CreateMovement", () => {

@@ -26,6 +26,7 @@ describe("ListMovements", () => {
       findById: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       delete: vi.fn(),
+      sumSharedExpenseCents: vi.fn(),
     };
     const useCase = new ListMovements(repository);
 
@@ -44,6 +45,7 @@ describe("ListMovements", () => {
       findById: vi.fn().mockResolvedValue(null),
       update: vi.fn(),
       delete: vi.fn(),
+      sumSharedExpenseCents: vi.fn(),
     };
     const useCase = new ListMovements(repository);
 

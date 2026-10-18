@@ -94,6 +94,7 @@ function movementRepositoryWith(rows: MovementDTO[]) {
     findById: vi.fn().mockResolvedValue(null),
     update: vi.fn(),
     delete: vi.fn(),
+    sumSharedExpenseCents: vi.fn(),
   };
 }
 

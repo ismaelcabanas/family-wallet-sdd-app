@@ -60,6 +60,35 @@ describe("ContributionPercentage", () => {
     });
   });
 
+  describe("netAppliedToCents (aporte neto de gastos comunes, tabla congelada data-model §1.1 de 021)", () => {
+    it.each([
+      { basisPoints: 2500, incomeCents: 200_000, sharedExpenseCents: 12_000, expected: 38_000 },
+      { basisPoints: 2500, incomeCents: 200_000, sharedExpenseCents: 12_055, expected: 37_945 },
+      { basisPoints: 2500, incomeCents: 200_000, sharedExpenseCents: 50_000, expected: 0 },
+      { basisPoints: 2500, incomeCents: 200_000, sharedExpenseCents: 62_000, expected: 0 },
+      { basisPoints: 2500, incomeCents: 200_000, sharedExpenseCents: 0, expected: 50_000 },
+    ])(
+      "$basisPoints bp × $incomeCents − $sharedExpenseCents de gastos → $expected",
+      ({ basisPoints, incomeCents, sharedExpenseCents, expected }) => {
+        const percentage = ContributionPercentage.fromBasisPoints(basisPoints);
+
+        expect(percentage.netAppliedToCents(incomeCents, sharedExpenseCents)).toBe(expected);
+      },
+    );
+
+    it("el suelo 0 nunca produce negativos ni arrastre (FR-004)", () => {
+      const percentage = ContributionPercentage.fromBasisPoints(2500);
+
+      expect(percentage.netAppliedToCents(200_000, 999_999)).toBe(0);
+    });
+
+    it("appliedToCents intacto: el redondeo half-up sigue aplicando solo a la parte porcentual (regresión 019)", () => {
+      const percentage = ContributionPercentage.fromBasisPoints(2500);
+
+      expect(percentage.appliedToCents(200_000)).toBe(50_000);
+    });
+  });
+
   describe("equals", () => {
     it("dos VOs con los mismos puntos base son iguales", () => {
       expect(ContributionPercentage.fromBasisPoints(2500)).toEqual(

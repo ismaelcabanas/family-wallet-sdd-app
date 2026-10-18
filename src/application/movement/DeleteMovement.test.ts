@@ -48,6 +48,10 @@ class InMemoryMovementRepository implements MovementRepository {
   async delete(id: number) {
     this.deletedId = id;
   }
+
+  async sumSharedExpenseCents(): Promise<number> {
+    return 0;
+  }
 }
 
 describe("DeleteMovement", () => {

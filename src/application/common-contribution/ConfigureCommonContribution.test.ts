@@ -51,6 +51,14 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
   async registerMaterialization(): Promise<boolean> {
     return false;
   }
+
+  async findMaterializedMovement(): Promise<null> {
+    return null;
+  }
+
+  async withdrawMaterialization(): Promise<boolean> {
+    return false;
+  }
 }
 
 class InMemoryRegularIncomeRepository implements RegularIncomeRepository {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { AccountRepository } from "../account/AccountRepository";
-import type { AccountDTO } from "../movement/dto";
+import type { AccountDTO, MovementDTO } from "../movement/dto";
+import type { MovementRepository } from "../movement/MovementRepository";
 import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRepository";
 import type { TagRepository } from "../tag/TagRepository";
 import { AccountId } from "@/domain/account/AccountId";
@@ -23,8 +24,9 @@ import type { CommonContributionRepository } from "./CommonContributionRepositor
 
 class InMemoryCommonContributionRepository implements CommonContributionRepository {
   private readonly configsByAccountId = new Map<number, CommonContribution>();
-  private readonly materializedMonths = new Set<string>();
+  private readonly materializedMonths = new Map<string, Movement | null>();
   movements: Movement[] = [];
+  withdrawCalls: Array<{ contributionId: number; month: string }> = [];
   private nextConfigId = 1;
   private nextMovementId = 1;
 
@@ -51,6 +53,32 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
     return this.materializedMonths.has(`${contributionId}:${month}`);
   }
 
+  async findMaterializedMovement(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<Movement | null> {
+    return this.materializedMonths.get(`${contributionId}:${month}`) ?? null;
+  }
+
+  async withdrawMaterialization(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<boolean> {
+    this.withdrawCalls.push({ contributionId: contributionId as number, month });
+    const key = `${contributionId}:${month}`;
+    if (!this.materializedMonths.has(key)) {
+      return false;
+    }
+    const movement = this.materializedMonths.get(key) ?? null;
+    if (movement !== null) {
+      this.movements = this.movements.filter(
+        (candidate) => candidate.id !== movement.id,
+      );
+    }
+    this.materializedMonths.delete(key);
+    return true;
+  }
+
   async registerMaterialization(
     config: CommonContribution,
     month: string,
@@ -63,24 +91,61 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
     if (this.materializedMonths.has(key)) {
       return false;
     }
-    this.materializedMonths.add(key);
-    this.movements.push(
-      Movement.recreate(
-        MovementId(this.nextMovementId),
-        {
-          accountId: movement.accountId,
-          type: movement.type,
-          date: movement.date,
-          note: movement.note,
-          amount: movement.amount,
-          nature: movement.nature,
-          tagId: movement.tagId,
-        },
-        movement.createdAt,
-      ),
+    const persisted = Movement.recreate(
+      MovementId(this.nextMovementId),
+      {
+        accountId: movement.accountId,
+        type: movement.type,
+        date: movement.date,
+        note: movement.note,
+        amount: movement.amount,
+        nature: movement.nature,
+        tagId: movement.tagId,
+      },
+      movement.createdAt,
     );
+    this.materializedMonths.set(key, persisted);
+    this.movements.push(persisted);
     this.nextMovementId += 1;
     return true;
+  }
+}
+
+class InMemoryMovementRepository implements MovementRepository {
+  updates: Movement[] = [];
+  sharedExpenseCentsByMonth = new Map<string, number>();
+  calls: Array<{ method: string; args: unknown[] }> = [];
+
+  async create(): Promise<MovementId> {
+    return MovementId(this.updates.length + 100);
+  }
+
+  async listByMonthAndAccount(): Promise<MovementDTO[]> {
+    return [];
+  }
+
+  async listByMonth(): Promise<MovementDTO[]> {
+    return [];
+  }
+
+  async listByYear(): Promise<MovementDTO[]> {
+    return [];
+  }
+
+  async findById(): Promise<Movement | null> {
+    return null;
+  }
+
+  async update(movement: Movement): Promise<void> {
+    this.calls.push({ method: "update", args: [movement] });
+    this.updates.push(movement);
+  }
+
+  async delete(): Promise<void> {}
+
+  async sumSharedExpenseCents(accountId: AccountId, month: string): Promise<number> {
+    this.calls.push({ method: "sumSharedExpenseCents", args: [accountId, month] });
+    return this.sharedExpenseCentsByMonth.get(month) ?? 0;
   }
 }
 
@@ -226,15 +291,18 @@ function buildUseCase(options: {
   regularIncome?: RegularIncome | null;
   tags?: Tag[];
   accounts?: AccountDTO[];
+  movements?: InMemoryMovementRepository;
 }) {
   const tagRepository = new InMemoryTagRepository(options.tags ?? [CONTRIBUTION_TAG]);
+  const movementRepository = options.movements ?? new InMemoryMovementRepository();
   const useCase = new MaterializeCommonContributions(
     options.contributions,
     new InMemoryRegularIncomeRepository(options.regularIncome === undefined ? regularIncome() : options.regularIncome),
+    movementRepository,
     tagRepository,
     new InMemoryAccountRepository(options.accounts ?? [MEMBER_B_ACCOUNT]),
   );
-  return { useCase, tagRepository };
+  return { useCase, tagRepository, movementRepository };
 }
 
 async function seededContributions(config: CommonContribution | null) {
@@ -416,5 +484,169 @@ describe("MaterializeCommonContributions", () => {
 
     expect(repo.movements).toHaveLength(1);
     expect(repo.movements[0].note).toBe("Aportación común de miembro");
+  });
+
+  describe("descuento de gastos comunes (021, guardas §1.2.1)", () => {
+    it("escenario 7: la primera consulta ya materializa neta — nunca bruta y luego ajustada", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_055);
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(repo.movements).toHaveLength(1);
+      expect(repo.movements[0].amount.amountCents).toBe(37_945);
+      expect(movements.updates).toHaveLength(0);
+    });
+
+    it("generación con neto 0 → no-op sin registrar el mes (FR-004)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 50_000);
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(repo.movements).toHaveLength(0);
+      expect(await repo.isMaterialized(CommonContributionId(1), CURRENT_MONTH)).toBe(false);
+    });
+
+    it("re-sincroniza el mes en curso registrado: alta de gasto común ajusta el importe vía movements.update (4i)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(repo.movements).toHaveLength(1);
+      expect(movements.updates).toHaveLength(1);
+      const [updated] = movements.updates;
+      expect(updated.id).toBe(repo.movements[0].id);
+      expect(updated.amount.amountCents).toBe(38_000);
+      expect(updated.date).toBe(repo.movements[0].date);
+      expect(updated.note).toBe(repo.movements[0].note);
+      expect(updated.nature).toBe(repo.movements[0].nature);
+      expect(updated.tagId).toBe(repo.movements[0].tagId);
+      expect(updated.accountId).toBe(repo.movements[0].accountId);
+      expect(updated.createdAt).toBe(repo.movements[0].createdAt);
+    });
+
+    it("idempotencia: neto igual al importe vigente → return sin escritura (4h)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(movements.updates).toHaveLength(0);
+      expect(repo.movements).toHaveLength(1);
+    });
+
+    it("retirada: neto 0 en re-sincronización → withdrawMaterialization y regeneración posterior si bajan los gastos (4g)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 50_000);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(repo.movements).toHaveLength(0);
+      expect(repo.withdrawCalls).toEqual([{ contributionId: 1, month: CURRENT_MONTH }]);
+      expect(await repo.isMaterialized(CommonContributionId(1), CURRENT_MONTH)).toBe(false);
+
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(repo.movements).toHaveLength(1);
+      expect(repo.movements[0].amount.amountCents).toBe(38_000);
+    });
+
+    it("borrado del usuario (fila presente, movimiento null) → no-op definitivo aunque cambie el neto (4c, FR-006)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+      await repo["materializedMonths"].set("1:" + CURRENT_MONTH, null);
+
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(movements.updates).toHaveLength(0);
+      expect(repo.withdrawCalls).toHaveLength(0);
+      expect(await repo.isMaterialized(CommonContributionId(1), CURRENT_MONTH)).toBe(true);
+    });
+
+    it("mes cerrado registrado → congelado (4a, FR-003)", async () => {
+      const repo = await seededContributions(activeConfig({ activatedAtMonth: "2026-08" }));
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, "2026-09", "2026-12");
+      const september = repo.movements[0];
+      expect(september.amount.amountCents).toBe(50_000);
+
+      movements.sharedExpenseCentsByMonth.set("2026-09", 20_000);
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, "2026-09", "2026-12");
+
+      expect(movements.updates).toHaveLength(0);
+      expect(repo.movements[0].amount.amountCents).toBe(50_000);
+    });
+
+    it("config desactivada re-sincroniza el mes en curso ya generado pero no genera meses nuevos (5a solo en generación, escenario 13)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      const stored = await repo.findByAccountId(ACCOUNT_ID);
+      await repo.save(stored!.deactivate());
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
+
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(movements.updates).toHaveLength(1);
+      expect(movements.updates[0].amount.amountCents).toBe(38_000);
+    });
+
+    it("ingreso regular ausente o inactivo en re-sincronización → conserva el último importe (4e)", async () => {
+      const repo = await seededContributions(activeConfig());
+      const movements = new InMemoryMovementRepository();
+      const { useCase } = buildUseCase({ contributions: repo, movements });
+      await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      const stored = await repo.findByAccountId(ACCOUNT_ID);
+      await repo.save(stored!.deactivate());
+      const regularIncomes = new InMemoryRegularIncomeRepository(
+        regularIncome({ active: false }),
+      );
+      const useCaseInactiveIncome = new MaterializeCommonContributions(
+        repo,
+        regularIncomes,
+        movements,
+        new InMemoryTagRepository([CONTRIBUTION_TAG]),
+        new InMemoryAccountRepository([MEMBER_B_ACCOUNT]),
+      );
+      movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
+
+      await useCaseInactiveIncome.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+
+      expect(movements.updates).toHaveLength(0);
+      expect(repo.movements[0].amount.amountCents).toBe(50_000);
+    });
+
+    it("sin config o ventana fuera (activatedAtMonth > month) → no-op", async () => {
+      const emptyRepo = await seededContributions(null);
+      const movements = new InMemoryMovementRepository();
+      const { useCase: withoutConfig } = buildUseCase({ contributions: emptyRepo, movements });
+
+      await withoutConfig.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
+      expect(movements.calls).toHaveLength(0);
+      expect(emptyRepo.movements).toHaveLength(0);
+    });
   });
 });

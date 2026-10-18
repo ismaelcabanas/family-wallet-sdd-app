@@ -24,6 +24,7 @@ export const commonContributionMonths = sqliteTable(
       .references(() => commonContributions.id, { onDelete: "cascade" }),
     month: text("month").notNull(),
     createdAt: text("created_at").notNull(),
+    movementId: integer("movement_id"),
   },
   (table) => [
     uniqueIndex("common_contribution_months_config_month_uq").on(

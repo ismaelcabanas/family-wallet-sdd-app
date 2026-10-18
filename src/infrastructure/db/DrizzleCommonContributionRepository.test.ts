@@ -5,12 +5,13 @@ import { TagId } from "@/domain/tag/TagId";
 import { CommonContribution } from "@/domain/common-contribution/CommonContribution";
 import { ContributionPercentage } from "@/domain/common-contribution/ContributionPercentage";
 import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 
 import { DrizzleAccountRepository } from "./DrizzleAccountRepository";
 import { DrizzleCommonContributionRepository } from "./DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "./DrizzleMovementRepository";
 import { accounts } from "./schema/accounts";
-import { commonContributions } from "./schema/common-contributions";
+import { commonContributionMonths, commonContributions } from "./schema/common-contributions";
 import { members } from "./schema/members";
 import { movements } from "./schema/movements";
 import { tags } from "./schema/tags";
@@ -152,5 +153,132 @@ describe("DrizzleCommonContributionRepository", () => {
     const tag = rows.find((candidate) => candidate.slug === "aportacion-comun");
     expect(tag?.name).toBe("Aportación Común");
     expect(tag?.status).toBe("active");
+  });
+
+  describe("enlace blando movement_id y ciclo retirada/borrado (021)", () => {
+    it("registerMaterialization persiste movement_id del movimiento insertado en la misma tx", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+
+      const registered = await repository.registerMaterialization(saved, "2026-10", buildMovement());
+
+      expect(registered).toBe(true);
+      const [monthRow] = await testDb.db.select().from(commonContributionMonths);
+      const movementRows = await testDb.db.select().from(movements);
+      expect(movementRows).toHaveLength(1);
+      expect(monthRow.movementId).toBe(movementRows[0].id);
+    });
+
+    it("findMaterializedMovement devuelve el movimiento por enlace directo", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerMaterialization(saved, "2026-10", buildMovement());
+
+      const movement = await repository.findMaterializedMovement(saved.id!, "2026-10");
+
+      expect(movement).not.toBeNull();
+      expect(movement!.amount.amountCents).toBe(50_000);
+      expect(movement!.note).toBe("Aportación común de Miembro B");
+    });
+
+    it("findMaterializedMovement devuelve null tras borrado del usuario (enlace huérfano)", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerMaterialization(saved, "2026-10", buildMovement());
+      const [movementRow] = await testDb.db.select().from(movements);
+      await testDb.db.delete(movements).where(eq(movements.id, movementRow.id));
+
+      const movement = await repository.findMaterializedMovement(saved.id!, "2026-10");
+
+      expect(movement).toBeNull();
+      expect(await repository.isMaterialized(saved.id!, "2026-10")).toBe(true);
+    });
+
+    it("findMaterializedMovement resuelve perezosamente una fila legacy (movement_id NULL) y persiste el enlace (auto-sanado)", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      const decoy = await new DrizzleMovementRepository(testDb.db).create(
+        buildMovement({ amount: Money.fromCents(10_000), date: "2026-10-05" }),
+      );
+      const realId = await new DrizzleMovementRepository(testDb.db).create(buildMovement());
+      await testDb.db.insert(commonContributionMonths).values({
+        commonContributionId: saved.id as number,
+        month: "2026-10",
+        createdAt: new Date().toISOString(),
+      });
+
+      const movement = await repository.findMaterializedMovement(saved.id!, "2026-10");
+
+      expect(movement).not.toBeNull();
+      expect(movement!.id).toBe(realId);
+      expect(movement!.id).not.toBe(decoy);
+      const [monthRow] = await testDb.db.select().from(commonContributionMonths);
+      expect(monthRow.movementId).toBe(realId as number);
+    });
+
+    it("findMaterializedMovement sin coincidencia legacy → null (mes congelado)", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await testDb.db.insert(commonContributionMonths).values({
+        commonContributionId: saved.id as number,
+        month: "2026-10",
+        createdAt: new Date().toISOString(),
+      });
+
+      expect(await repository.findMaterializedMovement(saved.id!, "2026-10")).toBeNull();
+    });
+
+    it("withdrawMaterialization borra movimiento enlazado + fila del registro en una tx", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerMaterialization(saved, "2026-10", buildMovement());
+
+      const withdrawn = await repository.withdrawMaterialization(saved.id!, "2026-10");
+
+      expect(withdrawn).toBe(true);
+      expect(await testDb.db.select().from(movements)).toHaveLength(0);
+      expect(await testDb.db.select().from(commonContributionMonths)).toHaveLength(0);
+      expect(await repository.isMaterialized(saved.id!, "2026-10")).toBe(false);
+    });
+
+    it("withdrawMaterialization es idempotente: false si la fila ya no existe", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerMaterialization(saved, "2026-10", buildMovement());
+
+      expect(await repository.withdrawMaterialization(saved.id!, "2026-10")).toBe(true);
+      expect(await repository.withdrawMaterialization(saved.id!, "2026-10")).toBe(false);
+      expect(await testDb.db.select().from(movements)).toHaveLength(0);
+    });
+
+    it("withdrawMaterialization con fila legacy sin movimiento → borra solo la fila", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await testDb.db.insert(commonContributionMonths).values({
+        commonContributionId: saved.id as number,
+        month: "2026-10",
+        createdAt: new Date().toISOString(),
+      });
+
+      const withdrawn = await repository.withdrawMaterialization(saved.id!, "2026-10");
+
+      expect(withdrawn).toBe(true);
+      expect(await testDb.db.select().from(commonContributionMonths)).toHaveLength(0);
+    });
+
+    it("la segunda inserción del par (config, mes) pierde limpiamente y conserva el enlace válido", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+
+      const first = await repository.registerMaterialization(saved, "2026-10", buildMovement());
+      const second = await repository.registerMaterialization(saved, "2026-10", buildMovement({ amount: Money.fromCents(60_000) }));
+
+      expect(first).toBe(true);
+      expect(second).toBe(false);
+      const movementRows = await testDb.db.select().from(movements);
+      expect(movementRows).toHaveLength(1);
+      const [monthRow] = await testDb.db.select().from(commonContributionMonths);
+      expect(monthRow.movementId).toBe(movementRows[0].id);
+    });
   });
 });
