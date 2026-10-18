@@ -70,6 +70,7 @@ export default async function AccountPage({
   await new MaterializeCommonContributions(
     commonContributionRepository,
     regularIncomeRepository,
+    movementRepository,
     tagRepository,
     accountRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());

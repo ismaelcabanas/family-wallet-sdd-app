@@ -33,6 +33,14 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
   async registerMaterialization(): Promise<boolean> {
     return false;
   }
+
+  async findMaterializedMovement(): Promise<null> {
+    return null;
+  }
+
+  async withdrawMaterialization(): Promise<boolean> {
+    return false;
+  }
 }
 
 const ACCOUNT_ID = AccountId(1);

@@ -1,0 +1,1 @@
+ALTER TABLE `common_contribution_months` ADD COLUMN `movement_id` integer;

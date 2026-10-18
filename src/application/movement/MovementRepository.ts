@@ -12,4 +12,5 @@ export interface MovementRepository {
   findById(id: MovementId): Promise<Movement | null>;
   update(movement: Movement): Promise<void>;
   delete(id: MovementId): Promise<void>;
+  sumSharedExpenseCents(accountId: AccountId, month: string): Promise<number>;
 }

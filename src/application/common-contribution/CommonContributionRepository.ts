@@ -12,4 +12,12 @@ export interface CommonContributionRepository {
     month: string,
     movement: Movement,
   ): Promise<boolean>;
+  findMaterializedMovement(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<Movement | null>;
+  withdrawMaterialization(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<boolean>;
 }

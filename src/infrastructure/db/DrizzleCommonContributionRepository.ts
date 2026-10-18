@@ -3,13 +3,14 @@ import { AccountId } from "@/domain/account/AccountId";
 import type { Movement } from "@/domain/movement/Movement";
 import { CommonContribution } from "@/domain/common-contribution/CommonContribution";
 import type { CommonContributionId } from "@/domain/common-contribution/CommonContributionId";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
-import { mapMovementToRow } from "./mappers/movement.mapper";
+import { mapMovementToRow, mapRowToMovement } from "./mappers/movement.mapper";
 import { mapCommonContributionToRow, mapRowToCommonContribution } from "./mappers/common-contribution.mapper";
 import { movements } from "./schema/movements";
 import { commonContributionMonths, commonContributions } from "./schema/common-contributions";
+import { tags } from "./schema/tags";
 import type * as schema from "./schema";
 
 export class DrizzleCommonContributionRepository implements CommonContributionRepository {
@@ -68,12 +69,18 @@ export class DrizzleCommonContributionRepository implements CommonContributionRe
     }
 
     return this.db.transaction(async (tx) => {
+      const [idRow] = await tx
+        .select({ nextId: sql<number>`coalesce(max(${movements.id}), 0) + 1` })
+        .from(movements);
+      const movementId = idRow?.nextId ?? 1;
+
       const registeredRows = await tx
         .insert(commonContributionMonths)
         .values({
           commonContributionId: config.id as number,
           month,
           createdAt: new Date().toISOString(),
+          movementId,
         })
         .onConflictDoNothing({
           target: [commonContributionMonths.commonContributionId, commonContributionMonths.month],
@@ -84,14 +91,118 @@ export class DrizzleCommonContributionRepository implements CommonContributionRe
         return false;
       }
 
-      const [idRow] = await tx
-        .select({ nextId: sql<number>`coalesce(max(${movements.id}), 0) + 1` })
-        .from(movements);
-      const movementId = idRow?.nextId ?? 1;
-
       await tx.insert(movements).values({ id: movementId, ...mapMovementToRow(movement) });
 
       return true;
     });
+  }
+
+  async findMaterializedMovement(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<Movement | null> {
+    const [monthRow] = await this.db
+      .select()
+      .from(commonContributionMonths)
+      .where(
+        and(
+          eq(commonContributionMonths.commonContributionId, contributionId as number),
+          eq(commonContributionMonths.month, month),
+        ),
+      )
+      .limit(1);
+
+    if (monthRow === undefined) {
+      return null;
+    }
+
+    if (monthRow.movementId !== null) {
+      const [movementRow] = await this.db
+        .select()
+        .from(movements)
+        .where(eq(movements.id, monthRow.movementId));
+      return movementRow === undefined ? null : mapRowToMovement(movementRow);
+    }
+
+    const config = await this.findByAccountIdForContribution(contributionId);
+    const [legacyRow] = await this.db
+      .select({ id: movements.id })
+      .from(movements)
+      .innerJoin(tags, eq(tags.id, movements.tagId))
+      .where(
+        and(
+          eq(movements.accountId, config.accountId as number),
+          eq(movements.date, `${month}-01`),
+          eq(movements.type, "expense"),
+          eq(movements.nature, "personal"),
+          eq(tags.slug, "aportacion-comun"),
+          like(movements.note, "Aportación común de %"),
+        ),
+      )
+      .orderBy(movements.id)
+      .limit(1);
+
+    if (legacyRow === undefined) {
+      return null;
+    }
+
+    await this.db
+      .update(commonContributionMonths)
+      .set({ movementId: legacyRow.id })
+      .where(eq(commonContributionMonths.id, monthRow.id));
+
+    const [movementRow] = await this.db
+      .select()
+      .from(movements)
+      .where(eq(movements.id, legacyRow.id));
+    return movementRow === undefined ? null : mapRowToMovement(movementRow);
+  }
+
+  async withdrawMaterialization(
+    contributionId: CommonContributionId,
+    month: string,
+  ): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const [monthRow] = await tx
+        .select()
+        .from(commonContributionMonths)
+        .where(
+          and(
+            eq(commonContributionMonths.commonContributionId, contributionId as number),
+            eq(commonContributionMonths.month, month),
+          ),
+        )
+        .limit(1);
+
+      if (monthRow === undefined) {
+        return false;
+      }
+
+      if (monthRow.movementId !== null) {
+        await tx.delete(movements).where(eq(movements.id, monthRow.movementId));
+      }
+
+      await tx
+        .delete(commonContributionMonths)
+        .where(eq(commonContributionMonths.id, monthRow.id));
+
+      return true;
+    });
+  }
+
+  private async findByAccountIdForContribution(
+    contributionId: CommonContributionId,
+  ): Promise<{ accountId: AccountId }> {
+    const [row] = await this.db
+      .select({ accountId: commonContributions.accountId })
+      .from(commonContributions)
+      .where(eq(commonContributions.id, contributionId as number))
+      .limit(1);
+
+    if (row === undefined) {
+      throw new RangeError(`No existe la configuración de aportación ${contributionId}`);
+    }
+
+    return { accountId: AccountId(row.accountId) };
   }
 }

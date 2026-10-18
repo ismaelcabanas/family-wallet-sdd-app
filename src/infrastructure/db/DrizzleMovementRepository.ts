@@ -114,4 +114,21 @@ export class DrizzleMovementRepository implements MovementRepository {
   async delete(id: MovementId): Promise<void> {
     await this.db.delete(movements).where(eq(movements.id, id as number));
   }
+
+  async sumSharedExpenseCents(accountId: AccountId, month: string): Promise<number> {
+    const [row] = await this.db
+      .select({ total: sql<number>`coalesce(sum(${movements.amountCents}), 0)` })
+      .from(movements)
+      .where(
+        and(
+          eq(movements.accountId, accountId as number),
+          eq(movements.type, "expense"),
+          eq(movements.nature, "shared"),
+          gte(movements.date, `${month}-01`),
+          lt(movements.date, nextMonthFirstDay(month)),
+        ),
+      );
+
+    return row?.total ?? 0;
+  }
 }

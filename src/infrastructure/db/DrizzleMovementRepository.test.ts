@@ -398,6 +398,43 @@ describe("DrizzleMovementRepository", () => {
     });
   });
 
+  describe("sumSharedExpenseCents (021)", () => {
+    it("suma solo los gastos nature='shared' de esa cuenta con fecha en el mes (FR-005)", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-09-10", note: "Compartido 10", amount: Money.fromCents(12_000) }));
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-09-20", note: "Compartido 20", amount: Money.fromCents(55) }));
+      await repository.create(
+        buildMovement({ accountId: AccountId(1), date: "2026-09-15", note: "Personal", nature: "personal", amount: Money.fromCents(99_999) }),
+      );
+      await repository.create(
+        buildMovement({ accountId: AccountId(1), date: "2026-09-15", type: "income", nature: null, tagId: null, note: "Nómina", amount: Money.fromCents(200_000) }),
+      );
+      await repository.create(buildMovement({ accountId: AccountId(3), date: "2026-09-15", note: "Otra cuenta", amount: Money.fromCents(88_888) }));
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-10-01", note: "Mes siguiente", amount: Money.fromCents(77_777) }));
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-08-31", note: "Mes anterior", amount: Money.fromCents(66_666) }));
+
+      const total = await repository.sumSharedExpenseCents(AccountId(1), "2026-09");
+
+      expect(total).toBe(12_055);
+    });
+
+    it("devuelve 0 (coalesce) sin movimientos en el mes", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-09-15", note: "Shared" }));
+
+      expect(await repository.sumSharedExpenseCents(AccountId(1), "2026-06")).toBe(0);
+    });
+
+    it("respeta el rango semicerrado del mes: incluye mes-01 y excluye mesSiguiente-01 (edge «mes al que pertenece»)", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-09-01", note: "Primero", amount: Money.fromCents(1_000) }));
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-09-30", note: "Último", amount: Money.fromCents(2_000) }));
+      await repository.create(buildMovement({ accountId: AccountId(1), date: "2026-10-01", note: "Fuera", amount: Money.fromCents(4_000) }));
+
+      expect(await repository.sumSharedExpenseCents(AccountId(1), "2026-09")).toBe(3_000);
+    });
+  });
+
   describe("migración 0002 y FK RESTRICT (SC-003)", () => {
     it("la BD de test nace sin tabla movement_tags y con la columna note en movements", async () => {
       const tables = await testDb.client.execute(

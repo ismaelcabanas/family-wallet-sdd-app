@@ -27,6 +27,10 @@ export class ContributionPercentage {
     return Math.floor((amountCents * this.basisPoints + HALF_UNIT) / HALF_DIVISOR);
   }
 
+  netAppliedToCents(incomeCents: number, sharedExpenseCents: number): number {
+    return Math.max(0, this.appliedToCents(incomeCents) - sharedExpenseCents);
+  }
+
   equals(other: ContributionPercentage): boolean {
     return this.basisPoints === other.basisPoints;
   }
