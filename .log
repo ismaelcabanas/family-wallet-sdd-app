@@ -1,0 +1,15 @@
+
+> family-wallet@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 3055, using available port 3002 instead.
+▲ Next.js 16.3.4 (Turbopack)
+- Local:         http://localhost:3002
+- Network:       http://192.168.1.45:3002
+- Environments: .env
+✓ Ready in 568ms
+✓ Running next.config.ts took 103ms
+
+ GET /accounts/2 200 in 791ms (next.js: 544ms, application-code: 247ms)
+ GET /accounts/2 200 in 55ms (next.js: 8ms, application-code: 47ms)
+ GET /accounts/2 200 in 39ms (next.js: 4ms, application-code: 36ms)
