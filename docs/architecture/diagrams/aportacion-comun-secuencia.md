@@ -1,6 +1,6 @@
-# Secuencia: aportación común — configurar porcentaje → consultar mes → gasto materializado (019)
+# Secuencia: aportación común — configurar porcentaje → consultar mes → gasto materializado (019, importe neto desde 021)
 
-Happy path de la feature 019: el miembro configura qué porcentaje de su ingreso regular (018) aporta a la cuenta común y la siguiente consulta de la página de la cuenta del mes materializa el gasto propio exactamente una vez (base: `specs/019-aportacion-comun/plan.md` §Diagramas de diseño). La entrada es el ítem «Aportación» del menú ⋮ de la tarjeta en `/`, bajo «Ingreso regular», y solo se habilita si el miembro tiene ingreso regular configurado (FR-006).
+Happy path de la feature 019: el miembro configura qué porcentaje de su ingreso regular (018) aporta a la cuenta común y la siguiente consulta de la página de la cuenta del mes materializa el gasto propio exactamente una vez (base: `specs/019-aportacion-comun/plan.md` §Diagramas de diseño). La entrada es el ítem «Aportación» del menú ⋮ de la tarjeta en `/`, bajo «Ingreso regular», y solo se habilita si el miembro tiene ingreso regular configurado (FR-006). Desde 021 el importe es **neto** (bruto − Σ gastos comunes del mes, suelo 0) y el mes en curso se re-sincroniza en cada lectura (ADR 0019).
 
 ```mermaid
 sequenceDiagram
@@ -13,6 +13,7 @@ sequenceDiagram
     participant MRI as MaterializeRegularIncomes (018, intacto)
     participant DOM as CommonContribution + ContributionPercentage (dominio)
     participant RCR as «port» CommonContributionRepository
+    participant RMV as «port» MovementRepository
     participant RIR as «port» RegularIncomeRepository
     participant TR as «port» TagRepository
     participant DB as DrizzleCommonContributionRepository + libSQL
@@ -32,14 +33,15 @@ sequenceDiagram
     MCC->>RCR: findByAccountId → config activa ✓ · ventana activatedAtMonth ≤ month ≤ currentMonth ✓
     MCC->>RCR: isMaterialized(id, month) → false
     MCC->>RIR: findByAccountId → ingreso activo (base al momento de generar)
-    MCC->>DOM: appliedToCents(income.amountCents) = floor((cents×2500+5000)/10000) half-up
+    MCC->>RMV: sumSharedExpenseCents(accountId, month) → Σ gastos nature='shared' del mes (SUM SQL sellada)
+    MCC->>DOM: netAppliedToCents(incomeCents, sharedExpenseCents) = max(0, appliedToCents − gastos)
     MCC->>TR: findBySlug("aportacion-comun") ?? Tag.create + save (ensure por slug)
-    MCC->>DOM: Movement.create(gasto · naturaleza propia · date ${month}-01 · nota «Aportación común de {miembro}» · etiqueta)
+    MCC->>DOM: Movement.create(gasto · naturaleza propia · date ${month}-01 · nota «Aportación común de {miembro}» · etiqueta · importe neto)
     MCC->>RCR: registerMaterialization(config, month, movement)
-    DB->>DB: tx: INSERT common_contribution_months ON CONFLICT DO NOTHING RETURNING → ok → INSERT movements (id max+1)
+    DB->>DB: tx: INSERT common_contribution_months (movement_id = id calculada) ON CONFLICT DO NOTHING RETURNING → ok → INSERT movements
     P->>LM: execute(accountId, month) — la aportación ya existe
     LM-->>P: MovementDTO[] con el gasto (cierre y balance lo computan igual)
-    P-->>U: listado del mes con −500,00 € «Aportación común de {miembro}» — exactamente 1
+    P-->>U: listado del mes con el importe neto «Aportación común de {miembro}» — exactamente 1
 ```
 
 Notas:
@@ -49,3 +51,46 @@ Notas:
 - Si el par `(config, mes)` ya está registrado (reconsulta o carrera concurrente), `registerMaterialization` devuelve `false` sin escribir movimiento; el borrado del gasto generado es definitivo.
 - Sin ingreso regular (o inactivo): el ítem del menú queda deshabilitado con «Requiere ingreso regular» y la materialización es no-op (FR-006).
 - La cuenta común no recibe contrapartida automática (decisión del propietario; Out of Scope de 019).
+
+## Variante 021: re-sincronización del mes en curso en lectura (ADR 0019)
+
+Cuando el mes consultado ya está registrado y es el mes en curso, `ensureForAccountAndMonth` recalcula el neto y ajusta el movimiento generado en la misma lectura (tras cualquier alta/edición/eliminación de gastos comunes — las actions ya revalidan la página de cuenta). Base: `specs/021-descuento-gastos-comunes/plan.md` §Diagramas de diseño.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario (miembro, mes en curso)
+    participant P as /accounts/[accountId] page.tsx (server)
+    participant MCC as MaterializeCommonContributions (aplicación)
+    participant RCR as «port» CommonContributionRepository
+    participant RMV as «port» MovementRepository
+    participant RIR as «port» RegularIncomeRepository
+    participant DOM as ContributionPercentage (dominio)
+    participant DB as DrizzleCommonContributionRepository + libSQL
+
+    U->>P: GET /accounts/{id} (mes en curso; aportación ya materializada)
+    P->>MCC: ensureForAccountAndMonth(accountId, month, currentMonth)
+    MCC->>RCR: findByAccountId → config (activa o no; la ventana sigue válida)
+    MCC->>RCR: isMaterialized(id, month) → true → rama de re-sincronización
+    MCC->>MCC: month === currentMonth ✓ (mes cerrado → congelado, FR-003)
+    MCC->>RCR: findMaterializedMovement(id, month) → movimiento por movement_id
+    Note over RCR,DB: fila legacy (movement_id NULL) → heurística acotada + persistencia del enlace; null ⇒ borrado del usuario ⇒ no-op definitivo (FR-006)
+    MCC->>RIR: findByAccountId → ingreso activo (ausente/inactivo → conserva el importe)
+    MCC->>RMV: sumSharedExpenseCents(accountId, month)
+    MCC->>DOM: netAppliedToCents(incomeCents, gastos) = max(0, appliedToCents − gastos)
+    alt neto < 1 céntimo
+        MCC->>RCR: withdrawMaterialization(id, month)
+        DB->>DB: tx: DELETE movements (enlazado) + DELETE common_contribution_months — la generación queda reabierta (reaparece si los gastos bajan)
+    else neto = importe vigente
+        MCC-->>P: return sin escritura (idempotente)
+    else neto ≠ importe vigente
+        MCC->>RMV: update(Movement.recreate(id, {…campos intactos…, amount: Money.fromCents(neto)}, createdAt))
+    end
+    P-->>U: listado con la aportación neta vigente — exactamente 1 (o ausente si se retiró)
+```
+
+Notas de la variante:
+
+- La guarda `config.active` se evalúa **solo en la generación** (clarify 2026-10-18): la desactivación a mitad de mes detiene los meses futuros, no congela el importe del mes en curso.
+- La generación con neto 0 es no-op **sin registrar el mes**; la retirada (re-sincronización con neto 0) borra movimiento y fila, y la aportación reaparece con el neto vigente si los gastos bajan.
+- `/summary` y `/annual` siguen sin materializar ni ajustar: pueden mostrar el importe anterior al último ajuste hasta que se visite la página de la cuenta (ADR 0016/0017).
