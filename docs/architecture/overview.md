@@ -58,7 +58,7 @@ src/
 │   │   ├── GetGlobalMonthlySummary.ts <-- Query resumen global del mes: listByMonth + findAll vía puertos + VO (ADR 0012)
 │   │   ├── GetAnnualIncomeStatement.ts <-- Query cuenta de resultados anual: listByYear + cuentas + miembros vía puertos + VO (ADR 0013)
 │   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO (con memberId), TagDTO, MonthlyClosureDTO, GlobalMonthlySummaryDTO, AnnualIncomeStatementDTO
-│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth y listByYear, ADR 0012/0013)
+│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth y listByYear, ADR 0012/0013; sumSharedExpenseCents desde 021, ADR 0019)
 │   ├── account/
 │   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance con corte opcional asOf inclusive, ADR 0009)
 │   │   └── ListAccounts.ts
@@ -83,7 +83,7 @@ src/
 │       ├── CommonContributionRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
 │       ├── ConfigureCommonContribution.ts  <-- Guardas: cuenta personal + ingreso regular existente (MissingRegularIncomeError) + appliedToCents ≥ 1; reactivación resetea activación
 │       ├── DeactivateCommonContribution.ts · GetCommonContribution.ts
-│       ├── MaterializeCommonContributions.ts <-- Segundo materializador perezoso (patrón ADR 0016): guardas §1.2.1 + ensure de etiqueta por slug «aportacion-comun»
+│       ├── MaterializeCommonContributions.ts <-- Segundo materializador perezoso (patrón ADR 0016): generación neta + re-sincronización del mes en curso + retirada (021, ADR 0019; guardas §1.2.1 de la spec) + ensure de etiqueta por slug «aportacion-comun»
 │       └── dto.ts                          <-- CommonContributionDTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
@@ -96,14 +96,14 @@ src/
 │
 └── infrastructure/
     ├── db/                      <-- ADAPTADOR OUTBOUND: Persistencia Drizzle
-    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»)
+    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»; movement_id blando sin FK desde 021 — migración 0005, ADR 0019)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
-    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011)
+    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011; sumSharedExpenseCents SUM sellada 021, ADR 0019)
     │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017; +findById/findAll/update y mergeInto transaccional UPDATE movements → DELETE tag sin tocar updated_at — 004, ADR 0018) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
-    │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months)
+    │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months; 021 añade enlace blando movement_id con resolución perezosa legacy + withdrawMaterialization en tx — ADR 0019)
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 13 tags con «Aportación Común» desde 019)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
@@ -225,6 +225,6 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)
 - [Secuencia del ingreso regular: configurar → consultar mes → materialización](./diagrams/ingreso-regular-secuencia.md) (ADR 0016, feature 018)
-- [Secuencia de la aportación común: configurar porcentaje → consultar mes → materialización](./diagrams/aportacion-comun-secuencia.md) (ADR 0017, feature 019)
+- [Secuencia de la aportación común: configurar porcentaje → consultar mes → materialización](./diagrams/aportacion-comun-secuencia.md) (ADR 0017, feature 019; variante de re-sincronización del mes en curso y retirada de 021 — ADR 0019)
 - [Secuencia del mantenimiento del catálogo de etiquetas: fusión](./diagrams/gestion-tags-secuencia.md) (ADR 0018, feature 004)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)

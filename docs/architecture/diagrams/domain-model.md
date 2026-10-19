@@ -133,6 +133,7 @@ classDiagram
         +basisPoints: int (1–10 000; 1 % = 100 bp)
         +fromBasisPoints(bp)$ ContributionPercentage
         +appliedToCents(amountCents) int (floor((cents×bp+5 000)/10 000), half-up entero)
+        +netAppliedToCents(incomeCents, sharedExpenseCents) int (max(0, appliedToCents − gastos); 021, ADR 0019)
         +equals(other) boolean
     }
 
