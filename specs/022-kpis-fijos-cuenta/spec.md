@@ -20,6 +20,12 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — consultar de un vistazo y de forma continua la aportación neta y el saldo del mes sin recorrer el listado ni el cierre. Los dos KPIs conforman una sola necesidad de visibilidad y se entregan juntos; no aplica excepción.
 
+## Clarifications
+
+### Session 2026-10-21
+
+- Q: ¿Cómo deben fijarse los KPIs para que permanezcan visibles mientras se recorre el listado? → A: Bloque KPI sticky (CSS `position: sticky`): se fija al hacer scroll y permanece visible; el selector ‹ mes/año › no se incluye en la barra sticky; el listado y el resto de la página no cambian.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Consultar aportación neta y saldo del mes de forma continua (Priority: P1)
@@ -45,7 +51,7 @@ Como miembro con cuenta personal, al consultar la página de mi cuenta quiero ve
 
 ### Edge Cases
 
-- **Mecanismo de fijación**: sticky al scroll frente a bloque destacado bajo el selector de fechas — decisión diferida a clarify/plan (nota del roadmap 2026-10-21); el requisito funcional es la visibilidad continua mientras se recorre el listado.
+- **Mecanismo de fijación (clarified 2026-10-21)**: bloque KPI con CSS `position: sticky` — se fija al hacer scroll y permanece visible durante todo el listado; el selector ‹ mes/año › NO se incluye en la barra sticky; el listado y el resto de la página no cambian de layout.
 - **Aportación configurada sin movimiento materializado en el mes consultado** (neto cero por 021, borrado definitivo del usuario, mes fuera de la ventana de activación o mes futuro): el KPI muestra 0,00 €, distinto del caso «sin configuración» («Sin aportación configurada»).
 - **Meses cerrados**: la aportación de un mes cerrado está congelada (021); el KPI muestra su importe histórico.
 - **Aportación desactivada a mitad de mes**: si el movimiento del mes en curso existe, el KPI muestra su importe neto vigente (021); si no existe, 0,00 €.
@@ -57,7 +63,7 @@ Como miembro con cuenta personal, al consultar la página de mi cuenta quiero ve
 
 ### Functional Requirements
 
-- **FR-001 (bloque de KPIs en cuentas personales)**: El sistema MUST mostrar en la página de cada cuenta personal un bloque destacado con dos KPIs del mes: la aportación neta a la cuenta común y el saldo del mes. El bloque MUST ser visible de forma continua mientras el usuario se desplaza por el listado de movimientos (el mecanismo exacto de fijación se decide en el plan).
+- **FR-001 (bloque de KPIs en cuentas personales)**: El sistema MUST mostrar en la página de cada cuenta personal un bloque destacado con dos KPIs del mes: la aportación neta a la cuenta común y el saldo del mes. El bloque MUST ser visible de forma continua mientras el usuario se desplaza por el listado de movimientos, implementado como bloque sticky (CSS `position: sticky`, sin incluir el selector ‹ mes/año › en la barra sticky).
 - **FR-002 (KPI de aportación neta)**: El KPI de aportación MUST mostrarse siempre en cuentas personales con el importe neto final del mes según la regla de 021 (bruto porcentual − gastos comunes del mes, suelo 0): sin configuración de aportación MUST mostrar «Sin aportación configurada» y 0,00 €; con configuración MUST mostrar el importe neto del mes (0,00 € si no existe aportación materializada ese mes). MUST NOT mostrar desglose bruto/descuento.
 - **FR-003 (KPI de saldo del mes)**: El KPI de saldo MUST mostrar el saldo del mes consultado: suma de ingresos menos suma de gastos de ese mes en la cuenta (todos sus movimientos, incluida la aportación). MUST NOT mostrarse el balance acumulado en este KPI.
 - **FR-004 (mes consultado)**: Ambos KPIs MUST reflejar el mes seleccionado en el selector ‹ mes/año ›, con los mismos datos que el listado y el cierre de ese mes.
@@ -85,7 +91,7 @@ No se introducen entidades nuevas: los KPIs son agregaciones de lectura derivada
 
 ## Assumptions
 
-- **Mecanismo de fijación diferido**: sticky al scroll vs. bloque destacado bajo el selector de fechas se decide en clarify/plan (nota del roadmap 2026-10-21); la spec fija el requisito funcional de visibilidad continua.
+- **Mecanismo de fijación (clarified 2026-10-21)**: bloque KPI con CSS `position: sticky` (sin el selector ‹ mes/año › en la barra); resuelto en clarify, pendiente solo de detalle técnico en el plan.
 - **Fuente del KPI de aportación (default informado)**: el importe mostrado es el neto vigente de la regla de 021 para el mes consultado; en la práctica coincide con el movimiento «Aportación Común» del mes cuando existe. Sin movimiento (neto cero, borrado definitivo, fuera de ventana o mes futuro): 0,00 € si hay configuración; «Sin aportación configurada» si no la hay.
 - **Saldo del mes (decisión del propietario)**: ingresos − gastos del mes consultado, no el balance acumulado; computa todos los movimientos del mes de la cuenta, incluida la aportación.
 - **Etiquetas y formato**: títulos de los KPIs en español («Aportación común», «Saldo del mes» o equivalentes a decidir en el plan); importes en EUR con 2 decimales y el formato numérico existente de la aplicación.
