@@ -1,4 +1,5 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
+import { GetMonthNetContribution } from "@/application/common-contribution/GetMonthNetContribution";
 import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
 import { MaterializeCommonContributions } from "@/application/common-contribution/MaterializeCommonContributions";
@@ -15,6 +16,7 @@ import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRe
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
+import { AccountMonthKpis } from "@/infrastructure/primary/ui/account-month-kpis";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { GroupedMovementList } from "@/infrastructure/primary/ui/grouped-movement-list";
 import { currentMonth, monthEndIsoDate, monthLabel } from "@/infrastructure/primary/ui/format";
@@ -75,11 +77,17 @@ export default async function AccountPage({
     accountRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, balanceCents, tags, closure] = await Promise.all([
+  const [movements, balanceCents, tags, closure, netContribution] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),
     accountRepository.getBalance(AccountId(account.id), monthEndIsoDate(month)),
     new ListActiveTags(tagRepository).execute(),
     new GetMonthlyClosure(movementRepository).execute(account.id, month),
+    account.type === "personal"
+      ? new GetMonthNetContribution(commonContributionRepository).execute(
+          AccountId(account.id),
+          month,
+        )
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -95,6 +103,14 @@ export default async function AccountPage({
       </p>
 
       <MonthStepper accountId={account.id} month={month} />
+
+      {account.type === "personal" && netContribution !== null ? (
+        <AccountMonthKpis
+          netContribution={netContribution}
+          monthBalanceCents={closure.monthBalanceCents}
+          month={month}
+        />
+      ) : null}
 
       <GroupedMovementList
         movements={movements}
