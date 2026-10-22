@@ -135,17 +135,19 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await expect(movementList(page)).not.toContainText("Ingreso");
 
     await gotoAccountMonth(page);
-    const { stepperIndex, listIndex } = await page.locator("main > *").evaluateAll((blocks) => ({
+    const { stepperIndex, kpiIndex, listIndex } = await page.locator("main > *").evaluateAll((blocks) => ({
       stepperIndex: blocks.findIndex(
         (block) => block.getAttribute("aria-label") === "Selección de mes",
+      ),
+      kpiIndex: blocks.findIndex(
+        (block) => block.getAttribute("aria-labelledby") === "account-month-kpis-title",
       ),
       listIndex: blocks.findIndex(
         (block) => block.getAttribute("aria-labelledby") === "movement-list-title",
       ),
     }));
-    expect(listIndex, "el listado va inmediatamente tras el selector, sin bloques intermedios").toBe(
-      stepperIndex + 1,
-    );
+    expect(kpiIndex, "el bloque de KPIs va justo tras el selector").toBe(stepperIndex + 1);
+    expect(listIndex, "el listado va tras el bloque de KPIs").toBe(stepperIndex + 2);
 
     await expect(page.getByRole("combobox", { name: "Mes visible" })).toBeInViewport();
     await expect(groups.first()).toBeInViewport();
