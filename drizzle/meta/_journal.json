@@ -43,6 +43,13 @@
       "when": 1792144000000,
       "tag": "0005_descuento-gastos-comunes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793139310742,
+      "tag": "0006_porcentaje-ahorro",
+      "breakpoints": true
     }
   ]
 }
