@@ -14,11 +14,21 @@ vi.mock("../actions/configure-common-contribution.action", () => ({
   configureCommonContribution: vi.fn(),
 }));
 
+vi.mock("../actions/configure-savings-allocation.action", () => ({
+  configureSavingsAllocation: vi.fn(),
+}));
+
 import type { AccountDTO } from "@/application/movement/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
 import type { CommonContributionDTO } from "@/application/common-contribution/dto";
+import type { SavingsAllocationDTO } from "@/application/savings/dto";
 
-import { AccountCardGrid, commonContributionMenuStatus, regularIncomeMenuStatus } from "./account-card-grid";
+import {
+  AccountCardGrid,
+  commonContributionMenuStatus,
+  regularIncomeMenuStatus,
+  savingsMenuStatus,
+} from "./account-card-grid";
 
 const ACCOUNTS: AccountDTO[] = [
   { id: 1, name: "Cuenta de Miembro A", type: "personal", memberId: 1, memberName: "Miembro A" },
@@ -45,7 +55,7 @@ afterEach(() => {
 describe("AccountCardGrid", () => {
   it("renderiza una tarjeta por cuenta en el orden de entrada como lista etiquetada", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     const list = screen.getByRole("list", { name: "Cuentas" });
     expect(list).toBeInTheDocument();
@@ -62,7 +72,7 @@ describe("AccountCardGrid", () => {
 
   it("usa el nombre y el tipo exactos como nombre accesible del enlace", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     expect(
       screen.getByRole("link", { name: /Cuenta de Miembro A\s*Cuenta personal de Miembro A/ }),
@@ -75,7 +85,7 @@ describe("AccountCardGrid", () => {
 
   it("enlaza a /accounts/{id} sin query string", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/accounts/1",
@@ -86,7 +96,7 @@ describe("AccountCardGrid", () => {
 
   it("no muestra ningún importe (sin €) ni datos derivados", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{ 1: activeConfig, 2: inactiveConfig }}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     expect(screen.queryByText(/€/)).not.toBeInTheDocument();
     expect(screen.queryByText(/_balance_|balance|gasto/i)).not.toBeInTheDocument();
@@ -100,7 +110,7 @@ describe("AccountCardGrid", () => {
       <AccountCardGrid
         accounts={[withMovements, withoutMovements]}
         regularIncomes={{ 2: activeConfig }}
-        commonContributions={{}}
+        commonContributions={{}} savingsAllocations={{}}
       />,
     );
 
@@ -114,7 +124,7 @@ describe("AccountCardGrid", () => {
       <AccountCardGrid
         accounts={[{ id: 4, name: "Cuenta sin miembro", type: "personal", memberId: null, memberName: null }]}
         regularIncomes={{}}
-        commonContributions={{}}
+        commonContributions={{}} savingsAllocations={{}}
       />,
     );
 
@@ -125,7 +135,7 @@ describe("AccountCardGrid", () => {
 
   it("el menú ⋮ solo aparece en cuentas personales, con nombre accesible único por tarjeta", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     expect(
       screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }),
@@ -138,7 +148,7 @@ describe("AccountCardGrid", () => {
 
   it("el botón del menú no está dentro del enlace (patrón stretched-link)", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
-        commonContributions={{}} />);
+        commonContributions={{}} savingsAllocations={{}} />);
 
     for (const link of screen.getAllByRole("link")) {
       expect(link.querySelector("button")).toBeNull();
@@ -155,7 +165,7 @@ describe("AccountCardGrid", () => {
     const user = userEvent.setup();
     const { unmount } = render(
       <AccountCardGrid accounts={ACCOUNTS} regularIncomes={{ 1: null, 2: activeConfig }}
-      commonContributions={{}} />,
+      commonContributions={{}} savingsAllocations={{}} />,
     );
 
     await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }));
@@ -174,7 +184,7 @@ describe("AccountCardGrid", () => {
     unmount();
 
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{ 1: inactiveConfig }}
-      commonContributions={{}} />);
+      commonContributions={{}} savingsAllocations={{}} />);
     await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }));
     expect(
       within(screen.getByRole("menu")).getByRole("menuitem", { name: /Ingreso regular\s*Desactivada/ }),
@@ -184,7 +194,7 @@ describe("AccountCardGrid", () => {
   it("seleccionar el ítem cierra el menú y abre el diálogo «Ingreso regular»", async () => {
     const user = userEvent.setup();
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{ 1: null, 2: activeConfig }}
-      commonContributions={{}} />);
+      commonContributions={{}} savingsAllocations={{}} />);
 
     await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }));
     await user.click(
@@ -241,7 +251,7 @@ describe("AccountCardGrid", () => {
       <AccountCardGrid
         accounts={ACCOUNTS}
         regularIncomes={{ 1: null, 2: activeConfig }}
-        commonContributions={{ 1: null, 2: contributionActive }}
+        commonContributions={{ 1: null, 2: contributionActive }} savingsAllocations={{}}
       />,
     );
 
@@ -251,6 +261,7 @@ describe("AccountCardGrid", () => {
     expect(itemsA.map((item) => item.textContent)).toEqual([
       "Ingreso regularSin configurar",
       "AportaciónRequiere ingreso regular",
+      "AhorroRequiere ingreso regular",
     ]);
 
     await user.keyboard("{Escape}");
@@ -272,7 +283,7 @@ describe("AccountCardGrid", () => {
       <AccountCardGrid
         accounts={ACCOUNTS}
         regularIncomes={{ 1: null, 2: null }}
-        commonContributions={{ 1: null, 2: null }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{}}
       />,
     );
 
@@ -295,7 +306,7 @@ describe("AccountCardGrid", () => {
       <AccountCardGrid
         accounts={ACCOUNTS}
         regularIncomes={{ 1: null, 2: activeConfig }}
-        commonContributions={{ 1: null, 2: null }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{}}
       />,
     );
 
@@ -310,11 +321,129 @@ describe("AccountCardGrid", () => {
   });
 
   it("la cuenta común sigue sin menú de configuración", () => {
-    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}} commonContributions={{}} />);
+    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}} commonContributions={{}} savingsAllocations={{}} />);
 
     expect(
       screen.queryByRole("button", { name: "Configuración de Cuenta común" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Aportación/ })).not.toBeInTheDocument();
+  });
+
+  const savingsActive: SavingsAllocationDTO = {
+    accountId: 1,
+    percentage: 10,
+    active: true,
+    activatedAtMonth: "2026-08",
+  };
+
+  const savingsInactive: SavingsAllocationDTO = { ...savingsActive, active: false };
+
+  describe("savingsMenuStatus", () => {
+    it("sin ingreso regular → «Requiere ingreso regular»", () => {
+      expect(savingsMenuStatus(savingsActive, null)).toBe("Requiere ingreso regular");
+      expect(savingsMenuStatus(null, null)).toBe("Requiere ingreso regular");
+    });
+
+    it("con ingreso y sin ahorro → «Sin configurar»", () => {
+      expect(savingsMenuStatus(null, activeConfig)).toBe("Sin configurar");
+    });
+
+    it("ahorro activo → «Activo»", () => {
+      expect(savingsMenuStatus(savingsActive, activeConfig)).toBe("Activo");
+    });
+
+    it("ahorro inactivo → «Desactivado»", () => {
+      expect(savingsMenuStatus(savingsInactive, activeConfig)).toBe("Desactivado");
+    });
+  });
+
+  it("el ítem «Ahorro» aparece tercero bajo «Ingreso regular» y «Aportación» con estado a la derecha", async () => {
+    const user = userEvent.setup();
+    render(
+      <AccountCardGrid
+        accounts={ACCOUNTS}
+        regularIncomes={{ 1: activeConfig, 2: activeConfig }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{ 1: null, 2: savingsActive }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }));
+    const menu = screen.getByRole("menu");
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Ingreso regularActiva",
+      "AportaciónSin configurar",
+      "AhorroActivo",
+    ]);
+    expect(items[2].querySelector(".ml-auto")).not.toBeNull();
+  });
+
+  it("sin ingreso regular: el ítem «Ahorro» queda deshabilitado y no abre diálogo", async () => {
+    const user = userEvent.setup();
+    render(
+      <AccountCardGrid
+        accounts={ACCOUNTS}
+        regularIncomes={{ 1: null, 2: null }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{ 1: null, 2: null }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }));
+    const item = within(screen.getByRole("menu")).getByRole("menuitem", {
+      name: /Ahorro\s*Requiere ingreso regular/,
+    });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveAttribute("data-disabled");
+
+    await user.click(item);
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("con ingreso regular: «Ahorro» abre el diálogo dentro de la tarjeta", async () => {
+    const user = userEvent.setup();
+    render(
+      <AccountCardGrid
+        accounts={ACCOUNTS}
+        regularIncomes={{ 1: null, 2: activeConfig }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{ 1: null, 2: null }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }));
+    await user.click(
+      within(screen.getByRole("menu")).getByRole("menuitem", { name: /Ahorro\s*Sin configurar/ }),
+    );
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Ahorro mensual" });
+    expect(within(dialog).getByLabelText("Porcentaje (%)")).toHaveValue("");
+  });
+
+  it("con ahorro configurado: el diálogo abre pre-rellenado (instancia fresca por apertura)", async () => {
+    const user = userEvent.setup();
+    render(
+      <AccountCardGrid
+        accounts={ACCOUNTS}
+        regularIncomes={{ 1: null, 2: activeConfig }}
+        commonContributions={{ 1: null, 2: null }} savingsAllocations={{ 1: null, 2: savingsActive }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }));
+    await user.click(
+      within(screen.getByRole("menu")).getByRole("menuitem", { name: /Ahorro\s*Activo/ }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Ahorro mensual" });
+    expect(within(dialog).getByLabelText("Porcentaje (%)")).toHaveValue("10");
+    expect(within(dialog).getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
+  });
+
+  it("la cuenta común sigue sin ítem «Ahorro»", () => {
+    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}} commonContributions={{}} savingsAllocations={{}} />);
+
+    expect(screen.queryByRole("menuitem", { name: /Ahorro/ })).not.toBeInTheDocument();
   });
 });

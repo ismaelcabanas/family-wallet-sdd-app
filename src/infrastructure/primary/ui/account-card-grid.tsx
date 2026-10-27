@@ -7,9 +7,11 @@ import { EllipsisVerticalIcon } from "lucide-react";
 import type { AccountDTO } from "@/application/movement/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
 import type { CommonContributionDTO } from "@/application/common-contribution/dto";
+import type { SavingsAllocationDTO } from "@/application/savings/dto";
 
 import { CommonContributionConfigDialog } from "./common-contribution-config-dialog";
 import { RegularIncomeConfigDialog } from "./regular-income-config-dialog";
+import { SavingsConfigDialog } from "./savings-config-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,13 +39,28 @@ export function commonContributionMenuStatus(
   return contribution.active ? "Activa" : "Desactivada";
 }
 
+export function savingsMenuStatus(
+  savings: SavingsAllocationDTO | null,
+  regularIncome: RegularIncomeDTO | null,
+): "Requiere ingreso regular" | "Sin configurar" | "Activo" | "Desactivado" {
+  if (regularIncome === null) return "Requiere ingreso regular";
+  if (savings === null) return "Sin configurar";
+  return savings.active ? "Activo" : "Desactivado";
+}
+
 interface AccountCardGridProps {
   accounts: AccountDTO[];
   regularIncomes: Record<number, RegularIncomeDTO | null>;
   commonContributions: Record<number, CommonContributionDTO | null>;
+  savingsAllocations: Record<number, SavingsAllocationDTO | null>;
 }
 
-export function AccountCardGrid({ accounts, regularIncomes, commonContributions }: AccountCardGridProps) {
+export function AccountCardGrid({
+  accounts,
+  regularIncomes,
+  commonContributions,
+  savingsAllocations,
+}: AccountCardGridProps) {
   return (
     <ul aria-label="Cuentas" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {accounts.map((account) => (
@@ -61,6 +78,7 @@ export function AccountCardGrid({ accounts, regularIncomes, commonContributions 
                 account={account}
                 regularIncome={regularIncomes[account.id] ?? null}
                 commonContribution={commonContributions[account.id] ?? null}
+                savingsAllocation={savingsAllocations[account.id] ?? null}
               />
             ) : null}
           </div>
@@ -74,15 +92,20 @@ function AccountSettingsMenu({
   account,
   regularIncome,
   commonContribution,
+  savingsAllocation,
 }: {
   account: AccountDTO;
   regularIncome: RegularIncomeDTO | null;
   commonContribution: CommonContributionDTO | null;
+  savingsAllocation: SavingsAllocationDTO | null;
 }) {
   const [configOpen, setConfigOpen] = useState(false);
   const [contributionOpen, setContributionOpen] = useState(false);
+  const [savingsOpen, setSavingsOpen] = useState(false);
   const contributionStatus = commonContributionMenuStatus(commonContribution, regularIncome);
   const contributionBlocked = regularIncome === null;
+  const savingsStatus = savingsMenuStatus(savingsAllocation, regularIncome);
+  const savingsBlocked = regularIncome === null;
 
   return (
     <>
@@ -110,6 +133,16 @@ function AccountSettingsMenu({
             <span>Aportación</span>
             <span className="ml-auto text-muted-foreground">{contributionStatus}</span>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => {
+              if (!savingsBlocked) setSavingsOpen(true);
+            }}
+            disabled={savingsBlocked}
+            className="gap-4"
+          >
+            <span>Ahorro</span>
+            <span className="ml-auto text-muted-foreground">{savingsStatus}</span>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       {configOpen ? (
@@ -126,6 +159,14 @@ function AccountSettingsMenu({
           memberName={account.memberName}
           config={commonContribution}
           onClose={() => setContributionOpen(false)}
+        />
+      ) : null}
+      {savingsOpen ? (
+        <SavingsConfigDialog
+          accountId={account.id}
+          memberName={account.memberName}
+          config={savingsAllocation}
+          onClose={() => setSavingsOpen(false)}
         />
       ) : null}
     </>

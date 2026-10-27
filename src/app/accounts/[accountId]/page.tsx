@@ -4,6 +4,8 @@ import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
 import { MaterializeCommonContributions } from "@/application/common-contribution/MaterializeCommonContributions";
 import { MaterializeRegularIncomes } from "@/application/regular-income/MaterializeRegularIncomes";
+import { MaterializeSavingsAllocations } from "@/application/savings/MaterializeSavingsAllocations";
+import { GetMonthSavings } from "@/application/savings/GetMonthSavings";
 import { ListActiveTags } from "@/application/tag/ListActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
 import { notFound } from "next/navigation";
@@ -14,6 +16,7 @@ import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepo
 import { DrizzleCommonContributionRepository } from "@/infrastructure/db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
+import { DrizzleSavingsAllocationRepository } from "@/infrastructure/db/DrizzleSavingsAllocationRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
 import { AccountMonthKpis } from "@/infrastructure/primary/ui/account-month-kpis";
@@ -48,6 +51,7 @@ export default async function AccountPage({
   const tagRepository = new DrizzleTagRepository(db);
   const regularIncomeRepository = new DrizzleRegularIncomeRepository(db);
   const commonContributionRepository = new DrizzleCommonContributionRepository(db);
+  const savingsAllocationRepository = new DrizzleSavingsAllocationRepository(db);
 
   const accounts = await new ListAccounts(accountRepository).execute();
 
@@ -77,7 +81,12 @@ export default async function AccountPage({
     accountRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, balanceCents, tags, closure, netContribution] = await Promise.all([
+  await new MaterializeSavingsAllocations(
+    savingsAllocationRepository,
+    regularIncomeRepository,
+  ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
+
+  const [movements, balanceCents, tags, closure, netContribution, savings] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),
     accountRepository.getBalance(AccountId(account.id), monthEndIsoDate(month)),
     new ListActiveTags(tagRepository).execute(),
@@ -87,6 +96,9 @@ export default async function AccountPage({
           AccountId(account.id),
           month,
         )
+      : Promise.resolve(null),
+    account.type === "personal"
+      ? new GetMonthSavings(savingsAllocationRepository).execute(AccountId(account.id), month)
       : Promise.resolve(null),
   ]);
 
@@ -104,10 +116,11 @@ export default async function AccountPage({
 
       <MonthStepper accountId={account.id} month={month} />
 
-      {account.type === "personal" && netContribution !== null ? (
+      {account.type === "personal" && netContribution !== null && savings !== null ? (
         <AccountMonthKpis
           netContribution={netContribution}
-          monthBalanceCents={closure.monthBalanceCents}
+          savings={savings}
+          netMonthBalanceCents={closure.monthBalanceCents - savings.amountCents}
           month={month}
         />
       ) : null}
