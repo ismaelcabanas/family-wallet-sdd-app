@@ -1,17 +1,20 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
 import { GetCommonContribution } from "@/application/common-contribution/GetCommonContribution";
 import { GetRegularIncome } from "@/application/regular-income/GetRegularIncome";
+import { GetSavingsAllocation } from "@/application/savings/GetSavingsAllocation";
 import { connection } from "next/server";
 
 import { db } from "@/infrastructure/db/client";
 import { DrizzleAccountRepository } from "@/infrastructure/db/DrizzleAccountRepository";
 import { DrizzleCommonContributionRepository } from "@/infrastructure/db/DrizzleCommonContributionRepository";
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
+import { DrizzleSavingsAllocationRepository } from "@/infrastructure/db/DrizzleSavingsAllocationRepository";
 import { AccountCardGrid } from "@/infrastructure/primary/ui/account-card-grid";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { AccountId } from "@/domain/account/AccountId";
 import type { CommonContributionDTO } from "@/application/common-contribution/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
+import type { SavingsAllocationDTO } from "@/application/savings/dto";
 
 export default async function Home() {
   await connection();
@@ -19,11 +22,13 @@ export default async function Home() {
   const accountRepository = new DrizzleAccountRepository(db);
   const regularIncomeRepository = new DrizzleRegularIncomeRepository(db);
   const commonContributionRepository = new DrizzleCommonContributionRepository(db);
+  const savingsAllocationRepository = new DrizzleSavingsAllocationRepository(db);
 
   const accounts = await new ListAccounts(accountRepository).execute();
 
   const regularIncomes: Record<number, RegularIncomeDTO | null> = {};
   const commonContributions: Record<number, CommonContributionDTO | null> = {};
+  const savingsAllocations: Record<number, SavingsAllocationDTO | null> = {};
   for (const account of accounts) {
     if (account.type !== "personal") continue;
     regularIncomes[account.id] = await new GetRegularIncome(regularIncomeRepository).execute(
@@ -31,6 +36,9 @@ export default async function Home() {
     );
     commonContributions[account.id] = await new GetCommonContribution(
       commonContributionRepository,
+    ).execute(AccountId(account.id));
+    savingsAllocations[account.id] = await new GetSavingsAllocation(
+      savingsAllocationRepository,
     ).execute(AccountId(account.id));
   }
 
@@ -45,6 +53,7 @@ export default async function Home() {
         accounts={accounts}
         regularIncomes={regularIncomes}
         commonContributions={commonContributions}
+        savingsAllocations={savingsAllocations}
       />
     </main>
   );

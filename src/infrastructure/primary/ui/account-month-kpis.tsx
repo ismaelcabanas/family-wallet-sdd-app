@@ -1,14 +1,17 @@
 import type { MonthNetContributionDTO } from "@/application/common-contribution/GetMonthNetContribution";
+import type { MonthSavingsDTO } from "@/application/savings/GetMonthSavings";
 
 import { formatAmountCents, formatSignedCents, monthLabel } from "./format";
 
 export function AccountMonthKpis({
   netContribution,
-  monthBalanceCents,
+  savings,
+  netMonthBalanceCents,
   month,
 }: {
   netContribution: MonthNetContributionDTO;
-  monthBalanceCents: number;
+  savings: MonthSavingsDTO;
+  netMonthBalanceCents: number;
   month: string;
 }) {
   return (
@@ -24,7 +27,7 @@ export function AccountMonthKpis({
           <p className="text-xs text-muted-foreground">{monthLabel(month)}</p>
         </div>
 
-        <dl className="mt-2 grid grid-cols-2 gap-3">
+        <dl className="mt-2 grid grid-cols-3 gap-3">
           <div>
             <dt className="text-xs text-muted-foreground">Aportación común</dt>
             <dd className="text-xl font-semibold tabular-nums">
@@ -35,11 +38,20 @@ export function AccountMonthKpis({
             )}
           </div>
           <div>
+            <dt className="text-xs text-muted-foreground">Ahorro del mes</dt>
+            <dd className="text-xl font-semibold tabular-nums">
+              {formatAmountCents(savings.amountCents)}
+            </dd>
+            {savings.configured ? null : (
+              <p className="text-xs text-muted-foreground">Sin ahorro configurado</p>
+            )}
+          </div>
+          <div>
             <dt className="text-xs text-muted-foreground">Saldo del mes</dt>
             <dd
-              className={`text-xl font-semibold tabular-nums ${monthBalanceCents < 0 ? "text-red-600" : "text-foreground"}`}
+              className={`text-xl font-semibold tabular-nums ${netMonthBalanceCents < 0 ? "text-red-600" : "text-foreground"}`}
             >
-              {formatSignedCents(monthBalanceCents)}
+              {formatSignedCents(netMonthBalanceCents)}
             </dd>
           </div>
         </dl>
