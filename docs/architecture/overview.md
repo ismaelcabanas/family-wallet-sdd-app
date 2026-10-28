@@ -41,11 +41,16 @@ src/
 │       ├── RegularIncome.ts     <-- Entidad ingreso regular (update/deactivate/activate, dueDateForMonth con clamp a lastDayOfMonth)
 │       ├── RegularIncomeId.ts
 │       └── RegularIncomeErrors.ts <-- InvalidRegularIncomeError, SharedAccountIncomeError, RegularIncomeNotFoundError
-│   └── common-contribution/     <-- 019 (ADR 0017)
-│       ├── CommonContribution.ts <-- Entidad aportación (ciclo espejo de RegularIncome; dueDateForMonth = día 1 fijo)
-│       ├── ContributionPercentage.ts <-- VO puntos base 1–10 000; appliedToCents half-up entero floor((cents×bp+5 000)/10 000)
-│       ├── CommonContributionId.ts
-│       └── CommonContributionErrors.ts <-- InvalidCommonContributionError, SharedAccountContributionError, CommonContributionNotFoundError, MissingRegularIncomeError
+ │   └── common-contribution/     <-- 019 (ADR 0017)
+ │       ├── CommonContribution.ts <-- Entidad aportación (ciclo espejo de RegularIncome; dueDateForMonth = día 1 fijo)
+ │       ├── ContributionPercentage.ts <-- VO puntos base 1–10 000; appliedToCents half-up entero floor((cents×bp+5 000)/10 000)
+ │       ├── CommonContributionId.ts
+ │       └── CommonContributionErrors.ts <-- InvalidCommonContributionError, SharedAccountContributionError, CommonContributionNotFoundError, MissingRegularIncomeError
+ │   └── savings/                 <-- 023 (apartado informativo, sin movimiento)
+ │       ├── SavingsAllocation.ts <-- Entidad ahorro por miembro (ciclo espejo de CommonContribution SIN dueDateForMonth: no hay movimiento)
+ │       ├── SavingsPercentage.ts <-- VO entero 1–100 (sin puntos base; decimales irrepresentables); appliedToCents half-up floor((cents×pct+50)/100)
+ │       ├── SavingsAllocationId.ts
+ │       └── SavingsAllocationErrors.ts <-- InvalidSavingsAllocationError, SharedAccountSavingsError, SavingsAllocationNotFoundError, MissingRegularIncomeError (propia del módulo)
 │
 ├── application/                 <-- ORQUESTACIÓN: Casos de Uso y PUERTOS (depende solo de domain)
 │   ├── movement/
@@ -79,16 +84,23 @@ src/
 │       ├── DeactivateRegularIncome.ts · GetRegularIncome.ts
 │       ├── MaterializeRegularIncomes.ts <-- ensureForAccountAndMonth: guardas activación ≤ mes ≤ currentMonth, materializa por mes consultado
 │       └── dto.ts                     <-- RegularIncomeDTO
-│   └── common-contribution/     <-- 019 (ADR 0017)
-│       ├── CommonContributionRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
-│       ├── ConfigureCommonContribution.ts  <-- Guardas: cuenta personal + ingreso regular existente (MissingRegularIncomeError) + appliedToCents ≥ 1; reactivación resetea activación
-│       ├── DeactivateCommonContribution.ts · GetCommonContribution.ts
-│       ├── MaterializeCommonContributions.ts <-- Segundo materializador perezoso (patrón ADR 0016): generación neta + re-sincronización del mes en curso + retirada (021, ADR 0019; guardas §1.2.1 de la spec) + ensure de etiqueta por slug «aportacion-comun»
-│       └── dto.ts                          <-- CommonContributionDTO
+ │   └── common-contribution/     <-- 019 (ADR 0017)
+ │       ├── CommonContributionRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
+ │       ├── ConfigureCommonContribution.ts  <-- Guardas: cuenta personal + ingreso regular existente (MissingRegularIncomeError) + appliedToCents ≥ 1; reactivación resetea activación
+ │       ├── DeactivateCommonContribution.ts · GetCommonContribution.ts
+ │       ├── MaterializeCommonContributions.ts <-- Segundo materializador perezoso (patrón ADR 0016): generación neta + re-sincronización del mes en curso + retirada (021, ADR 0019; guardas §1.2.1 de la spec) + ensure de etiqueta por slug «aportacion-comun»
+ │       └── dto.ts                          <-- CommonContributionDTO
+ │   └── savings/                  <-- 023 (deducción informativa; ADR 0016/0017 aplicados sin movimiento)
+ │       ├── SavingsAllocationRepository.ts <-- PUERTO (findByAccountId, save upsert, isDeducted, registerDeduction tx ON CONFLICT DO NOTHING, findDeductedAmount)
+ │       ├── ConfigureSavingsAllocation.ts  <-- Guardas: cuenta personal + ingreso regular existente + appliedToCents ≥ 1; reactivación resetea activación
+ │       ├── DeactivateSavingsAllocation.ts · GetSavingsAllocation.ts
+ │       ├── MaterializeSavingsAllocations.ts <-- Tercer materializador perezoso: registra deducción con importe CONGELADO en savings_allocation_months; SIN re-sync del mes en curso (base plana) y sin tocar movements
+ │       ├── GetMonthSavings.ts    <-- Lectura del KPI: MonthSavingsDTO {configured, amountCents} = fila del registro, nunca recálculo
+ │       └── dto.ts                <-- SavingsAllocationDTO
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
-│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome/GetCommonContribution por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes + commonContributions, features 012 + 020 + 019)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013); la configuración del ingreso regular NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares y desde 019 aportaciones comunes, ambos ANTES del Promise.all de lecturas en dos awaits secuenciales (único disparador, ADR 0016/0017)
+│   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome/GetCommonContribution/GetSavingsAllocation por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes + commonContributions + savingsAllocations, features 012 + 020 + 019 + 023)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → [personales: AccountMonthKpis sticky 3 métricas] → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013 + 022/023); la configuración NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares, desde 019 aportaciones comunes y desde 023 deducciones de ahorro, los tres ANTES del Promise.all de lecturas en tres awaits secuenciales (único disparador, ADR 0016/0017; GetMonthSavings lee la fila congelada y la página compone la resta única netMonthBalanceCents = cierre − ahorro)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004): GlobalNav active="tags" (sin contexto temporal) + ListTags → TagCatalog
@@ -96,7 +108,7 @@ src/
 │
 └── infrastructure/
     ├── db/                      <-- ADAPTADOR OUTBOUND: Persistencia Drizzle
-    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»; movement_id blando sin FK desde 021 — migración 0005, ADR 0019)
+    │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»; movement_id blando sin FK desde 021 — migración 0005, ADR 0019), savings_allocations + savings_allocation_months UNIQUE(config, mes) con amount_cents congelado desde 023 (migración 0006, sin seed)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011; sumSharedExpenseCents SUM sellada 021, ADR 0019)
@@ -104,6 +116,7 @@ src/
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017; +findById/findAll/update y mergeInto transaccional UPDATE movements → DELETE tag sin tocar updated_at — 004, ADR 0018) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
     │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months; 021 añade enlace blando movement_id con resolución perezosa legacy + withdrawMaterialization en tx — ADR 0019)
+    │   ├── DrizzleSavingsAllocationRepository.ts (023: upsert por account_id sobre savings_allocations; registerDeduction = tx de un solo INSERT en savings_allocation_months ON CONFLICT DO NOTHING RETURNING — sin movimiento ni reserva de ids)
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 13 tags con «Aportación Común» desde 019)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
@@ -116,13 +129,15 @@ src/
         │   ├── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
         │   ├── contribution-form.schema.ts   <-- Patrón porcentual + parsePercentageToBasisPoints por manipulación de cadenas (019)
         │   ├── configure-common-contribution.action.ts <-- 'use server' (019): espejo de la de 018 (Zod, intents, revalidatePath '/', 'layout'; ADR 0017)
+        │   ├── savings-form.schema.ts       <-- INTEGER_PERCENTAGE_PATTERN ^\d{1,3}$ + parseIntegerPercentage por manipulación de cadenas (023; «12,5» cae en formato)
+        │   ├── configure-savings-allocation.action.ts <-- 'use server' (023): espejo de la de 019 con intents save/deactivate y mapeo de errores del módulo savings
         │   ├── tag-actions.schema.ts  <-- Schemas Zod de las 4 fronteras de catálogo + TagActionState (004)
         │   ├── rename-tag.action.ts · merge-tags.action.ts · deactivate-tag.action.ts <-- 'use server' (004): useActionState-style, mapeo de errores de dominio, revalidatePath('/', 'layout')
         │   └── reactivate-tag.action.ts <-- 'use server' (004): action directa → ReactivateTagResult {ok} (familia ADR 0015)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados · Etiquetas; aria-current, mes por prop con currentMonth() por defecto, features 012 + 004)
-            ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular» y «Aportación» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019)
+            ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular», «Aportación» y «Ahorro» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus/savingsMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019 + 023)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
@@ -136,6 +151,8 @@ src/
             ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
             ├── regular-income-config-dialog.tsx <-- Diálogo «Ingreso regular» (extraído de regular-income-panel en 020): useActionState(configureRegularIncome) con intents save/deactivate, vacío o precargado según config; única vía de desactivación desde 020; lo abre el ítem del menú ⋮ de la tarjeta
             ├── common-contribution-config-dialog.tsx <-- Diálogo «Aportación a la cuenta común» (019): espejo estructural del de 018 con un único campo «Porcentaje (%)» (formatBasisPointsForInput); lo abre el ítem «Aportación» del menú ⋮
+            ├── savings-config-dialog.tsx <-- Diálogo «Ahorro mensual» (023): espejo del de 019 con input entero (inputMode numeric, String(percentage)); lo abre el ítem «Ahorro» del menú ⋮
+            ├── account-month-kpis.tsx (server component sticky de las cuentas personales, 022; desde 023 dl de 3 métricas: aportación común · ahorro del mes · saldo del mes NETO del ahorro (resta compuesta por la página; el componente solo formatea)
             ├── tag-catalog.tsx (client de /tags, 004: lista con chips de estado y distintivo «Sistema» sin menú, menú ⋮ por fila según estado, host de los tres diálogos a nivel del listado — convención de fila —, Reactivar como action directa + useTransition con toast)
             ├── rename-tag-dialog.tsx (004: input controlado — React 19 resetea los no controlados al resolver la action; error conserva el nombre tecleado, SC-004)
             ├── merge-tags-dialog.tsx (004: Select destino excluye propia y protegidas, inactivas con sufijo; confirmación integrada texto+destructivo, FR-008)

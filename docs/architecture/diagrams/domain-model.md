@@ -137,6 +137,28 @@ classDiagram
         +equals(other) boolean
     }
 
+    class SavingsAllocation {
+        <<Entidad de 023 · raíz del agregado · apartado informativo>>
+        +id: SavingsAllocationId?
+        +accountId: AccountId (cuenta personal, única por cuenta)
+        +percentage: SavingsPercentage
+        +active: boolean
+        +activatedAtMonth: String YYYY-MM (solo (re)activación lo resetea)
+        +create(input)$ SavingsAllocation
+        +rehydrate(id, input)$ SavingsAllocation
+        +update(percentage?) SavingsAllocation
+        +deactivate() SavingsAllocation
+        +activate(currentMonth) SavingsAllocation
+    }
+
+    class SavingsPercentage {
+        <<Value Object de 023 · entero 1–100, sin puntos base>>
+        +percent: int (1–100, sin decimales por construcción)
+        +fromPercent(n)$ SavingsPercentage
+        +appliedToCents(amountCents) int (floor((cents×pct+50)/100), half-up entero)
+        +equals(other) boolean
+    }
+
     class DomainError {
         <<abstract>>
     }
@@ -172,7 +194,17 @@ classDiagram
         <<019>>
     }
     class MissingRegularIncomeError {
-        <<019>>
+        <<019 · y duplicada propia en savings (023), mismo literal>>
+    }
+    class InvalidSavingsAllocationError {
+        <<023>>
+        +field: SavingsAllocationField (percentage | activatedAtMonth)
+    }
+    class SharedAccountSavingsError {
+        <<023>>
+    }
+    class SavingsAllocationNotFoundError {
+        <<023>>
     }
 
     class MonthlyClosure {
@@ -302,6 +334,9 @@ classDiagram
     DomainError <|-- SharedAccountContributionError
     DomainError <|-- CommonContributionNotFoundError
     DomainError <|-- MissingRegularIncomeError
+    DomainError <|-- InvalidSavingsAllocationError
+    DomainError <|-- SharedAccountSavingsError
+    DomainError <|-- SavingsAllocationNotFoundError
     deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
     SystemTags ..> Tag : isProtectedTagSlug protege rename/desactivar/fusionar (004)
     RegularIncome "1" *-- "1" Money : amount
@@ -311,6 +346,10 @@ classDiagram
     ContributionPercentage ..> Money : appliedToCents → fromCents (materialización)
     CommonContribution --> Account : accountId (solo personal, SharedAccountContributionError)
     CommonContribution ..> RegularIncome : base de cálculo vía puerto (solo lectura, FR-006)
+    SavingsAllocation "1" *-- "1" SavingsPercentage : percentage
+    SavingsPercentage ..> Money : appliedToCents (deducción informativa, 023)
+    SavingsAllocation --> Account : accountId (solo personal, SharedAccountSavingsError)
+    SavingsAllocation ..> RegularIncome : base plana vía puerto (solo lectura, FR-002 de 023)
     ClosureMovementInput <|-- GlobalSummaryMovementInput
     GlobalSummaryMovementInput <|-- AnnualStatementMovementInput
     GlobalMonthlySummary *-- MonthlyClosure : compone (KPIs agregados, ADR 0012)
@@ -343,6 +382,8 @@ classDiagram
 - **`RegularIncome`** (018, ADR 0016): anclada a la cuenta personal (`accountId` UNIQUE en BD; la cuenta común la rechaza `ConfigureRegularIncome` con `SharedAccountIncomeError`); `dayOfMonth` 1–31 se conserva tal cual y `dueDateForMonth` clampa al `lastDayOfMonth` del mes consultado (helper puro, el dominio no importa `ui/format.ts`); `update` nunca toca `active`/`activatedAtMonth` (solo-adelante), `activate(currentMonth)` resetea la activación (reactivación sin relleno retroactivo). La idempotencia de la materialización vive en `regular_income_months` (puerto `RegularIncomeRepository.isMaterialized`/`registerMaterialization` transaccional), **nunca** en la existencia del movimiento: el borrado físico no regenera el mes.
 - **`CommonContribution`** (019, ADR 0017): espejo del ciclo de vida de `RegularIncome` (misma semántica de `activatedAtMonth` y `activate` con reset) anclada a la cuenta personal (UNIQUE por cuenta; `SharedAccountContributionError` en la común) pero **sin** importe/día/nota: el importe se deriva como `ContributionPercentage.appliedToCents(ingreso regular)` en el momento de materializar (solo-adelante). Requiere ingreso regular configurado (`MissingRegularIncomeError` al configurar; no-op al materializar si falta o está inactivo, FR-006). La idempotencia vive en `common_contribution_months` (`UNIQUE (config, mes)` + `ON CONFLICT DO NOTHING RETURNING` en la misma tx que el movimiento); el borrado del gasto generado es definitivo y la etiqueta «Aportación Común» se resuelve por slug en cada generación (triple garantía seed + migración + ensure).
 - **`ContributionPercentage`** (019): `basisPoints` entero 1–10 000 (equivale a > 0 % y ≤ 100 % con ≤ 2 decimales); `appliedToCents` usa división entera pura `floor((amountCents × bp + 5_000)/10_000)` (half-up, extensión de ADR 0007, sin flotantes ni `Math.round`); el importe resultante < 1 céntimo se rechaza al configurar y es no-op sin registrar al materializar (edge §7 de la spec).
+- **`SavingsAllocation`** (023): apartado de ahorro **informativo** por miembro — espejo del ciclo de vida de `CommonContribution` (misma semántica de `activatedAtMonth`, `activate` con reset y UNIQUE por cuenta personal; `SharedAccountSavingsError` en la común) pero **sin movimiento ni `dueDateForMonth`**: el importe se congela en la fila del registro `savings_allocation_months` (`amount_cents`, `UNIQUE (config, mes)` + `ON CONFLICT DO NOTHING RETURNING` en tx de un solo INSERT — variante sin movimiento del patrón ADR 0016/0017). Requiere ingreso regular por **existencia** al configurar (`MissingRegularIncomeError` propia del módulo) y por existencia **y estado activo** al deducir (no-op sin registrar el mes si no). **Sin re-sync del mes en curso** (base plana, diferencia con 021): un mes registrado nunca se recalcula ni se borra; `GetMonthSavings` lee la fila, nunca recalcula, y la página compone una única resta `netMonthBalanceCents = closure.monthBalanceCents − savings.amountCents`.
+- **`SavingsPercentage`** (023): `percent` entero 1–100 — **sin puntos base**, decisión del propietario (2026-10-26): hace irrepresentables los decimales (12,5 % no existe) y desacopla el módulo `savings` de `common-contribution`; `appliedToCents` con división entera pura `floor((amountCents × percent + 50)/100)` (half-up solo al importe, nunca al porcentaje); importe < 1 céntimo rechazado al configurar y no-op sin registrar al deducir (paridad 019).
 - **Balance**: no es un campo de `Account`; query derivada `SUM` (ADR 0009).
 - **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).
