@@ -11,6 +11,8 @@ import type { SavingsAllocationDTO } from "@/application/savings/dto";
 
 import { CommonContributionConfigDialog } from "./common-contribution-config-dialog";
 import { RegularIncomeConfigDialog } from "./regular-income-config-dialog";
+import { RenameAccountDialog } from "./rename-account-dialog";
+import { RenameMemberDialog } from "./rename-member-dialog";
 import { SavingsConfigDialog } from "./savings-config-dialog";
 import {
   DropdownMenu,
@@ -80,12 +82,18 @@ export function AccountCardGrid({
                 commonContribution={commonContributions[account.id] ?? null}
                 savingsAllocation={savingsAllocations[account.id] ?? null}
               />
-            ) : null}
+            ) : (
+              <CommonAccountMenu account={account} />
+            )}
           </div>
         </li>
       ))}
     </ul>
   );
+}
+
+function menuTriggerClass(): string {
+  return "absolute top-2 right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50";
 }
 
 function AccountSettingsMenu({
@@ -99,6 +107,7 @@ function AccountSettingsMenu({
   commonContribution: CommonContributionDTO | null;
   savingsAllocation: SavingsAllocationDTO | null;
 }) {
+  const [renameOpen, setRenameOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [contributionOpen, setContributionOpen] = useState(false);
   const [savingsOpen, setSavingsOpen] = useState(false);
@@ -112,11 +121,12 @@ function AccountSettingsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={`Configuración de ${account.name}`}
-          className="absolute top-2 right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className={menuTriggerClass()}
         >
           <EllipsisVerticalIcon className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Renombrar miembro</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setConfigOpen(true)} className="gap-4">
             <span>Ingreso regular</span>
             <span className="ml-auto text-muted-foreground">
@@ -145,6 +155,13 @@ function AccountSettingsMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {renameOpen && account.memberId !== null ? (
+        <RenameMemberDialog
+          memberId={account.memberId}
+          memberName={account.memberName ?? "miembro"}
+          onClose={() => setRenameOpen(false)}
+        />
+      ) : null}
       {configOpen ? (
         <RegularIncomeConfigDialog
           accountId={account.id}
@@ -167,6 +184,33 @@ function AccountSettingsMenu({
           memberName={account.memberName}
           config={savingsAllocation}
           onClose={() => setSavingsOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function CommonAccountMenu({ account }: { account: AccountDTO }) {
+  const [renameOpen, setRenameOpen] = useState(false);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Configuración de ${account.name}`}
+          className={menuTriggerClass()}
+        >
+          <EllipsisVerticalIcon className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>Renombrar cuenta</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {renameOpen ? (
+        <RenameAccountDialog
+          accountId={account.id}
+          accountName={account.name}
+          onClose={() => setRenameOpen(false)}
         />
       ) : null}
     </>
