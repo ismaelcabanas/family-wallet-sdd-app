@@ -22,4 +22,12 @@ export class Member {
   static rehydrate(id: number, name: string): Member {
     return new Member(MemberId(id), name);
   }
+
+  rename(name: string): Member {
+    const trimmed = name.trim();
+    if (trimmed === "") {
+      throw new InvalidMemberError("El nombre del miembro es obligatorio.");
+    }
+    return new Member(this.id, trimmed);
+  }
 }

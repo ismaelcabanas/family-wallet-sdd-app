@@ -240,6 +240,14 @@ class InMemoryAccountRepository implements AccountRepository {
   async getBalance(): Promise<number> {
     return 0;
   }
+
+  async findByName(): Promise<Account | null> {
+    return null;
+  }
+
+  async update(account: Account): Promise<Account> {
+    return account;
+  }
 }
 
 const MEMBER_B_ACCOUNT: AccountDTO = {

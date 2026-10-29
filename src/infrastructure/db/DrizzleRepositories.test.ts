@@ -1,6 +1,9 @@
 import { AccountId } from "@/domain/account/AccountId";
+import { DuplicateAccountNameError } from "@/domain/account/AccountErrors";
 import { Movement } from "@/domain/movement/Movement";
 import { Money } from "@/domain/movement/Money";
+import { DuplicateMemberNameError } from "@/domain/member/MemberErrors";
+import { MemberId } from "@/domain/member/MemberId";
 import { Tag } from "@/domain/tag/Tag";
 import { DuplicateTagNameError } from "@/domain/tag/TagErrors";
 import { TagId } from "@/domain/tag/TagId";
@@ -25,7 +28,7 @@ beforeEach(async () => {
     { id: 2, name: "Miembro B" },
   ]);
   await testDb.db.insert(accounts).values([
-    { id: 1, name: "Cuenta de Miembro A", type: "personal", memberId: 1 },
+    { id: 1, name: null, type: "personal", memberId: 1 },
     { id: 3, name: "Cuenta común", type: "shared", memberId: null },
   ]);
   await testDb.db.insert(tags).values([
@@ -49,7 +52,7 @@ function buildMovement(overrides: Partial<Parameters<typeof Movement.create>[0]>
 }
 
 describe("DrizzleAccountRepository", () => {
-  it("findAll devuelve las cuentas con la identidad y el nombre de su miembro", async () => {
+  it("findAll devuelve el DTO con el nombre derivado en personales y el almacenado en la común", async () => {
     const repository = new DrizzleAccountRepository(testDb.db);
 
     const result = await repository.findAll();
@@ -64,17 +67,54 @@ describe("DrizzleAccountRepository", () => {
       },
       { id: 3, name: "Cuenta común", type: "shared", memberId: null, memberName: null },
     ]);
+    expect(result.every((dto) => typeof dto.name === "string")).toBe(true);
   });
 
-  it("findById devuelve la entidad o null", async () => {
+  it("findById devuelve la entidad (name null en personales) o null", async () => {
     const repository = new DrizzleAccountRepository(testDb.db);
 
     const found = await repository.findById(AccountId(1));
     const missing = await repository.findById(AccountId(999));
 
-    expect(found?.name).toBe("Cuenta de Miembro A");
+    expect(found?.name).toBeNull();
     expect(found?.memberId).toBe(1);
     expect(missing).toBeNull();
+  });
+
+  it("findByName es nocase sobre nombres almacenados; las personales (NULL) nunca matchean", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+
+    const nocase = await repository.findByName("cuenta común");
+    const personal = await repository.findByName("Cuenta de Miembro A");
+    const missing = await repository.findByName("No existe");
+
+    expect(nocase?.id).toBe(3);
+    expect(personal).toBeNull();
+    expect(missing).toBeNull();
+  });
+
+  it("update persiste el renombrado de la común y devuelve la entidad rehidratada", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+    const account = await repository.findById(AccountId(3));
+
+    const updated = await repository.update(account!.rename("  Cuenta conjunta  "));
+
+    expect(updated.name).toBe("Cuenta conjunta");
+    expect(updated.id).toBe(3);
+    const reloaded = await repository.findById(AccountId(3));
+    expect(reloaded?.name).toBe("Cuenta conjunta");
+  });
+
+  it("update traduce la carrera del índice nocase a DuplicateAccountNameError", async () => {
+    const repository = new DrizzleAccountRepository(testDb.db);
+    await testDb.db
+      .insert(accounts)
+      .values({ id: 4, name: "Cuenta conjunta", type: "shared", memberId: null });
+    const account = await repository.findById(AccountId(3));
+
+    await expect(repository.update(account!.rename("CUENTA CONJUNTA"))).rejects.toThrowError(
+      new DuplicateAccountNameError("CUENTA CONJUNTA"),
+    );
   });
 
   it("getBalance calcula ingresos − gastos de todo el histórico con exactitud (SC-003)", async () => {
@@ -371,5 +411,49 @@ describe("DrizzleMemberRepository", () => {
     const result = await repository.findAll();
 
     expect(result.map((member) => member.name)).toEqual(["Miembro A", "Miembro B"]);
+  });
+
+  it("findById rehidrata la entidad o devuelve null", async () => {
+    const repository = new DrizzleMemberRepository(testDb.db);
+
+    const found = await repository.findById(MemberId(1));
+    const missing = await repository.findById(MemberId(999));
+
+    expect(found?.name).toBe("Miembro A");
+    expect(missing).toBeNull();
+  });
+
+  it("findByName es nocase («isma» encuentra «Isma» tras renombrar)", async () => {
+    const repository = new DrizzleMemberRepository(testDb.db);
+
+    const exact = await repository.findByName("Miembro A");
+    const missing = await repository.findByName("No existe");
+
+    expect(exact?.id).toBe(1);
+    expect(missing).toBeNull();
+
+    await repository.update((await repository.findById(MemberId(1)))!.rename("Isma"));
+    expect((await repository.findByName("isma"))?.id).toBe(1);
+  });
+
+  it("update persiste el renombrado y devuelve la entidad rehidratada", async () => {
+    const repository = new DrizzleMemberRepository(testDb.db);
+    const member = await repository.findById(MemberId(1));
+
+    const updated = await repository.update(member!.rename("  Isma  "));
+
+    expect(updated.name).toBe("Isma");
+    expect(updated.id).toBe(1);
+    const reloaded = await repository.findById(MemberId(1));
+    expect(reloaded?.name).toBe("Isma");
+  });
+
+  it("update traduce la carrera del índice nocase a DuplicateMemberNameError", async () => {
+    const repository = new DrizzleMemberRepository(testDb.db);
+    const member = await repository.findById(MemberId(1));
+
+    await expect(repository.update(member!.rename("MIEMBRO B"))).rejects.toThrowError(
+      new DuplicateMemberNameError("MIEMBRO B"),
+    );
   });
 });
