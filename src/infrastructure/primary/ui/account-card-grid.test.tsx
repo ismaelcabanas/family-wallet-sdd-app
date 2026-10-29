@@ -18,6 +18,14 @@ vi.mock("../actions/configure-savings-allocation.action", () => ({
   configureSavingsAllocation: vi.fn(),
 }));
 
+vi.mock("../actions/rename-member.action", () => ({
+  renameMember: vi.fn(),
+}));
+
+vi.mock("../actions/rename-account.action", () => ({
+  renameAccount: vi.fn(),
+}));
+
 import type { AccountDTO } from "@/application/movement/dto";
 import type { RegularIncomeDTO } from "@/application/regular-income/dto";
 import type { CommonContributionDTO } from "@/application/common-contribution/dto";
@@ -133,7 +141,7 @@ describe("AccountCardGrid", () => {
     ).toBeInTheDocument();
   });
 
-  it("el menú ⋮ solo aparece en cuentas personales, con nombre accesible único por tarjeta", () => {
+  it("el menú ⋮ aparece en las 3 tarjetas (personales y común), con nombre accesible único por tarjeta", () => {
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
         commonContributions={{}} savingsAllocations={{}} />);
 
@@ -143,7 +151,7 @@ describe("AccountCardGrid", () => {
     expect(
       screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Configuración de Cuenta común" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Configuración de Cuenta común" })).toBeInTheDocument();
   });
 
   it("el botón del menú no está dentro del enlace (patrón stretched-link)", () => {
@@ -159,6 +167,52 @@ describe("AccountCardGrid", () => {
     expect(
       screen.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }).closest("a"),
     ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Configuración de Cuenta común" }).closest("a"),
+    ).toBeNull();
+  });
+
+  it("tarjeta personal: «Renombrar miembro» es el primer ítem y no existe «Renombrar cuenta»", async () => {
+    const user = userEvent.setup();
+    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
+        commonContributions={{}} savingsAllocations={{}} />);
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }));
+    const menu = screen.getByRole("menu");
+    const items = within(menu).getAllByRole("menuitem");
+    expect(items[0]).toHaveTextContent("Renombrar miembro");
+    expect(items[0].querySelector(".ml-auto")).toBeNull();
+    expect(within(menu).queryByRole("menuitem", { name: "Renombrar cuenta" })).not.toBeInTheDocument();
+  });
+
+  it("seleccionar «Renombrar miembro» cierra el menú y abre el diálogo precargado", async () => {
+    const user = userEvent.setup();
+    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
+        commonContributions={{}} savingsAllocations={{}} />);
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta de Miembro A" }));
+    await user.click(within(screen.getByRole("menu")).getByRole("menuitem", { name: "Renombrar miembro" }));
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Renombrar miembro" });
+    expect(within(dialog).getByLabelText("Nombre del miembro")).toHaveValue("Miembro A");
+  });
+
+  it("tarjeta común: ⋮ con único ítem «Renombrar cuenta», sin «Renombrar miembro» ni ítems de config", async () => {
+    const user = userEvent.setup();
+    render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}}
+        commonContributions={{}} savingsAllocations={{}} />);
+
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta común" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Renombrar cuenta",
+    ]);
+
+    await user.click(within(menu).getByRole("menuitem", { name: "Renombrar cuenta" }));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Renombrar cuenta" });
+    expect(within(dialog).getByLabelText("Nombre de la cuenta")).toHaveValue("Cuenta común");
   });
 
   it("el ítem «Ingreso regular» muestra el estado derivado de la config", async () => {
@@ -259,6 +313,7 @@ describe("AccountCardGrid", () => {
     const menuA = screen.getByRole("menu");
     const itemsA = within(menuA).getAllByRole("menuitem");
     expect(itemsA.map((item) => item.textContent)).toEqual([
+      "Renombrar miembro",
       "Ingreso regularSin configurar",
       "AportaciónRequiere ingreso regular",
       "AhorroRequiere ingreso regular",
@@ -320,13 +375,18 @@ describe("AccountCardGrid", () => {
     expect(within(dialog).getByLabelText("Porcentaje (%)")).toHaveValue("");
   });
 
-  it("la cuenta común sigue sin menú de configuración", () => {
+  it("la cuenta común tiene ⋮ pero sin ítems de configuración (solo «Renombrar cuenta»)", async () => {
+    const user = userEvent.setup();
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}} commonContributions={{}} savingsAllocations={{}} />);
 
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta común" }));
+    const menu = screen.getByRole("menu");
+    expect(within(menu).queryByRole("menuitem", { name: /Aportación/ })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: /Ahorro/ })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: /Ingreso regular/ })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Configuración de Cuenta común" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /Aportación/ })).not.toBeInTheDocument();
+      within(menu).getByRole("menuitem", { name: "Renombrar cuenta" }),
+    ).toBeInTheDocument();
   });
 
   const savingsActive: SavingsAllocationDTO = {
@@ -371,11 +431,12 @@ describe("AccountCardGrid", () => {
     const menu = screen.getByRole("menu");
     const items = within(menu).getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual([
+      "Renombrar miembro",
       "Ingreso regularActiva",
       "AportaciónSin configurar",
       "AhorroActivo",
     ]);
-    expect(items[2].querySelector(".ml-auto")).not.toBeNull();
+    expect(items[3].querySelector(".ml-auto")).not.toBeNull();
   });
 
   it("sin ingreso regular: el ítem «Ahorro» queda deshabilitado y no abre diálogo", async () => {
@@ -441,9 +502,13 @@ describe("AccountCardGrid", () => {
     expect(within(dialog).getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
   });
 
-  it("la cuenta común sigue sin ítem «Ahorro»", () => {
+  it("el ítem «Ahorro» de la común no existe (el menú de la común solo renombra)", async () => {
+    const user = userEvent.setup();
     render(<AccountCardGrid accounts={ACCOUNTS} regularIncomes={{}} commonContributions={{}} savingsAllocations={{}} />);
 
+    await user.click(screen.getByRole("button", { name: "Configuración de Cuenta común" }));
+    expect(screen.queryByRole("menuitem", { name: /Ahorro/ })).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
     expect(screen.queryByRole("menuitem", { name: /Ahorro/ })).not.toBeInTheDocument();
   });
 });
