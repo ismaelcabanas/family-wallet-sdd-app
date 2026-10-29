@@ -102,13 +102,18 @@ function accountRepositoryWith(rows: AccountDTO[]) {
   return {
     findAll: vi.fn().mockResolvedValue(rows),
     findById: vi.fn().mockResolvedValue(null),
+    findByName: vi.fn(),
     getBalance: vi.fn(),
+    update: vi.fn(),
   };
 }
 
 function memberRepositoryWith(rows: Member[]) {
   return {
     findAll: vi.fn().mockResolvedValue(rows),
+    findById: vi.fn(),
+    findByName: vi.fn(),
+    update: vi.fn(),
   };
 }
 

@@ -50,6 +50,13 @@
       "when": 1793139310742,
       "tag": "0006_porcentaje-ahorro",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793311509326,
+      "tag": "0007_nombre-cuenta-derivado",
+      "breakpoints": true
     }
   ]
 }

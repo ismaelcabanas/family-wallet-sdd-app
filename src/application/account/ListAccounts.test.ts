@@ -11,7 +11,9 @@ describe("ListAccounts", () => {
     const repository = {
       findAll: vi.fn().mockResolvedValue(accounts),
       findById: vi.fn(),
+      findByName: vi.fn(),
       getBalance: vi.fn(),
+      update: vi.fn(),
     };
     const useCase = new ListAccounts(repository);
 

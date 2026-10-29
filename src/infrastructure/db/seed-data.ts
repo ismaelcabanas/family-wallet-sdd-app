@@ -3,8 +3,8 @@ export const SEED_MEMBERS = [{ name: "Miembro A" }, { name: "Miembro B" }] as co
 export const SHARED_ACCOUNT_NAME = "Cuenta común";
 
 export const SEED_ACCOUNTS = [
-  { name: "Cuenta de Miembro A", type: "personal", memberName: "Miembro A" },
-  { name: "Cuenta de Miembro B", type: "personal", memberName: "Miembro B" },
+  { name: null, type: "personal", memberName: "Miembro A" },
+  { name: null, type: "personal", memberName: "Miembro B" },
   { name: SHARED_ACCOUNT_NAME, type: "shared", memberName: null },
 ] as const;
 
