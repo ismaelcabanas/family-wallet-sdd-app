@@ -83,3 +83,50 @@ Notas de la variante (decisiones de 020, `specs/020-menu-configuracion-cuenta/re
 ## Variante — configurar la aportación común desde la tarjeta (feature 019)
 
 Espejo de la variante de 020 con el segundo ítem del menú ⋮: `/` lee además `GetCommonContribution` por cada cuenta personal (mismo bucle serial que `GetRegularIncome`) y pasa `commonContributions` como prop a `AccountCardGrid`. El ítem «Aportación» (bajo «Ingreso regular») muestra su estado vía la función pura `commonContributionMenuStatus(contribution, regularIncome)` — «Requiere ingreso regular» (deshabilitado, sin diálogo) / «Sin configurar» / «Activa» / «Desactivada» — y abre `CommonContributionConfigDialog` dentro de la tarjeta (misma excepción documentada). El diálogo guarda vía `configureCommonContribution` (Zod + intents `save`/`deactivate`, `revalidatePath("/", "layout")`) y la posterior consulta de la página de la cuenta materializa el gasto propio exactamente una vez (`MaterializeCommonContributions` tras `MaterializeRegularIncomes`; secuencia completa en [aportacion-comun-secuencia.md](./aportacion-comun-secuencia.md), ADR 0017).
+
+## Variante — renombrar desde la tarjeta (feature 008)
+
+Desde 008 el ⋮ existe en las **3 tarjetas**: en las personales «Renombrar miembro» es el primer ítem (identidad antes que configuración) y la común gana ⋮ con único ítem «Renombrar cuenta». El nombre mostrado de una cuenta personal es siempre el derivado «Cuenta de {miembro}» (`personalAccountDisplayName` aplicada en `DrizzleAccountRepository.findAll` → `AccountDTO.name`, ADR 0020); la UI jamás lo concatena.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario (propietario)
+    participant G as AccountCardGrid (client)
+    participant M as Menú ⋮ personal
+    participant D as RenameMemberDialog (client)
+    participant A as renameMember (action)
+    participant UC as RenameMember (aplicación)
+    participant Port as "«port» MemberRepository"
+    participant Dom as Member.rename (dominio)
+    participant DB as DrizzleMemberRepository + libSQL
+
+    U->>G: GET / (tarjeta «Cuenta de Miembro A»)
+    U->>M: ⋮ «Configuración de Cuenta de Miembro A»
+    M-->>U: ítem «Renombrar miembro» (primero)
+    U->>M: selecciona (menú cierra; no navega)
+    G->>D: monta {renameOpen ? diálogo : null} — useActionState fresco
+    U->>D: «Isma» → «Guardar»
+    D->>A: FormData { memberId, name: "Isma" }
+    A->>A: Zod (trim, min 1)
+    A->>UC: execute({ id, name: "Isma" })
+    UC->>Port: findById(id)
+    Port-->>UC: Member(«Miembro A»)
+    UC->>Dom: member.rename("Isma") → nueva instancia validada
+    UC->>Port: findByName("Isma") (nocase)
+    Port-->>UC: null (sin duplicado)
+    UC->>Port: update(renamed)
+    Port->>DB: UPDATE members SET name='Isma' WHERE id=… (carrera → DuplicateMemberNameError)
+    DB-->>UC: Member(«Isma») — accounts/movimientos intactos
+    UC-->>A: Member
+    A->>A: revalidatePath("/", "layout") → re-render de /, cuenta, /summary, /annual
+    A-->>D: { status: "success", message: "Miembro renombrado" }
+    D-->>U: toast «Miembro renombrado» + cierre
+    Note over G: la tarjeta muestra el derivado «Cuenta de Isma» (AccountDTO.name del re-render;<br/>sin escritura sobre accounts — FR-004); balances y notas históricas intactos
+```
+
+Notas de la variante (decisiones de 008, `specs/008-gestion-cuentas-miembros/`):
+
+- **Diálogo por tarjeta** (misma excepción de 020): catálogo estable, instancia fresca por apertura, input controlado anti-reset de React 19 (patrón 004).
+- **Renombrar la cuenta común** (`RenameAccount`) es la misma secuencia contra `AccountRepository`/`Account.rename`, con las guardas extra `AccountNotRenamableError` (personal) y duplicado consultando solo nombres almacenados (las personales, con NULL, nunca matchean).
+- **Sin escrituras en cascada**: renombrar no toca `accounts` (personales a NULL desde la migración `0007`), movimientos, tags, configs ni balances; la propagación a vistas es por revalidación de layout.
