@@ -21,7 +21,7 @@ function currentMonthLabel(): string {
 }
 
 test.describe("panel de cuentas", () => {
-  test("N1: el panel es un lanzador — tarjetas por cuenta con nombre y tipo, ⋮ solo en personales, sin nada más", async ({
+  test("N1: el panel es un lanzador — tarjetas por cuenta con nombre y tipo, ⋮ en las 3 tarjetas, sin nada más", async ({
     page,
   }) => {
     await page.goto("/");
@@ -45,7 +45,10 @@ test.describe("panel de cuentas", () => {
     await expect(
       page.getByRole("button", { name: "Configuración de Cuenta de Miembro B" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Configuración de Cuenta común" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Configuración de Cuenta común" })).toBeVisible();
+    await page.getByRole("button", { name: "Configuración de Cuenta común" }).click();
+    await expect(page.getByRole("menuitem", { name: "Renombrar cuenta" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await expect(page.getByText("€")).toHaveCount(0);
     await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toHaveCount(0);
