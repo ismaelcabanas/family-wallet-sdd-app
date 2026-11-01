@@ -119,6 +119,7 @@ export default async function AccountPage({
       {account.type === "personal" && netContribution !== null && savings !== null ? (
         <AccountMonthKpis
           netContribution={netContribution}
+          personalExpenseCents={closure.personalExpenseCents - netContribution.amountCents}
           savings={savings}
           netMonthBalanceCents={closure.monthBalanceCents - savings.amountCents}
           month={month}

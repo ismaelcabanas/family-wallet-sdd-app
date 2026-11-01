@@ -5,11 +5,13 @@ import { formatAmountCents, formatSignedCents, monthLabel } from "./format";
 
 export function AccountMonthKpis({
   netContribution,
+  personalExpenseCents,
   savings,
   netMonthBalanceCents,
   month,
 }: {
   netContribution: MonthNetContributionDTO;
+  personalExpenseCents: number;
   savings: MonthSavingsDTO;
   netMonthBalanceCents: number;
   month: string;
@@ -27,7 +29,7 @@ export function AccountMonthKpis({
           <p className="text-xs text-muted-foreground">{monthLabel(month)}</p>
         </div>
 
-        <dl className="mt-2 grid grid-cols-3 gap-3">
+        <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div>
             <dt className="text-xs text-muted-foreground">Aportación común</dt>
             <dd className="text-xl font-semibold tabular-nums">
@@ -36,6 +38,12 @@ export function AccountMonthKpis({
             {netContribution.configured ? null : (
               <p className="text-xs text-muted-foreground">Sin aportación configurada</p>
             )}
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Gasto personal</dt>
+            <dd className="text-xl font-semibold tabular-nums">
+              {formatAmountCents(personalExpenseCents)}
+            </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Ahorro del mes</dt>
