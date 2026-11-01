@@ -9,6 +9,7 @@ const EUR = "[\\s\\u00A0\\u202F]€$";
 
 interface RenderKpisInput {
   netContribution: { configured: boolean; amountCents: number };
+  personalExpenseCents: number;
   savings: { configured: boolean; amountCents: number };
   netMonthBalanceCents: number;
   month?: string;
@@ -16,6 +17,7 @@ interface RenderKpisInput {
 
 function renderKpis({
   netContribution,
+  personalExpenseCents,
   savings,
   netMonthBalanceCents,
   month = "2026-10",
@@ -23,6 +25,7 @@ function renderKpis({
   render(
     <AccountMonthKpis
       netContribution={netContribution}
+      personalExpenseCents={personalExpenseCents}
       savings={savings}
       netMonthBalanceCents={netMonthBalanceCents}
       month={month}
@@ -43,19 +46,55 @@ function kpiOrder(region: HTMLElement) {
 }
 
 describe("AccountMonthKpis", () => {
-  it("muestra las 3 métricas en el orden congelado: Aportación común · Ahorro del mes · Saldo del mes", () => {
+  it("muestra las 4 métricas en el orden congelado: Aportación común · Gasto personal · Ahorro del mes · Saldo del mes", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -42055,
     });
 
-    expect(kpiOrder(region)).toEqual(["Aportación común", "Ahorro del mes", "Saldo del mes"]);
+    expect(kpiOrder(region)).toEqual([
+      "Aportación común",
+      "Gasto personal",
+      "Ahorro del mes",
+      "Saldo del mes",
+    ]);
+  });
+
+  it("gasto personal: importe exacto formateado, sin signo y sin color de alerta", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 44000 },
+      personalExpenseCents: 20055,
+      savings: { configured: true, amountCents: 30000 },
+      netMonthBalanceCents: -42055,
+    });
+
+    const expense = kpiCell(region, "Gasto personal");
+    const value = expense.getByText(new RegExp(`^200,55${EUR}`));
+    expect(value).toBeVisible();
+    expect(value.textContent).not.toContain("\u2212");
+    expect(value.className).not.toContain("text-red-600");
+    expect(expense.queryByText(/Sin .* configurad/)).not.toBeInTheDocument();
+  });
+
+  it("mes sin gastos computables: gasto personal muestra 0,00 € sin subtexto ni estado", () => {
+    const region = renderKpis({
+      netContribution: { configured: false, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: false, amountCents: 0 },
+      netMonthBalanceCents: 0,
+    });
+
+    const expense = kpiCell(region, "Gasto personal");
+    expect(expense.getByText(new RegExp(`^0,00${EUR}`))).toBeInTheDocument();
+    expect(expense.queryByText(/Sin .* configurad/)).not.toBeInTheDocument();
   });
 
   it("con aportación configurada muestra el importe exacto sin subtexto", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -42055,
     });
@@ -69,6 +108,7 @@ describe("AccountMonthKpis", () => {
   it("sin aportación configurada muestra 0,00 € y el subtexto «Sin aportación configurada»", () => {
     const region = renderKpis({
       netContribution: { configured: false, amountCents: 0 },
+      personalExpenseCents: 0,
       savings: { configured: false, amountCents: 0 },
       netMonthBalanceCents: 0,
     });
@@ -81,6 +121,7 @@ describe("AccountMonthKpis", () => {
   it("sin ahorro configurado: 0,00 € con subtexto «Sin ahorro configurado» y saldo neto = bruto", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: false, amountCents: 0 },
       netMonthBalanceCents: -50_000,
     });
@@ -96,6 +137,7 @@ describe("AccountMonthKpis", () => {
   it("con ahorro configurado: importe formateado sin subtexto y neto = bruto − ahorro", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -80_055,
     });
@@ -111,6 +153,7 @@ describe("AccountMonthKpis", () => {
   it("ahorro configurado sin deducción en el mes: 0,00 € sin subtexto", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
       savings: { configured: true, amountCents: 0 },
       netMonthBalanceCents: 0,
     });
@@ -123,6 +166,7 @@ describe("AccountMonthKpis", () => {
   it("saldo neto negativo se pinta con signo U+2212 y clase text-red-600", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 0 },
       netMonthBalanceCents: -5120,
     });
@@ -136,6 +180,7 @@ describe("AccountMonthKpis", () => {
   it("saldo neto cero muestra 0,00 € sin color rojo", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
       savings: { configured: false, amountCents: 0 },
       netMonthBalanceCents: 0,
     });
@@ -147,6 +192,7 @@ describe("AccountMonthKpis", () => {
   it("muestra la etiqueta pasiva del mes consultado", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 50000 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -50_000,
       month: "2026-10",
@@ -155,9 +201,10 @@ describe("AccountMonthKpis", () => {
     expect(within(region).getByText("Octubre de 2026")).toBeVisible();
   });
 
-  it("región accesible con h2 y clases sticky + grid de 3 columnas", () => {
+  it("región accesible con h2 y clases sticky + grid de 2 columnas en móvil y 4 desde sm", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
+      personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -42055,
     });
@@ -170,6 +217,7 @@ describe("AccountMonthKpis", () => {
 
     const dl = within(region).getByText("Aportación común").closest("dl");
     expect(dl).not.toBeNull();
-    expect(dl?.className).toContain("grid-cols-3");
+    expect(dl?.className).toContain("grid-cols-2");
+    expect(dl?.className).toContain("sm:grid-cols-4");
   });
 });
