@@ -13,10 +13,7 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
 async function selectMonth(page: Page, monthLabel: string): Promise<void> {
   await page.getByRole("combobox", { name: "Mes visible" }).click();
   await page.getByRole("option", { name: monthLabel }).click();
-  const panel = page.getByRole("region").filter({ hasText: "Cierre de" }).first();
-  await expect(panel.getByText(new RegExp(monthLabel, "i")).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.getByRole("combobox", { name: "Mes visible" })).toContainText(monthLabel);
 }
 
 async function createTagInline(page: Page, name: string): Promise<void> {

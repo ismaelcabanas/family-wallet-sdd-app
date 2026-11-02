@@ -4,8 +4,12 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
-function closurePanel(page: Page) {
-  return page.getByRole("region").filter({ hasText: "Cierre de" }).first();
+function kpisRegion(page: Page) {
+  return page.getByRole("region", { name: "KPIs del mes" });
+}
+
+function personalExpenseCell(page: Page) {
+  return kpisRegion(page).getByText("Gasto personal").locator("..");
 }
 
 function tagCatalog(page: Page) {
@@ -21,10 +25,7 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
 async function selectMonth(page: Page, monthLabel: string): Promise<void> {
   await page.getByRole("combobox", { name: "Mes visible" }).click();
   await page.getByRole("option", { name: monthLabel }).click();
-  const panel = page.getByRole("region").filter({ hasText: "Cierre de" }).first();
-  await expect(panel.getByText(new RegExp(monthLabel, "i")).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.getByRole("combobox", { name: "Mes visible" })).toContainText(monthLabel);
 }
 
 async function createTagInline(page: Page, name: string): Promise<void> {
@@ -95,18 +96,15 @@ test.describe("gestión del catálogo de etiquetas (flujo crítico)", () => {
     await expect(ocioRow).toHaveText(/Activa/);
   });
 
-  test("G2: renombrar se refleja en listado y cierres con totales intactos (SC-002)", async ({
+  test("G2: renombrar se refleja en listado y KPIs con totales intactos (SC-002)", async ({
     page,
   }) => {
     await registerMovementWithInlineTag(page, "Compra semanal", "50,00", "super");
     await registerMovementWithInlineTag(page, "Compra en casa", "30,00", "super-casa");
 
-    const gastosBefore = await closurePanel(page)
-      .locator("dd")
-      .filter({ hasText: /80,00[\s\u00A0\u202F]€/u })
-      .first()
-      .count();
-    expect(gastosBefore).toBeGreaterThan(0);
+    await expect(
+      personalExpenseCell(page).getByText(/^80,00[\s\u00A0\u202F]€/u),
+    ).toBeVisible();
 
     await page.getByRole("link", { name: "Etiquetas" }).click();
     await openTagActions(page, "super");
@@ -134,18 +132,21 @@ test.describe("gestión del catálogo de etiquetas (flujo crítico)", () => {
         .filter({ hasText: "Compra semanal" })
         .first(),
     ).toContainText("supermercado");
-
-    const breakdown = closurePanel(page)
-      .getByRole("list")
-      .getByRole("listitem")
-      .filter({ hasText: "supermercado" });
-    await expect(breakdown).toContainText(/50,00[\s\u00A0\u202F]€/u, { timeout: 10_000 });
     await expect(
-      closurePanel(page)
-        .locator("dd")
-        .filter({ hasText: /80,00[\s\u00A0\u202F]€/u })
+      movementList(page)
+        .getByRole("listitem")
+        .filter({ hasText: "Compra semanal" })
         .first(),
-    ).toBeVisible();
+    ).toContainText(/−50,00[\s\u00A0\u202F]€/u);
+    await expect(
+      movementList(page)
+        .getByRole("listitem")
+        .filter({ hasText: "Compra en casa" })
+        .first(),
+    ).toContainText(/−30,00[\s\u00A0\u202F]€/u);
+    await expect(
+      personalExpenseCell(page).getByText(/^80,00[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("G3: duplicado en renombrado rechazado conservando el nombre en el campo (SC-004)", async ({
@@ -197,24 +198,27 @@ test.describe("gestión del catálogo de etiquetas (flujo crítico)", () => {
     await page.getByRole("link", { name: "Cuenta de Miembro B" }).click();
     await selectMonth(page, "Septiembre de 2026");
 
-    const panel = closurePanel(page);
-    const breakdownItem = panel
-      .getByRole("list")
-      .getByRole("listitem")
-      .filter({ hasText: "supermercado" });
-    await expect(breakdownItem).toContainText(/80,00[\s\u00A0\u202F]€/u, { timeout: 10_000 });
-    await expect(
-      panel
-        .locator("dd")
-        .filter({ hasText: /80,00[\s\u00A0\u202F]€/u })
-        .first(),
-    ).toBeVisible();
     await expect(
       movementList(page)
         .getByRole("listitem")
         .filter({ hasText: "Compra en casa" })
         .first(),
     ).toContainText("supermercado");
+    await expect(
+      movementList(page)
+        .getByRole("listitem")
+        .filter({ hasText: "Compra semanal" })
+        .first(),
+    ).toContainText(/−50,00[\s\u00A0\u202F]€/u, { timeout: 10_000 });
+    await expect(
+      movementList(page)
+        .getByRole("listitem")
+        .filter({ hasText: "Compra en casa" })
+        .first(),
+    ).toContainText(/−30,00[\s\u00A0\u202F]€/u);
+    await expect(
+      personalExpenseCell(page).getByText(/^80,00[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("G5: desactivar conserva el histórico y la retira del Select del alta (SC-003)", async ({
@@ -246,9 +250,6 @@ test.describe("gestión del catálogo de etiquetas (flujo crítico)", () => {
         .filter({ hasText: "Compra semanal" })
         .first(),
     ).toContainText("supermercado");
-    await expect(
-      closurePanel(page).getByText("supermercado").first(),
-    ).toBeVisible();
 
     await page.getByRole("button", { name: "Nuevo movimiento" }).click();
     await page.getByRole("combobox", { name: "Etiqueta" }).click();

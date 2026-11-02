@@ -83,7 +83,6 @@ describe("UpdateMovement", () => {
     findAll: async () => [],
     findById: async (id) => accounts.find((account) => account.id === id) ?? null,
     findByName: async () => null,
-    getBalance: async () => 0,
     update: async (account) => account,
   };
 

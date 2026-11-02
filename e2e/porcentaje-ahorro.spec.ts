@@ -20,11 +20,6 @@ function currentMonthIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function currentMonthLabel(): string {
-  const now = new Date();
-  return `${MONTH_LONG_NAMES[now.getMonth()]} de ${now.getFullYear()}`;
-}
-
 function nextMonthIso(): string {
   const now = new Date();
   const totalMonths = now.getFullYear() * 12 + now.getMonth() + 1;
@@ -63,10 +58,6 @@ function balanceCell(page: Page) {
 
 function savingsAmount(page: Page) {
   return savingsCell(page).getByText(new RegExp(`^\\d*[.,]\\d{2}${EUR}`));
-}
-
-function closureRegion(page: Page) {
-  return page.getByRole("region", { name: `Cierre de ${currentMonthLabel()}` });
 }
 
 function parseEurCents(text: string): number {
@@ -181,13 +172,11 @@ test.describe("porcentaje de ahorro con apartado informativo (flujo crítico)", 
     });
     await expect(savingsCell(page).getByText("Sin ahorro configurado")).toHaveCount(0);
 
-    const closureBalance = await closureRegion(page)
-      .getByText("Saldo del mes")
-      .locator("..")
-      .getByText(new RegExp(`^[+\u2212]?\\d+[.,]\\d{2}${EUR}`))
-      .textContent();
-    expect(closureBalance).toBeTruthy();
-    const grossCents = parseEurCents(closureBalance!);
+    const rowTexts = await movementList(page).getByRole("listitem").allTextContents();
+    const grossCents = rowTexts.reduce((sum, text) => {
+      const match = text.match(/[+\u2212]\d+(?:[.,]\d{2})?[\s\u00A0\u202F]€/);
+      return match ? sum + parseEurCents(match[0]) : sum;
+    }, 0);
     const expectedNetCents = grossCents - 30_000;
 
     await expect(

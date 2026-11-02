@@ -28,3 +28,5 @@ El signo contable lo determina `type` en la query; el movimiento siempre almacen
 
 - **Positivas**: imposible que exista drift por definición (no hay dato duplicado); SC-003 ("coincidencia 100% con la suma de movimientos") cierto por construcción y verificado en tests de integración del repositorio; la edición/eliminación (feature 003) no requerirá recálculo.
 - **Negativas**: coste de agregación por lectura (sub-milisegundo con el índice en el volumen previsto); si el histórico creciera sustancialmente, se evaluaría un snapshot materializado sin tocar el dominio.
+
+> **Nota de jubilación (2026-11-02, feature 025)**: el puerto `AccountRepository.getBalance` y la representación UI del balance acumulado (`AccountBalance`, región «Balance de {cuenta}») se jubilan **sin sustituto** por decisión del propietario — la página de cuenta pasa a ser vista operativa y la consulta agregada vive en `/summary` y `/annual`. El principio subyacente (vistas derivadas, no persistidas) sigue vigente en cierres y resúmenes.

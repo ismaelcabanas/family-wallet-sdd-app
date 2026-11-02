@@ -71,7 +71,7 @@ sequenceDiagram
     A-->>F: { status: 'success', message: 'Movimiento guardado', intent: 'continue' }
     F->>D: toast + savedCount+1 + carry={date, type, nature} — NO cierra
     D->>F: remonta el formulario (key=savedCount): nota/importe/tagId vacíos, fecha/tipo/naturaleza pegados, foco en Nota
-    PG-->>U: página revalidada visible tras el diálogo (listado/balance/cierre al día)
+    PG-->>U: página revalidada visible tras el diálogo (listado/KPIs al día)
     U->>F: siguiente captura → repite 2-13 (Guardados: N)
     U->>F: última captura → «Guardar y cerrar» (intent=close)
     A-->>F: { status: 'success', intent: 'close' }

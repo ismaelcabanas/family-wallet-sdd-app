@@ -65,7 +65,7 @@ src/
 │   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO (con memberId), TagDTO, MonthlyClosureDTO, GlobalMonthlySummaryDTO, AnnualIncomeStatementDTO
 │   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth y listByYear, ADR 0012/0013; sumSharedExpenseCents desde 021, ADR 0019)
 │   ├── account/
-│   │   ├── AccountRepository.ts <-- PUERTO (incluye getBalance con corte opcional asOf inclusive, ADR 0009)
+│   │   ├── AccountRepository.ts <-- PUERTO (findAll/findById/findByName/update; getBalance jubilado en 025, ADR 0009 anotado)
 │   │   └── ListAccounts.ts
 │   ├── tag/
 │   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015; +findById/findAll/update/mergeInto transaccional desde 004, ADR 0018)
@@ -100,7 +100,7 @@ src/
 │
 ├── app/                         <-- ADAPTADOR INBOUND (FINO): solo lo que Next.js rutea
 │   ├── page.tsx                 <-- Panel de cuentas: await connection() + ListAccounts + GetRegularIncome/GetCommonContribution/GetSavingsAllocation por cuenta personal → GlobalNav + AccountCardGrid (accounts + regularIncomes + commonContributions + savingsAllocations, features 012 + 020 + 019 + 023)
-│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe, balance con corte a fin de mes (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; composición list-first lectura por defecto: MonthStepper → [personales: AccountMonthKpis sticky 4 métricas] → GroupedMovementList (con CTA «Nuevo movimiento») → AccountBalance → MonthlyClosurePanel (features 016 + 013 + 022/023/024); la configuración NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares, desde 019 aportaciones comunes y desde 023 deducciones de ahorro, los tres ANTES del Promise.all de lecturas en tres awaits secuenciales (único disparador, ADR 0016/0017; GetMonthSavings lee la fila congelada y la página compone las dos restas de composición netMonthBalanceCents = cierre − ahorro y personalExpenseCents = cierre − aportación, 024)
+│   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; vista operativa desde 025: MonthStepper → [personales: AccountMonthKpis sticky 4 métricas] → GroupedMovementList (con CTA «Nuevo movimiento»), SIN balance ni panel de cierre (componentes jubilados en 025); la configuración NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares, desde 019 aportaciones comunes y desde 023 deducciones de ahorro, los tres ANTES del Promise.all de lecturas en tres awaits secuenciales (único disparador, ADR 0016/0017; GetMonthlyClosure solo en personales con lectura condicionada, fuente interna de KPIs: GetMonthSavings lee la fila congelada y la página compone las dos restas de composición netMonthBalanceCents = cierre − ahorro y personalExpenseCents = cierre − aportación, 024)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004): GlobalNav active="tags" (sin contexto temporal) + ListTags → TagCatalog
@@ -112,7 +112,7 @@ src/
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
     │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011; sumSharedExpenseCents SUM sellada 021, ADR 0019)
-    │   ├── DrizzleAccountRepository.ts    (getBalance = SUM con signo según type; asOf opcional añade lte(date) inclusive, corte cubierto por el índice (account_id, date))
+    │   ├── DrizzleAccountRepository.ts    (findAll/findById/findByName/update; getBalance jubilado en 025)
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017; +findById/findAll/update y mergeInto transaccional UPDATE movements → DELETE tag sin tocar updated_at — 004, ADR 0018) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
     │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months; 021 añade enlace blando movement_id con resolución perezosa legacy + withdrawMaterialization en tx — ADR 0019)
@@ -142,13 +142,12 @@ src/
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
-            ├── account-balance.tsx (subtitle prop: «Acumulado hasta …» en la página de cuenta) · empty-state.tsx
+            ├── empty-state.tsx        <-- Estado vacío reutilizable (account-balance.tsx jubilado en 025)
             ├── month-selector.tsx        <-- Selector de mes cliente reutilizable (router.replace, ADR 0012)
             ├── month-stepper.tsx         <-- Selector ‹ › + picker de la página de cuenta (router.replace preservando accountId; › y picker acotados al mes actual real)
             ├── year-selector.tsx         <-- Selector de año cliente reutilizable (router.replace, ADR 0013)
             ├── global-summary-panel.tsx  <-- Panel del resumen global: KPIs + desgloses por tag y por miembro (solo formatea)
-            ├── annual-statement-panel.tsx <-- Panel de la cuenta anual: tabla mensual Ene–Dic + desglose por tag (solo formatea, ADR 0013)
-            ├── monthly-closure-panel.tsx  <-- Panel de cierre del mes (solo formatea)
+            ├── annual-statement-panel.tsx <-- Panel de la cuenta anual: tabla mensual Ene–Dic + desglose por tag (solo formatea, ADR 0013; monthly-closure-panel.tsx jubilado en 025)
             ├── regular-income-config-dialog.tsx <-- Diálogo «Ingreso regular» (extraído de regular-income-panel en 020): useActionState(configureRegularIncome) con intents save/deactivate, vacío o precargado según config; única vía de desactivación desde 020; lo abre el ítem del menú ⋮ de la tarjeta
             ├── common-contribution-config-dialog.tsx <-- Diálogo «Aportación a la cuenta común» (019): espejo estructural del de 018 con un único campo «Porcentaje (%)» (formatBasisPointsForInput); lo abre el ítem «Aportación» del menú ⋮
             ├── savings-config-dialog.tsx <-- Diálogo «Ahorro mensual» (023): espejo del de 019 con input entero (inputMode numeric, String(percentage)); lo abre el ítem «Ahorro» del menú ⋮
@@ -157,7 +156,7 @@ src/
             ├── rename-tag-dialog.tsx (004: input controlado — React 19 resetea los no controlados al resolver la action; error conserva el nombre tecleado, SC-004)
             ├── merge-tags-dialog.tsx (004: Select destino excluye propia y protegidas, inactivas con sufijo; confirmación integrada texto+destructivo, FR-008)
             ├── deactivate-tag-dialog.tsx (004: AlertDialog con consecuencia explícita sin cifras, FR-008)
-            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); monthEndIsoDate/shiftMonth derivan calendario (helpers puros); currentMonth() del adaptador parametriza la aplicación (018/019); formatBasisPointsForInput para el input de porcentaje (019)
+            └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); shiftMonth deriva calendario (helper puro; monthEndIsoDate jubilado en 025); currentMonth() del adaptador parametriza la aplicación (018/019); formatBasisPointsForInput para el input de porcentaje (019)
 ```
 
 ---
@@ -237,7 +236,7 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 
 - [Diagramas C4 (contexto, contenedores, componentes)](./diagrams/c4.md)
 - [Secuencia del flujo crítico "registrar movimiento"](./diagrams/registro-movimiento-sequence.md) (ADR 0008)
-- [Secuencia de la página de cuenta](./diagrams/pagina-cuenta-sequence.md) (feature 011: apertura con balance acumulado a fin de mes; 016: composición list-first)
+- [Secuencia de la página de cuenta](./diagrams/pagina-cuenta-sequence.md) (feature 011; 016: composición list-first; 025: vista operativa sin balance ni cierre)
 - [Secuencia del panel de cuentas](./diagrams/panel-cuentas-sequence.md) (feature 012: `/` como lanzador de cuentas)
 - [Secuencia del resumen global mensual](./diagrams/resumen-global-sequence.md) (ADR 0012)
 - [Secuencia de la cuenta de resultados anual](./diagrams/cuenta-anual-sequence.md) (ADR 0013)

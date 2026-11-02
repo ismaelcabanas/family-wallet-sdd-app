@@ -70,7 +70,6 @@ function accountRepositoryWith(rows: AccountDTO[]) {
     findAll: vi.fn().mockResolvedValue(rows),
     findById: vi.fn().mockResolvedValue(null),
     findByName: vi.fn(),
-    getBalance: vi.fn(),
     update: vi.fn(),
   };
 }

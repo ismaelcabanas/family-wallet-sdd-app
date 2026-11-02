@@ -18,13 +18,11 @@ import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRe
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { DrizzleSavingsAllocationRepository } from "@/infrastructure/db/DrizzleSavingsAllocationRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
-import { AccountBalance } from "@/infrastructure/primary/ui/account-balance";
 import { AccountMonthKpis } from "@/infrastructure/primary/ui/account-month-kpis";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
 import { GroupedMovementList } from "@/infrastructure/primary/ui/grouped-movement-list";
-import { currentMonth, monthEndIsoDate, monthLabel } from "@/infrastructure/primary/ui/format";
+import { currentMonth } from "@/infrastructure/primary/ui/format";
 import { MonthStepper } from "@/infrastructure/primary/ui/month-stepper";
-import { MonthlyClosurePanel } from "@/infrastructure/primary/ui/monthly-closure-panel";
 
 const accountIdParamSchema = z
   .string()
@@ -86,11 +84,12 @@ export default async function AccountPage({
     regularIncomeRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, balanceCents, tags, closure, netContribution, savings] = await Promise.all([
+  const [movements, tags, closure, netContribution, savings] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),
-    accountRepository.getBalance(AccountId(account.id), monthEndIsoDate(month)),
     new ListActiveTags(tagRepository).execute(),
-    new GetMonthlyClosure(movementRepository).execute(account.id, month),
+    account.type === "personal"
+      ? new GetMonthlyClosure(movementRepository).execute(account.id, month)
+      : Promise.resolve(null),
     account.type === "personal"
       ? new GetMonthNetContribution(commonContributionRepository).execute(
           AccountId(account.id),
@@ -116,7 +115,10 @@ export default async function AccountPage({
 
       <MonthStepper accountId={account.id} month={month} />
 
-      {account.type === "personal" && netContribution !== null && savings !== null ? (
+      {account.type === "personal" &&
+      netContribution !== null &&
+      savings !== null &&
+      closure !== null ? (
         <AccountMonthKpis
           netContribution={netContribution}
           personalExpenseCents={closure.personalExpenseCents - netContribution.amountCents}
@@ -134,14 +136,6 @@ export default async function AccountPage({
         accountName={account.name}
         accountType={account.type}
       />
-
-      <AccountBalance
-        accountName={account.name}
-        balanceCents={balanceCents}
-        subtitle={`Acumulado hasta ${monthLabel(month)}`}
-      />
-
-      <MonthlyClosurePanel closure={closure} month={month} />
     </main>
   );
 }

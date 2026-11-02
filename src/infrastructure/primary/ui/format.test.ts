@@ -11,7 +11,6 @@ import {
   formatDate,
   formatSignedAmountCents,
   formatSignedCents,
-  monthEndIsoDate,
   monthLabel,
   monthYearLabel,
   MONTH_SHORT_LABELS,
@@ -112,17 +111,6 @@ describe("fechas y meses", () => {
   it("currentMonth devuelve el mes actual YYYY-MM", () => {
     expect(currentMonth(new Date(2026, 0, 15))).toBe("2026-01");
     expect(currentMonth(new Date(2026, 11, 15))).toBe("2026-12");
-  });
-
-  it("monthEndIsoDate devuelve el último día de meses de 30 y 31 días", () => {
-    expect(monthEndIsoDate("2026-04")).toBe("2026-04-30");
-    expect(monthEndIsoDate("2026-01")).toBe("2026-01-31");
-    expect(monthEndIsoDate("2026-12")).toBe("2026-12-31");
-  });
-
-  it("monthEndIsoDate resuelve febrero bisiesto y no bisiesto", () => {
-    expect(monthEndIsoDate("2024-02")).toBe("2024-02-29");
-    expect(monthEndIsoDate("2026-02")).toBe("2026-02-28");
   });
 
   it("shiftMonth avanza y retrocede meses cruzando el año en ambas direcciones", () => {

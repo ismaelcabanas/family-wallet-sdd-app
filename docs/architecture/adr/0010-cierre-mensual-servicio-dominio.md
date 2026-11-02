@@ -22,3 +22,5 @@ El cálculo es un VO de dominio puro `MonthlyClosure` (`src/domain/movement/Mont
 
 - **Positivas**: caso de uso autocontenido con la forma estándar (`execute(accountId, month)`), inmune a cambios del listado; reglas del cierre (invariante `shared + personal = expenseTotal`, multi-etiquetado sin duplicar totales, orden del desglose) en el dominio y cubiertas por tests unitarios; reutilizable por el resumen global de la feature 006.
 - **Negativas**: segunda lectura del mes por render de página (query indexada sub-milisegundo, en una página que ya ejecuta 4; coste asumido de forma deliberada frente al acoplamiento).
+
+> **Nota de jubilación (2026-11-02, feature 025)**: el panel UI (`MonthlyClosurePanel`, región «Cierre de {mes}») se retira de la página de cuenta por solapamiento con los KPIs de 022-024. `GetMonthlyClosure` **sobrevive sin cambios** de contrato ni lógica como fuente interna de composición de los KPIs (lectura condicionada a cuentas personales), cubierto por sus unit tests.

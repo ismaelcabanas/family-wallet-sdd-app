@@ -7,6 +7,5 @@ export interface AccountRepository {
   findAll(): Promise<AccountDTO[]>;
   findById(id: AccountId): Promise<Account | null>;
   findByName(name: string): Promise<Account | null>;
-  getBalance(id: AccountId, asOf?: string): Promise<number>;
   update(account: Account): Promise<Account>;
 }

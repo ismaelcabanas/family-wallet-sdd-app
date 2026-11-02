@@ -54,7 +54,7 @@ test.describe("panel de cuentas", () => {
     await expect(page.getByRole("combobox", { name: "Cuenta activa" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Registrar" })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Movimientos del mes" })).toHaveCount(0);
-    await expect(page.getByRole("region").filter({ hasText: "Cierre de" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "KPIs del mes" })).toHaveCount(0);
   });
 
   test("N2: un clic en la tarjeta de Miembro B lleva a /accounts/2 en su mes actual", async ({

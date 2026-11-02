@@ -4,8 +4,12 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
-function closurePanel(page: Page) {
-  return page.getByRole("region").filter({ hasText: "Cierre de" }).first();
+function kpisRegion(page: Page) {
+  return page.getByRole("region", { name: "KPIs del mes" });
+}
+
+function personalExpenseCell(page: Page) {
+  return kpisRegion(page).getByText("Gasto personal").locator("..");
 }
 
 async function openAccount(page: Page, accountName: string): Promise<void> {
@@ -17,10 +21,7 @@ async function openAccount(page: Page, accountName: string): Promise<void> {
 async function selectMonth(page: Page, monthLabel: string): Promise<void> {
   await page.getByRole("combobox", { name: "Mes visible" }).click();
   await page.getByRole("option", { name: monthLabel }).click();
-  const panel = page.getByRole("region").filter({ hasText: "Cierre de" }).first();
-  await expect(panel.getByText(new RegExp(monthLabel, "i")).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect(page.getByRole("combobox", { name: "Mes visible" })).toContainText(monthLabel);
 }
 
 async function registerMovement(
@@ -77,7 +78,7 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
     await selectMonth(page, "Agosto de 2026");
   });
 
-  test("E1: editar el importe recalcula listado, balance y cierre", async ({ page }) => {
+  test("E1: editar el importe recalcula listado y KPIs", async ({ page }) => {
     await registerMovement(page, {
       note: "Mercadona",
       amount: "85,00",
@@ -105,13 +106,13 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
       .first();
     await expect(movementItem).toContainText("−78,50");
 
-    const panel = closurePanel(page);
-    await expect(panel.locator("dd").filter({ hasText: /^78,50[\s\u00A0\u202F]€/u })).toBeVisible();
-    await expect(panel.getByText("Alimentación").first()).toBeVisible();
+    await expect(
+      personalExpenseCell(page).getByText(/^78,50[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(movementList(page).getByRole("listitem")).toHaveCount(1);
   });
 
-  test("E2: eliminar con confirmación actualiza listado, balance y cierre", async ({ page }) => {
+  test("E2: eliminar con confirmación actualiza listado y KPIs", async ({ page }) => {
     await registerMovement(page, {
       note: "Compra a borrar",
       amount: "20,00",
@@ -135,11 +136,10 @@ test.describe("edición y eliminación de movimientos (flujo crítico)", () => {
       movementList(page).getByRole("listitem").filter({ hasText: "Compra a borrar" }),
     ).toHaveCount(0);
 
-    const panel = closurePanel(page);
-    await expect(panel.locator("dd").filter({ hasText: /^78,50[\s\u00A0\u202F]€/u })).toBeVisible({
-      timeout: 10_000,
-    });
-    await expect(panel.getByText("20,00")).toHaveCount(0);
+    await expect(
+      personalExpenseCell(page).getByText(/^78,50[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(movementList(page).getByRole("listitem")).toHaveCount(1);
   });
 
   test("E3: eliminar el último movimiento visible tuesta y muestra el estado vacío", async ({

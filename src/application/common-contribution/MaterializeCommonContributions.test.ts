@@ -237,9 +237,6 @@ class InMemoryAccountRepository implements AccountRepository {
       : null;
   }
 
-  async getBalance(): Promise<number> {
-    return 0;
-  }
 
   async findByName(): Promise<Account | null> {
     return null;
