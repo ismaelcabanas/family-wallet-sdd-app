@@ -7,6 +7,8 @@ import { MemberId } from "@/domain/member/MemberId";
 import { Tag } from "@/domain/tag/Tag";
 import { DuplicateTagNameError } from "@/domain/tag/TagErrors";
 import { TagId } from "@/domain/tag/TagId";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { DrizzleAccountRepository } from "./DrizzleAccountRepository";
@@ -16,6 +18,7 @@ import { DrizzleTagRepository } from "./DrizzleTagRepository";
 import { accounts } from "./schema/accounts";
 import { members } from "./schema/members";
 import { movements } from "./schema/movements";
+import { tagCategories } from "./schema/tag-categories";
 import { tags } from "./schema/tags";
 import { createTestDb, type TestDb } from "./test-support";
 
@@ -32,9 +35,9 @@ beforeEach(async () => {
     { id: 3, name: "Cuenta común", type: "shared", memberId: null },
   ]);
   await testDb.db.insert(tags).values([
-    { id: 1, name: "Luz", slug: "luz", status: "active" },
-    { id: 2, name: "Inactiva", slug: "inactiva", status: "inactive" },
-    { id: 9, name: "Sin Clasificar", slug: "sin-clasificar", status: "active" },
+    { id: 1, name: "Luz", slug: "luz", status: "active", categoryId: 1 },
+    { id: 2, name: "Inactiva", slug: "inactiva", status: "inactive", categoryId: 1 },
+    { id: 9, name: "Sin Clasificar", slug: "sin-clasificar", status: "active", categoryId: 1 },
   ]);
 });
 
@@ -146,7 +149,7 @@ describe("DrizzleTagRepository", () => {
 
   it("rechaza nombres duplicados ignorando mayúsculas (FR-007, índice lower(name))", async () => {
     await expect(
-      testDb.db.insert(tags).values({ name: "LUZ", slug: "luz-duplicada", status: "active" }),
+      testDb.db.insert(tags).values({ name: "LUZ", slug: "luz-duplicada", status: "active", categoryId: 1 }),
     ).rejects.toThrowError();
   });
 
@@ -170,6 +173,7 @@ describe("DrizzleTagRepository", () => {
       name: "Alimentación",
       slug: "alimentacion",
       status: "active",
+      categoryId: 1,
     });
 
     expect(await repository.findByName("Alimentacion")).toBeNull();
@@ -185,9 +189,33 @@ describe("DrizzleTagRepository", () => {
     expect(found?.status).toBe("inactive");
   });
 
-  it("save persiste la etiqueta y la devuelve con id asignado", async () => {
+  it("backfill de 0008: la etiqueta sembrada por la migración 0004 queda en la genérica (SC-001)", async () => {
     const repository = new DrizzleTagRepository(testDb.db);
-    const tag = Tag.create({ name: "Mascotas", slug: "mascotas", status: "active" });
+
+    const contributionTag = await repository.findBySlug("aportacion-comun");
+
+    expect(contributionTag?.id).toBe(100);
+    expect(contributionTag?.name).toBe("Aportación Común");
+    expect(contributionTag?.status).toBe("active");
+    expect(contributionTag?.categoryId).toBe(1);
+  });
+
+  it("findAll rehidrata el categoryId de cada etiqueta", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+
+    const all = await repository.findAll();
+
+    expect(all.every((tag) => tag.categoryId === 1)).toBe(true);
+  });
+
+  it("save persiste la etiqueta y la devuelve con id asignado y su categoría", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    const tag = Tag.create({
+      name: "Mascotas",
+      slug: "mascotas",
+      status: "active",
+      categoryId: TagCategoryId(1),
+    });
 
     const saved = await repository.save(tag);
     const reloaded = await repository.findBySlug("mascotas");
@@ -195,12 +223,19 @@ describe("DrizzleTagRepository", () => {
     expect(saved.id).not.toBeNull();
     expect(saved.name).toBe("Mascotas");
     expect(saved.status).toBe("active");
+    expect(saved.categoryId).toBe(1);
     expect(reloaded?.id).toBe(saved.id);
+    expect(reloaded?.categoryId).toBe(1);
   });
 
   it("save traduce la violación del constraint de nombre a DuplicateTagNameError (carrera)", async () => {
     const repository = new DrizzleTagRepository(testDb.db);
-    const tag = Tag.create({ name: "LUZ", slug: "luz-2", status: "active" });
+    const tag = Tag.create({
+      name: "LUZ",
+      slug: "luz-2",
+      status: "active",
+      categoryId: TagCategoryId(1),
+    });
 
     await expect(repository.save(tag)).rejects.toThrowError(new DuplicateTagNameError("LUZ"));
   });
@@ -228,7 +263,7 @@ describe("DrizzleTagRepository", () => {
     expect(missing).toBeNull();
   });
 
-  it("update persiste el renombrado con slug estable y devuelve la entidad rehidratada", async () => {
+  it("update persiste el renombrado rehidratando su categoría", async () => {
     const repository = new DrizzleTagRepository(testDb.db);
     const tag = await repository.findById(TagId(1));
 
@@ -238,9 +273,24 @@ describe("DrizzleTagRepository", () => {
 
     expect(updated.name).toBe("Hogar");
     expect(updated.slug).toBe("luz");
+    expect(updated.categoryId).toBe(1);
     const reloaded = await repository.findById(TagId(1));
     expect(reloaded?.name).toBe("Hogar");
     expect(reloaded?.slug).toBe("luz");
+    expect(reloaded?.categoryId).toBe(1);
+  });
+
+  it("update persiste el cambio de categoría (movimiento entre categorías)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    await testDb.db
+      .insert(tagCategories)
+      .values({ id: 2, name: "Alimentación", slug: "alimentacion" });
+    const tag = await repository.findById(TagId(1));
+
+    const updated = await repository.update((tag as Tag).moveToCategory(TagCategoryId(2)));
+
+    expect(updated.categoryId).toBe(2);
+    expect((await repository.findById(TagId(1)))?.categoryId).toBe(2);
   });
 
   it("update persiste el cambio de estado", async () => {
@@ -291,6 +341,27 @@ describe("DrizzleTagRepository", () => {
     const listed = await movementRepository.listByMonthAndAccount(AccountId(1), "2026-09");
     expect(listed).toHaveLength(2);
     expect(listed.every((dto) => dto.tag?.name === "Sin Clasificar")).toBe(true);
+  });
+
+  it("mergeInto conserva la categoría de la superviviente y no deja etiquetas huérfanas (edge 026)", async () => {
+    const repository = new DrizzleTagRepository(testDb.db);
+    await testDb.db
+      .insert(tagCategories)
+      .values({ id: 2, name: "Alimentación", slug: "alimentacion" });
+    await testDb.db
+      .insert(tags)
+      .values({ id: 5, name: "Supermercado", slug: "supermercado", status: "active", categoryId: 2 });
+
+    await repository.mergeInto(TagId(5), TagId(9));
+
+    expect(await repository.findById(TagId(5))).toBeNull();
+    const survivor = await repository.findById(TagId(9));
+    expect(survivor?.categoryId).toBe(1);
+    const orphanRows = await testDb.db
+      .select()
+      .from(tags)
+      .where(eq(tags.categoryId, 2));
+    expect(orphanRows).toHaveLength(0);
   });
 
   it("mergeInto con absorbida sin movimientos devuelve 0 y borra", async () => {

@@ -4,6 +4,7 @@ import { MemberId } from "@/domain/member/MemberId";
 import { InvalidMovementError } from "@/domain/movement/MovementErrors";
 import { Movement } from "@/domain/movement/Movement";
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 import { InactiveTagError, TagNotFoundError } from "@/domain/tag/TagErrors";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -52,10 +53,10 @@ describe("CreateMovement", () => {
   ];
 
   const tags = [
-    Tag.rehydrate(1, "Alimentación", "alimentacion", "active"),
-    Tag.rehydrate(2, "Vivienda", "vivienda", "active"),
-    Tag.rehydrate(5, "Inactiva", "inactiva", "inactive"),
-    Tag.rehydrate(9, "Sin Clasificar", "sin-clasificar", "active"),
+    Tag.rehydrate(1, "Alimentación", "alimentacion", "active", TagCategoryId(1)),
+    Tag.rehydrate(2, "Vivienda", "vivienda", "active", TagCategoryId(1)),
+    Tag.rehydrate(5, "Inactiva", "inactiva", "inactive", TagCategoryId(1)),
+    Tag.rehydrate(9, "Sin Clasificar", "sin-clasificar", "active", TagCategoryId(1)),
   ];
 
   let movements: InMemoryMovementRepository;

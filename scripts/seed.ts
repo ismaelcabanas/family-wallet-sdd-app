@@ -1,8 +1,13 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../src/infrastructure/db/client";
-import { accounts, members, tags } from "../src/infrastructure/db/schema";
-import { SEED_ACCOUNTS, SEED_MEMBERS, SEED_TAGS } from "../src/infrastructure/db/seed-data";
+import { accounts, members, tagCategories, tags } from "../src/infrastructure/db/schema";
+import {
+  SEED_ACCOUNTS,
+  SEED_CATEGORIES,
+  SEED_MEMBERS,
+  SEED_TAGS,
+} from "../src/infrastructure/db/seed-data";
 
 async function seed(): Promise<void> {
   for (const member of SEED_MEMBERS) {
@@ -46,14 +51,35 @@ async function seed(): Promise<void> {
   }
 
   await db
+    .insert(tagCategories)
+    .values(SEED_CATEGORIES.map((category) => ({ name: category.name, slug: category.slug })))
+    .onConflictDoNothing({ target: tagCategories.slug });
+
+  const [generalCategory] = await db
+    .select()
+    .from(tagCategories)
+    .where(eq(tagCategories.slug, "general"))
+    .limit(1);
+  if (generalCategory === undefined) {
+    throw new Error("Seed fallido: la categoría genérica «General» no existe tras la inserción.");
+  }
+
+  await db
     .insert(tags)
-    .values(SEED_TAGS.map((tag) => ({ name: tag.name, slug: tag.slug, status: "active" })))
+    .values(
+      SEED_TAGS.map((tag) => ({
+        name: tag.name,
+        slug: tag.slug,
+        status: "active",
+        categoryId: generalCategory.id,
+      })),
+    )
     .onConflictDoNothing({ target: tags.slug });
 }
 
 seed()
   .then(() => {
-    console.log("Seed completado: 2 miembros, 3 cuentas y 12 tags garantizadas (idempotente).");
+    console.log("Seed completado: 2 miembros, 3 cuentas, 1 categoría y 12 tags garantizadas (idempotente).");
     process.exit(0);
   })
   .catch((error: unknown) => {

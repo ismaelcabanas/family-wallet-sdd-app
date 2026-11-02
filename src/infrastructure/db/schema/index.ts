@@ -4,4 +4,5 @@ export * from "./members";
 export * from "./movements";
 export * from "./regular-incomes";
 export * from "./savings-allocations";
+export * from "./tag-categories";
 export * from "./tags";

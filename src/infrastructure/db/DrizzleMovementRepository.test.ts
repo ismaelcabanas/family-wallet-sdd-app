@@ -22,8 +22,8 @@ beforeEach(async () => {
     { id: 3, name: "Cuenta común", type: "shared", memberId: null },
   ]);
   await testDb.db.insert(tags).values([
-    { id: 2, name: "Vivienda", slug: "vivienda", status: "active" },
-    { id: 3, name: "Hipoteca", slug: "hipoteca", status: "active" },
+    { id: 2, name: "Vivienda", slug: "vivienda", status: "active", categoryId: 1 },
+    { id: 3, name: "Hipoteca", slug: "hipoteca", status: "active", categoryId: 1 },
   ]);
 });
 
@@ -138,7 +138,7 @@ describe("DrizzleMovementRepository", () => {
         { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
       ]);
       await testDb.db.insert(tags).values([
-        { id: 1, name: "Coche", slug: "coche", status: "active" },
+        { id: 1, name: "Coche", slug: "coche", status: "active", categoryId: 1 },
       ]);
       const repository = new DrizzleMovementRepository(testDb.db);
       await repository.create(buildMovement({ date: "2026-09-05", note: "Hipoteca común" }));
@@ -242,7 +242,7 @@ describe("DrizzleMovementRepository", () => {
         { id: 2, name: "Cuenta de Miembro B", type: "personal", memberId: 2 },
       ]);
       await testDb.db.insert(tags).values([
-        { id: 1, name: "Coche", slug: "coche", status: "active" },
+        { id: 1, name: "Coche", slug: "coche", status: "active", categoryId: 1 },
       ]);
       const repository = new DrizzleMovementRepository(testDb.db);
       await repository.create(

@@ -52,7 +52,12 @@ export class DrizzleTagRepository implements TagRepository {
     try {
       const rows = await this.db
         .insert(tags)
-        .values({ name: tag.name, slug: tag.slug, status: tag.status })
+        .values({
+          name: tag.name,
+          slug: tag.slug,
+          status: tag.status,
+          categoryId: tag.categoryId,
+        })
         .returning();
       return mapRowToTag(rows[0]);
     } catch (error) {
@@ -77,7 +82,7 @@ export class DrizzleTagRepository implements TagRepository {
     try {
       const rows = await this.db
         .update(tags)
-        .set({ name: tag.name, status: tag.status })
+        .set({ name: tag.name, status: tag.status, categoryId: tag.categoryId })
         .where(eq(tags.id, tag.id))
         .returning();
       return mapRowToTag(rows[0]);

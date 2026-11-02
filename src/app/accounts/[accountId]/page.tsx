@@ -17,6 +17,7 @@ import { DrizzleCommonContributionRepository } from "@/infrastructure/db/Drizzle
 import { DrizzleMovementRepository } from "@/infrastructure/db/DrizzleMovementRepository";
 import { DrizzleRegularIncomeRepository } from "@/infrastructure/db/DrizzleRegularIncomeRepository";
 import { DrizzleSavingsAllocationRepository } from "@/infrastructure/db/DrizzleSavingsAllocationRepository";
+import { DrizzleTagCategoryRepository } from "@/infrastructure/db/DrizzleTagCategoryRepository";
 import { DrizzleTagRepository } from "@/infrastructure/db/DrizzleTagRepository";
 import { AccountMonthKpis } from "@/infrastructure/primary/ui/account-month-kpis";
 import { GlobalNav } from "@/infrastructure/primary/ui/global-nav";
@@ -77,6 +78,7 @@ export default async function AccountPage({
     movementRepository,
     tagRepository,
     accountRepository,
+    new DrizzleTagCategoryRepository(db),
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
   await new MaterializeSavingsAllocations(

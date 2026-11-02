@@ -8,6 +8,8 @@ export const SEED_ACCOUNTS = [
   { name: SHARED_ACCOUNT_NAME, type: "shared", memberName: null },
 ] as const;
 
+export const SEED_CATEGORIES = [{ name: "General", slug: "general" }] as const;
+
 export const SEED_TAGS = [
   { name: "Hogar", slug: "hogar" },
   { name: "Coche", slug: "coche" },

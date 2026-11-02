@@ -2,6 +2,8 @@
 
 Fusión de dos etiquetas — la operación más rica del mantenimiento (`/tags`). Renombrar, desactivar y reactivar siguen el mismo recorrido con su acción y diálogo correspondientes.
 
+> **Nota (026)**: desde `026-categorias-tags` el catálogo de `/tags` está **agrupado por categorías** (ADR 0022) y cada menú ⋮ de etiqueta gana «Mover a categoría…» como primer ítem — ese flujo vive en [categorias-secuencia.md](./categorias-secuencia.md). El recorrido de la fusión y del resto de operaciones 004 no cambia.
+
 ```mermaid
 sequenceDiagram
     autonumber
