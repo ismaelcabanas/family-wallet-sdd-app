@@ -19,6 +19,14 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — organizar el catálogo de etiquetas en categorías. Crear una categoría sin poder asignarle etiquetas no aportaría valor por sí solo, por lo que no se divide. No aplica excepción.
 
+## Clarifications
+
+### Session 2026-11-02
+
+- Q: ¿Mover etiquetas entre categorías de una en una o también en lote con selección múltiple? → A: Solo individual, una etiqueta cada vez (el lote queda fuera de alcance).
+- Q: ¿Crear categorías solo con el botón «Nueva categoría» del catálogo o también en línea desde el control de mover (patrón 017)? → A: Solo desde el catálogo; el control de mover ofrece únicamente categorías existentes.
+- Q: ¿Puede una categoría llamarse igual que una etiqueta existente? → A: Sí, permitido: la unicidad aplica solo dentro del catálogo de categorías.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Organizar el catálogo de etiquetas en categorías (Priority: P1)
@@ -45,7 +53,7 @@ Como propietario de la aplicación, quiero agrupar las etiquetas del catálogo e
 ### Edge Cases
 
 - **Nombre de categoría vacío o solo espacios**: se recorta (trim) antes de validar y guardar; un nombre vacío tras el recorte se rechaza con mensaje claro.
-- **Duplicados ignorando mayúsculas**: «Hogar» y «HOGAR» son duplicados (misma regla vigente del catálogo de etiquetas); «Alimentación» y «Alimentacion» **no** lo son (la regla vigente no normaliza acentos).
+- **Duplicados ignorando mayúsculas**: «Hogar» y «HOGAR» son duplicados (misma regla vigente del catálogo de etiquetas); «Alimentación» y «Alimentacion» **no** lo son (la regla vigente no normaliza acentos). La unicidad aplica solo entre categorías: una categoría puede coincidir en nombre con una etiqueta.
 - **Categoría genérica protegida**: no se puede eliminar mientras exista (es el destino por defecto de las etiquetas nuevas); renombrarla sí está permitido y no cambia su papel de categoría por defecto.
 - **Mover una etiqueta a la categoría que ya tiene**: no-op sin error; el catálogo queda igual.
 - **Etiqueta protegida «Aportación común»** (004): puede moverse de categoría como cualquier otra; su protección afecta a renombrar/fusionar/desactivar la etiqueta, no a su pertenencia.
@@ -60,9 +68,9 @@ Como propietario de la aplicación, quiero agrupar las etiquetas del catálogo e
 
 - **FR-001 (pertenencia obligatoria y única)**: Cada etiqueta MUST pertenecer a exactamente una categoría en todo momento; el sistema MUST garantizar el invariante en altas, movimientos entre categorías, fusiones de etiquetas y eliminación de categorías. La puesta en marcha MUST asignar todas las etiquetas existentes a la categoría genérica sin pérdida de datos ni modificación de movimientos.
 - **FR-002 (catálogo agrupado)**: La vista `/tags` MUST mostrar las etiquetas agrupadas por su categoría, con la categoría genérica y las creadas por el usuario tratadas por igual. Cada grupo MUST reflejar de forma inmediata los cambios de pertenencia.
-- **FR-003 (crear categoría)**: El usuario MUST poder crear una categoría aportando únicamente el nombre (con trim); un nombre vacío o duplicado ignorando mayúsculas/minúsculas MUST rechazarse con mensaje claro conservando el nombre tecleado para corregirlo. La categoría nace vacía y disponible para asignar etiquetas.
+- **FR-003 (crear categoría)**: El usuario MUST poder crear una categoría aportando únicamente el nombre (con trim), únicamente desde el botón «Nueva categoría» del catálogo `/tags` (sin creación en línea desde el control de mover). Un nombre vacío o duplicado ignorando mayúsculas/minúsculas con otra **categoría** MUST rechazarse con mensaje claro conservando el nombre tecleado para corregirlo (la coincidencia con nombres de etiquetas está permitida). La categoría nace vacía y disponible para asignar etiquetas.
 - **FR-004 (renombrar categoría)**: El usuario MUST poder renombrar una categoría con la misma regla de unicidad y mensajes de error que la creación. El renombrado MUST no alterar las etiquetas asignadas ni ningún movimiento.
-- **FR-005 (mover etiqueta de categoría)**: El usuario MUST poder mover una etiqueta de una categoría a otra desde `/tags`. El cambio MUST ser inmediato en el catálogo y MUST no modificar ningún movimiento, importe ni desglose: la pertenencia es atributo de la etiqueta.
+- **FR-005 (mover etiqueta de categoría)**: El usuario MUST poder mover una etiqueta de una categoría a otra desde `/tags`, de una en una (una etiqueta por operación; sin selección múltiple ni movimiento en lote). El cambio MUST ser inmediato en el catálogo y MUST no modificar ningún movimiento, importe ni desglose: la pertenencia es atributo de la etiqueta.
 - **FR-006 (eliminar categoría vacía)**: El usuario MUST poder eliminar una categoría **solo si no tiene etiquetas asignadas**; una categoría con etiquetas MUST rechazar la eliminación con un mensaje claro. La categoría genérica MUST no ser eliminable.
 - **FR-007 (etiquetas nuevas en la genérica)**: Toda etiqueta creada a partir de la puesta en marcha —incluida la creación inline «+ Nueva etiqueta» de 017— MUST quedar asignada por defecto a la categoría genérica sin pasos adicionales para el usuario.
 - **FR-008 (fuera de alcance explícito)**: `/summary`, `/annual`, los formularios de movimiento, los listados de cuenta y los KPIs MUST permanecer funcionalmente idénticos: mismos desgloses por etiqueta, mismos importes, misma interacción. El selector «Etiqueta» del formulario de movimiento sigue mostrando las etiquetas sin agrupar por categoría.
@@ -89,7 +97,7 @@ Como propietario de la aplicación, quiero agrupar las etiquetas del catálogo e
 - La categoría genérica inicial se llama «General»; es renombrable pero no eliminable (es el destino por defecto de FR-007). Su identidad como categoría por defecto es fija, con independencia del nombre visible.
 - La categoría no aparece en ningún sitio fuera de `/tags` en esta feature: ni en formularios de movimiento, ni en listados, ni en informes. El selector «Etiqueta» sigue plano.
 - Las categorías no tienen estado activa/inactiva ni mecanismo de fusión en esta primera tanda (ciclo de vida mínimo, decisión del propietario 2026-11-02).
-- La regla de unicidad de nombre replica la vigente de las etiquetas: ignora mayúsculas/minúsculas, no normaliza acentos, con trim previo.
+- La regla de unicidad de nombre replica la vigente de las etiquetas: ignora mayúsculas/minúsculas, no normaliza acentos, con trim previo; aplica solo dentro del catálogo de categorías.
 - Los detalles técnicos (si la categoría necesita slug, esquema de persistencia, índices, forma de la UI de movimiento entre categorías —diálogo, select en fila, menú ⋮—) corresponden al plan; esta spec solo fija el comportamiento.
 - Los desgloses por etiqueta de cierre mensual, resumen global y cuenta de resultados anual no cambian: la categoría computa como hoy (es decir, no computa) en todos los agregados.
 - Literales de UI en español («Nueva categoría», «Mover a categoría…», mensajes de duplicado y de categoría con etiquetas); escritorio primero, usable en móvil sin optimización específica.
@@ -99,6 +107,8 @@ Como propietario de la aplicación, quiero agrupar las etiquetas del catálogo e
 
 - **Informes y visiones por categoría**: desglose por categoría en `/summary` y `/annual`, drill-down categoría→etiqueta, o cualquier cambio de presentación de los agregados (diferido explícitamente; el propietario decidirá la forma).
 - **Desactivar/fusionar categorías**, reordenar el catálogo, colores o iconos por categoría.
+- Movimiento de etiquetas **en lote** (selección múltiple): solo movimiento individual (clarificación 2026-11-02).
+- **Creación de categoría en línea** desde el control de mover («+ Nueva categoría»): las categorías se crean solo desde el catálogo (clarificación 2026-11-02).
 - **Agrupar el selector «Etiqueta»** del formulario de movimiento por categorías (optgroup).
 - Cambios en el modelo del movimiento, en la obligatoriedad de la etiqueta, o en la gestión de etiquetas de 004/017 más allá de añadir su categoría.
 - Migración de datos desde los Excel históricos.
