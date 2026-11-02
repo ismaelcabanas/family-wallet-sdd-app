@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 import { DuplicateTagNameError, TagNotFoundError } from "@/domain/tag/TagErrors";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -12,8 +13,8 @@ describe("ReactivateTag", () => {
 
   beforeEach(() => {
     repository = new InMemoryCatalogTagRepository([
-      Tag.rehydrate(1, "Luz apagada", "luz-apagada", "inactive"),
-      Tag.rehydrate(2, "LUZ", "luz", "active"),
+      Tag.rehydrate(1, "Luz apagada", "luz-apagada", "inactive", TagCategoryId(1)),
+      Tag.rehydrate(2, "LUZ", "luz", "active", TagCategoryId(1)),
     ]);
     useCase = new ReactivateTag(repository);
   });
@@ -30,8 +31,8 @@ describe("ReactivateTag", () => {
 
   it("rechaza la colisión de lower(name) con otra etiqueta (edge inactiva «Luz» vs activa «LUZ»)", async () => {
     repository.stored = [
-      Tag.rehydrate(1, "Luz", "luz-apagada", "inactive"),
-      Tag.rehydrate(2, "LUZ", "luz", "active"),
+      Tag.rehydrate(1, "Luz", "luz-apagada", "inactive", TagCategoryId(1)),
+      Tag.rehydrate(2, "LUZ", "luz", "active", TagCategoryId(1)),
     ];
 
     await expect(useCase.execute({ id: TagId(1) })).rejects.toThrowError(

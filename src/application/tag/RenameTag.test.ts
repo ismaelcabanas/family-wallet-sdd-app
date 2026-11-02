@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 import {
   DuplicateTagNameError,
@@ -17,10 +18,10 @@ describe("RenameTag", () => {
 
   beforeEach(() => {
     repository = new InMemoryCatalogTagRepository([
-      Tag.rehydrate(1, "luz", "luz", "active"),
-      Tag.rehydrate(2, "Ocio", "ocio", "active"),
-      Tag.rehydrate(3, "Apagada", "apagada", "inactive"),
-      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active"),
+      Tag.rehydrate(1, "luz", "luz", "active", TagCategoryId(1)),
+      Tag.rehydrate(2, "Ocio", "ocio", "active", TagCategoryId(1)),
+      Tag.rehydrate(3, "Apagada", "apagada", "inactive", TagCategoryId(1)),
+      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active", TagCategoryId(1)),
     ]);
     useCase = new RenameTag(repository);
   });

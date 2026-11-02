@@ -32,11 +32,16 @@ src/
 │   │   ├── MovementErrors.ts    <-- InvalidMoneyError, InvalidMovementError, MovementNotFoundError
 │   │   └── *.test.ts            <-- Tests co-localizados junto al SUT
 │   ├── tag/
-│   │   ├── Tag.ts                <-- Entidad congelada; +rename/withStatus desde 004 (rename conserva id/slug/status — ADR 0018)
+│   │   ├── Tag.ts                <-- Entidad congelada; +rename/withStatus desde 004 (rename conserva id/slug/status — ADR 0018); +categoryId obligatoria y moveToCategory desde 026 (ADR 0022)
 │   │   ├── TagId.ts · TagStatus.ts
-│   │   ├── TagSlug.ts            <-- deriveTagSlug(name): función pura slug (ADR 0015)
+│   │   ├── TagSlug.ts            <-- deriveTagSlug(name): re-exporta deriveSlug de shared/slug.ts desde 026 (ADR 0015/0022)
 │   │   ├── SystemTags.ts          <-- CONTRIBUTION_TAG_SLUG + isProtectedTagSlug: protección por slug de etiquetas de sistema (004, ADR 0018; 019 importa la constante)
 │   │   └── TagErrors.ts         <-- DuplicateTagNameError (lanzado desde 017), InactiveTagError, ProtectedTagError (004), ...
+│   ├── tag-category/            <-- 026 (ADR 0022)
+│   │   ├── TagCategory.ts       <-- Entidad congelada (create/rehydrate/rename; slug inmutable)
+│   │   ├── TagCategoryId.ts     <-- VO brand espejo de TagId
+│   │   ├── DefaultCategory.ts   <-- DEFAULT_CATEGORY_SLUG="general" + isDefaultCategorySlug (espejo de SystemTags)
+│   │   └── TagCategoryErrors.ts <-- Invalid/Duplicate/NotFound/Protected/NotEmpty CategoryError (5 errores, mensajes ES congelados)
 │   └── regular-income/          <-- 018 (ADR 0016)
 │       ├── RegularIncome.ts     <-- Entidad ingreso regular (update/deactivate/activate, dueDateForMonth con clamp a lastDayOfMonth)
 │       ├── RegularIncomeId.ts
@@ -68,14 +73,20 @@ src/
 │   │   ├── AccountRepository.ts <-- PUERTO (findAll/findById/findByName/update; getBalance jubilado en 025, ADR 0009 anotado)
 │   │   └── ListAccounts.ts
 │   ├── tag/
-│   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015; +findById/findAll/update/mergeInto transaccional desde 004, ADR 0018)
+│   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015; +findById/findAll/update/mergeInto transaccional desde 004, ADR 0018; save/update persisten categoryId desde 026)
 │   │   ├── ListActiveTags.ts
-│   │   ├── dto.ts                <-- CatalogTagDTO { id, name, slug, status, isProtected } (004)
-│   │   ├── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa
-│   │   ├── ListTags.ts           <-- Catálogo completo → DTO ordenado activas→inactivas, alfabético es; isProtected del dominio (004)
+│   │   ├── dto.ts                <-- CatalogTagDTO { id, name, slug, status, isProtected } (004); +TagCatalogGroupDTO (026)
+│   │   ├── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa; desde 026 nace en la genérica (FR-007, ADR 0022)
+│   │   ├── ListTagCatalog.ts    <-- Catálogo agrupado por categorías → TagCatalogGroupDTO[] pre-ordenado (026; jubila ListTags: genérica primero, resto es, activas primero)
+│   │   ├── MoveTagToCategory.ts <-- Mueve una etiqueta de categoría (misma categoría = no-op; sin protección extra, 026)
 │   │   ├── RenameTag.ts          <-- findById → protección → rename → duplicado con autoexclusión → update (004)
 │   │   ├── MergeTags.ts          <-- valida ambas, distintas, ninguna protegida (absorbida ni resultante) → mergeInto (004)
 │   │   ├── DeactivateTag.ts · ReactivateTag.ts <-- withStatus con protección/idempotencia y colisión de reactivación (004)
+│   ├── tag-category/            <-- 026 (ADR 0022)
+│   │   ├── CategoryRepository.ts <-- PUERTO (findAll/findById/findBySlug/findByName/save/update/delete/countTags)
+│   │   ├── CreateCategory.ts · RenameCategory.ts · DeleteCategory.ts <-- ciclo de vida mínimo (genérica protegida por slug; borrado solo si 0 etiquetas)
+│   │   ├── InMemoryCategoryRepository.ts <-- doble de tests
+│   │   └── dto.ts                <-- CategoryDTO { id, name, isDefault }
 │   ├── member/
 │   │   └── MemberRepository.ts  <-- PUERTO
 │   └── regular-income/          <-- 018 (ADR 0016)

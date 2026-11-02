@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 import {
   InvalidTagError,
@@ -16,10 +17,10 @@ describe("MergeTags", () => {
 
   beforeEach(() => {
     repository = new InMemoryCatalogTagRepository([
-      Tag.rehydrate(1, "super", "super", "active"),
-      Tag.rehydrate(2, "super-casa", "super-casa", "active"),
-      Tag.rehydrate(3, "Apagada", "apagada", "inactive"),
-      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active"),
+      Tag.rehydrate(1, "super", "super", "active", TagCategoryId(1)),
+      Tag.rehydrate(2, "super-casa", "super-casa", "active", TagCategoryId(1)),
+      Tag.rehydrate(3, "Apagada", "apagada", "inactive", TagCategoryId(1)),
+      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active", TagCategoryId(1)),
     ]);
     useCase = new MergeTags(repository);
   });

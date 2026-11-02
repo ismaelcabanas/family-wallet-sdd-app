@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import {
   DuplicateTagNameError,
   InactiveTagError,
@@ -39,7 +40,7 @@ describe("createTag (Server Action)", () => {
   });
 
   it("éxito devuelve la tag como DTO, con el nombre trimeado, y revalida el layout", async () => {
-    executeMock.mockResolvedValueOnce(Tag.rehydrate(15, "Mascotas", "mascotas", "active"));
+    executeMock.mockResolvedValueOnce(Tag.rehydrate(15, "Mascotas", "mascotas", "active", TagCategoryId(1)));
 
     const result = await createTag("  Mascotas ");
 

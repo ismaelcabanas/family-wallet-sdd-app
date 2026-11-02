@@ -47,7 +47,7 @@ export class InMemoryCatalogTagRepository implements TagRepository {
     if (duplicate) {
       throw new DuplicateTagNameError(tag.name);
     }
-    const persisted = Tag.rehydrate(this.nextId++, tag.name, tag.slug, tag.status);
+    const persisted = Tag.rehydrate(this.nextId++, tag.name, tag.slug, tag.status, tag.categoryId);
     this.stored.push(persisted);
     return persisted;
   }
@@ -62,7 +62,7 @@ export class InMemoryCatalogTagRepository implements TagRepository {
     }
     this.stored = this.stored.map((existing) =>
       existing.id === tag.id
-        ? Tag.rehydrate(tag.id as number, tag.name, tag.slug, tag.status)
+        ? Tag.rehydrate(tag.id as number, tag.name, tag.slug, tag.status, tag.categoryId)
         : existing,
     );
     this.updated.push(tag);

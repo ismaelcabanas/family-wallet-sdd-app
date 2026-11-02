@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018, 019, 023, 004 y 008)
+# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018, 019, 023, 004, 008 y 026)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -72,10 +72,32 @@ classDiagram
         +name: String
         +slug: String (derivado por deriveTagSlug desde 017; inmutable tras la creación, 004)
         +status: TagStatus
+        +categoryId: TagCategoryId (026: obligatoria — pertenencia única, FR-001)
         +create(input)$ Tag
-        +rehydrate(id, name, slug, status)$ Tag
-        +rename(name) Tag (004: trimea, conserva id/slug/status)
-        +withStatus(status) Tag (004: desactivar/reactivar)
+        +rehydrate(id, name, slug, status, categoryId)$ Tag
+        +rename(name) Tag (004: trimea, conserva id/slug/status; 026: conserva categoryId)
+        +withStatus(status) Tag (004: desactivar/reactivar; 026: conserva categoryId)
+        +moveToCategory(categoryId) Tag (026: única vía de cambio de pertenencia)
+    }
+
+    class TagCategory {
+        <<Entidad de 026 · raíz del agregado · ADR 0022>>
+        +id: TagCategoryId?
+        +name: String (único case-insensitive fuera de la entidad)
+        +slug: String (identidad estable, inmutable en renombrado)
+        +create(input)$ TagCategory
+        +rehydrate(id, name, slug)$ TagCategory
+        +rename(name) TagCategory (conserva id y slug)
+    }
+
+    class TagCategoryId {
+        <<VO brand de 026 · espejo de TagId>>
+    }
+
+    class DefaultCategory {
+        <<Módulo puro de 026 · src/domain/tag-category/DefaultCategory.ts>>
+        +DEFAULT_CATEGORY_SLUG$ String ("general"; único dueño)
+        +isDefaultCategorySlug(slug) boolean$
     }
 
     class TagStatus {
@@ -92,7 +114,7 @@ classDiagram
     }
 
     class deriveTagSlug {
-        <<Función pura de 017>>
+        <<Función pura de 017 · desde 026 re-exporta deriveSlug de shared/slug.ts>>
         +deriveTagSlug(name) String$
     }
 
@@ -192,6 +214,21 @@ classDiagram
     class InactiveTagError
     class ProtectedTagError {
         <<004>>
+    }
+    class InvalidCategoryError {
+        <<026>>
+    }
+    class DuplicateCategoryNameError {
+        <<026>>
+    }
+    class CategoryNotFoundError {
+        <<026>>
+    }
+    class ProtectedCategoryError {
+        <<026>>
+    }
+    class CategoryNotEmptyError {
+        <<026>>
     }
     class InvalidRegularIncomeError {
         <<018>>
@@ -342,6 +379,8 @@ classDiagram
     Member "1" --o "0..1" Account : solo cuentas personales
     Account "1" *-- "1" AccountType : type
     Tag "1" *-- "1" TagStatus : status
+    Tag "1..*" --> "1" TagCategory : categoryId (NOT NULL FK RESTRICT, 026)
+    TagCategory "1" *-- "1" TagCategoryId : id
     DomainError <|-- InvalidMoneyError
     DomainError <|-- InvalidMovementError
     DomainError <|-- InvalidMemberError
@@ -354,6 +393,11 @@ classDiagram
     DomainError <|-- DuplicateTagNameError
     DomainError <|-- InactiveTagError
     DomainError <|-- ProtectedTagError
+    DomainError <|-- InvalidCategoryError
+    DomainError <|-- DuplicateCategoryNameError
+    DomainError <|-- CategoryNotFoundError
+    DomainError <|-- ProtectedCategoryError
+    DomainError <|-- CategoryNotEmptyError
     DomainError <|-- InvalidRegularIncomeError
     DomainError <|-- SharedAccountIncomeError
     DomainError <|-- RegularIncomeNotFoundError
@@ -366,6 +410,7 @@ classDiagram
     DomainError <|-- SavingsAllocationNotFoundError
     deriveTagSlug ..> Tag : alimenta create(input.slug) vía CreateTag (017)
     SystemTags ..> Tag : isProtectedTagSlug protege rename/desactivar/fusionar (004)
+    DefaultCategory ..> TagCategory : isDefaultCategorySlug protege el borrado de la genérica (026)
     RegularIncome "1" *-- "1" Money : amount
     RegularIncome ..> lastDayOfMonth : dueDateForMonth clamp (018)
     RegularIncome --> Account : accountId (solo personal, SharedAccountIncomeError)
@@ -406,7 +451,8 @@ classDiagram
 - **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`. Desde 008 (ADR 0020): `name: string | null` — **`personal ⇒ name === null`** (el nombre mostrado se deriva siempre del miembro como «Cuenta de {miembro}» vía `personalAccountDisplayName`, aplicada en `findAll` del repositorio: `AccountDTO.name` = nombre mostrado) y **`shared ⇒ name` trimado no vacío**; `rename(name)` solo existe en `shared` (en `personal` lanza `AccountNotRenamableError`: no hay renombrado independiente) y conserva id/type/memberId (patrón ADR 0011). Unicidad de nombres almacenados ignorando mayúsculas en BD (`accounts_name_nocase_uq` sobre `lower(name)`; los NULL de las personales nunca colisionan) con check amable en `RenameAccount` (`findByName` autoexcluyéndose) y backstop de carrera traducido a `DuplicateAccountNameError` en el repositorio.
 - **`Member`**: nombre único ignorando mayúsculas (índice `members_name_nocase_uq` sobre `lower(name)`, patrón tags); desde 008 `rename(name)` trimea, valida no vacío y devuelve nueva instancia congelada con el mismo id; el duplicado se valida en `RenameMember` con `findByName` autoexcluyéndose (el autorenombrado «luz»→«Luz» está permitido) y la carrera la traduce el repositorio a `DuplicateMemberNameError`. Renombrar un miembro no escribe nada fuera de `members` (las notas materializadas congelan el nombre del momento).
-- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015). Desde 004 (ADR 0018): `rename` trimea y **conserva id/slug/status** (el slug es identidad estable — 019 localiza «Aportación Común» por slug); `withStatus` cubre desactivar/reactivar con nueva instancia congelada; el duplicado en renombrado/reactivación se valida en el caso de uso con `findByName` **autoexcluyéndose** (edge «luz»→«Luz» permitido); la protección de etiquetas de sistema es por slug en el dominio (`SystemTags.isProtectedTagSlug`, `ProtectedTagError` en los cuatro papeles: renombrar, desactivar, absorbida y resultante de fusión); el puerto gana `findById`/`findAll`/`update`/`mergeInto` (fusión transaccional: reasignar `movements.tag_id` → borrar la absorbida, sin tocar `updated_at`).
+- **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion; desde 026 el algoritmo vive en `shared/slug.ts` como `deriveSlug` y `TagSlug.ts` lo re-exporta) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015). Desde 004 (ADR 0018): `rename` trimea y **conserva id/slug/status** (el slug es identidad estable — 019 localiza «Aportación Común» por slug); `withStatus` cubre desactivar/reactivar con nueva instancia congelada; el duplicado en renombrado/reactivación se valida en el caso de uso con `findByName` **autoexcluyéndose** (edge «luz»→«Luz» permitido); la protección de etiquetas de sistema es por slug en el dominio (`SystemTags.isProtectedTagSlug`, `ProtectedTagError` en los cuatro papeles: renombrar, desactivar, absorbida y resultante de fusión); el puerto gana `findById`/`findAll`/`update`/`mergeInto` (fusión transaccional: reasignar `movements.tag_id` → borrar la absorbida, sin tocar `updated_at`). Desde 026 (ADR 0022): `categoryId` **obligatoria** en `create`/`rehydrate` (no existe `Tag` sin categoría — FR-001 por construcción), `moveToCategory(categoryId)` es la única vía de cambio de pertenencia y `rename`/`withStatus` la conservan; toda etiqueta nueva nace en la genérica (`CreateTag` resuelve `findBySlug(DEFAULT_CATEGORY_SLUG)`); «Aportación Común» puede moverse como cualquier etiqueta (su protección no afecta a la pertenencia); la fusión conserva la categoría de la superviviente.
+- **`TagCategory`** (026, ADR 0022): agregado propio con **slug inmutable como identidad** (paridad de `Tag`); nombre único ignorando mayúsculas **fuera** de la entidad (casos de uso con `findByName` + índice `lower(name)` como red de seguridad; sin normalizar acentos); la genérica se identifica por **slug constante** (`DEFAULT_CATEGORY_SLUG = "general"` en `DefaultCategory.ts`, espejo de `SystemTags` — nunca por nombre ni flag): renombrable sin perder su papel, no eliminable (`DeleteCategory` → `ProtectedCategoryError`), y única junto con `countTags > 0` (`CategoryNotEmptyError`) como guardas del borrado — el FK `ON DELETE RESTRICT` de `tags.category_id` es la red de seguridad definitiva; sin estado activa/inactiva ni fusión (ciclo de vida mínimo); la categoría no computa en ningún agregado de lectura ni aparece fuera de `/tags`.
 - **`RegularIncome`** (018, ADR 0016): anclada a la cuenta personal (`accountId` UNIQUE en BD; la cuenta común la rechaza `ConfigureRegularIncome` con `SharedAccountIncomeError`); `dayOfMonth` 1–31 se conserva tal cual y `dueDateForMonth` clampa al `lastDayOfMonth` del mes consultado (helper puro, el dominio no importa `ui/format.ts`); `update` nunca toca `active`/`activatedAtMonth` (solo-adelante), `activate(currentMonth)` resetea la activación (reactivación sin relleno retroactivo). La idempotencia de la materialización vive en `regular_income_months` (puerto `RegularIncomeRepository.isMaterialized`/`registerMaterialization` transaccional), **nunca** en la existencia del movimiento: el borrado físico no regenera el mes.
 - **`CommonContribution`** (019, ADR 0017): espejo del ciclo de vida de `RegularIncome` (misma semántica de `activatedAtMonth` y `activate` con reset) anclada a la cuenta personal (UNIQUE por cuenta; `SharedAccountContributionError` en la común) pero **sin** importe/día/nota: el importe se deriva como `ContributionPercentage.appliedToCents(ingreso regular)` en el momento de materializar (solo-adelante). Requiere ingreso regular configurado (`MissingRegularIncomeError` al configurar; no-op al materializar si falta o está inactivo, FR-006). La idempotencia vive en `common_contribution_months` (`UNIQUE (config, mes)` + `ON CONFLICT DO NOTHING RETURNING` en la misma tx que el movimiento); el borrado del gasto generado es definitivo y la etiqueta «Aportación Común» se resuelve por slug en cada generación (triple garantía seed + migración + ensure).
 - **`ContributionPercentage`** (019): `basisPoints` entero 1–10 000 (equivale a > 0 % y ≤ 100 % con ≤ 2 decimales); `appliedToCents` usa división entera pura `floor((amountCents × bp + 5_000)/10_000)` (half-up, extensión de ADR 0007, sin flotantes ni `Math.round`); el importe resultante < 1 céntimo se rechaza al configurar y es no-op sin registrar al materializar (edge §7 de la spec).

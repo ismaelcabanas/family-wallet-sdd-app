@@ -5,6 +5,9 @@ import type { AccountDTO, MovementDTO } from "../movement/dto";
 import type { MovementRepository } from "../movement/MovementRepository";
 import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRepository";
 import type { TagRepository } from "../tag/TagRepository";
+import { InMemoryCategoryRepository } from "../tag-category/InMemoryCategoryRepository";
+import { TagCategory } from "@/domain/tag-category/TagCategory";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { AccountId } from "@/domain/account/AccountId";
 import { Account } from "@/domain/account/Account";
 import { Movement } from "@/domain/movement/Movement";
@@ -194,7 +197,13 @@ class InMemoryTagRepository implements TagRepository {
   async save(tag: Tag): Promise<Tag> {
     let persisted = tag;
     if (tag.id === null) {
-      persisted = Tag.rehydrate(TagId(this.tags.length + 1), tag.name, tag.slug, tag.status);
+      persisted = Tag.rehydrate(
+        TagId(this.tags.length + 1),
+        tag.name,
+        tag.slug,
+        tag.status,
+        tag.categoryId,
+      );
     }
     this.tags = [...this.tags.filter((candidate) => candidate.id !== persisted.id), persisted];
     this.savedTags.push(persisted);
@@ -263,7 +272,13 @@ const ACCOUNT_WITHOUT_MEMBER_NAME: AccountDTO = {
   memberName: null,
 };
 
-const CONTRIBUTION_TAG = Tag.rehydrate(TagId(20), "Aportación Común", "aportacion-comun", "active");
+const CONTRIBUTION_TAG = Tag.rehydrate(
+  TagId(20),
+  "Aportación Común",
+  "aportacion-comun",
+  "active",
+  TagCategoryId(1),
+);
 
 const ACCOUNT_ID = AccountId(2);
 const CURRENT_MONTH = "2026-10";
@@ -306,6 +321,7 @@ function buildUseCase(options: {
     movementRepository,
     tagRepository,
     new InMemoryAccountRepository(options.accounts ?? [MEMBER_B_ACCOUNT]),
+    new InMemoryCategoryRepository([TagCategory.rehydrate(1, "General", "general")]),
   );
   return { useCase, tagRepository, movementRepository };
 }
@@ -635,6 +651,7 @@ describe("MaterializeCommonContributions", () => {
         movements,
         new InMemoryTagRepository([CONTRIBUTION_TAG]),
         new InMemoryAccountRepository([MEMBER_B_ACCOUNT]),
+        new InMemoryCategoryRepository([TagCategory.rehydrate(1, "General", "general")]),
       );
       movements.sharedExpenseCentsByMonth.set(CURRENT_MONTH, 12_000);
 

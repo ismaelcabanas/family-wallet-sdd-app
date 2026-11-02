@@ -88,9 +88,14 @@ test.describe("gestión del catálogo de etiquetas (flujo crítico)", () => {
     await expect(catalog.getByRole("listitem").filter({ hasText: "Aportación Común" })).toHaveText(
       /Sistema/,
     );
+
+    await page.getByRole("button", { name: "Acciones de Aportación Común" }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await expect(page.getByRole("menu").getByRole("menuitem")).toHaveCount(1);
     await expect(
-      catalog.getByRole("button", { name: "Acciones de Aportación Común" }),
-    ).toHaveCount(0);
+      page.getByRole("menu").getByRole("menuitem", { name: "Mover a categoría…" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
 
     const ocioRow = catalog.getByRole("listitem").filter({ hasText: "Ocio" });
     await expect(ocioRow).toHaveText(/Activa/);

@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 import { ProtectedTagError, TagNotFoundError } from "@/domain/tag/TagErrors";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -12,8 +13,8 @@ describe("DeactivateTag", () => {
 
   beforeEach(() => {
     repository = new InMemoryCatalogTagRepository([
-      Tag.rehydrate(1, "Luz", "luz", "active"),
-      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active"),
+      Tag.rehydrate(1, "Luz", "luz", "active", TagCategoryId(1)),
+      Tag.rehydrate(100, "Aportación Común", "aportacion-comun", "active", TagCategoryId(1)),
     ]);
     useCase = new DeactivateTag(repository);
   });
@@ -40,7 +41,7 @@ describe("DeactivateTag", () => {
   });
 
   it("es idempotente si ya está inactiva (no llama a update)", async () => {
-    repository.stored = [Tag.rehydrate(1, "Luz", "luz", "inactive")];
+    repository.stored = [Tag.rehydrate(1, "Luz", "luz", "inactive", TagCategoryId(1))];
 
     const tag = await useCase.execute({ id: TagId(1) });
 

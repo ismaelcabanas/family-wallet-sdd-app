@@ -2,6 +2,7 @@ import type { AccountId } from "@/domain/account/AccountId";
 import type { AccountRepository } from "../account/AccountRepository";
 import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRepository";
 import type { TagRepository } from "../tag/TagRepository";
+import type { CategoryRepository } from "../tag-category/CategoryRepository";
 import type { MovementRepository } from "../movement/MovementRepository";
 import type { CommonContribution } from "@/domain/common-contribution/CommonContribution";
 import type { CommonContributionId } from "@/domain/common-contribution/CommonContributionId";
@@ -10,6 +11,8 @@ import { Movement } from "@/domain/movement/Movement";
 import { Money } from "@/domain/movement/Money";
 import { CONTRIBUTION_TAG_SLUG } from "@/domain/tag/SystemTags";
 import { Tag } from "@/domain/tag/Tag";
+import { DEFAULT_CATEGORY_SLUG } from "@/domain/tag-category/DefaultCategory";
+import { CategoryNotFoundError } from "@/domain/tag-category/TagCategoryErrors";
 
 import type { CommonContributionRepository } from "./CommonContributionRepository";
 
@@ -22,6 +25,7 @@ export class MaterializeCommonContributions {
     private readonly movements: MovementRepository,
     private readonly tags: TagRepository,
     private readonly accounts: AccountRepository,
+    private readonly categories: CategoryRepository,
   ) {}
 
   async ensureForAccountAndMonth(
@@ -57,10 +61,16 @@ export class MaterializeCommonContributions {
       return;
     }
 
+    const existingTag = await this.tags.findBySlug(CONTRIBUTION_TAG_SLUG);
     const tag =
-      (await this.tags.findBySlug(CONTRIBUTION_TAG_SLUG)) ??
+      existingTag ??
       (await this.tags.save(
-        Tag.create({ name: CONTRIBUTION_TAG_NAME, slug: CONTRIBUTION_TAG_SLUG, status: "active" }),
+        Tag.create({
+          name: CONTRIBUTION_TAG_NAME,
+          slug: CONTRIBUTION_TAG_SLUG,
+          status: "active",
+          categoryId: await this.defaultCategoryId(),
+        }),
       ));
 
     const accounts = await this.accounts.findAll();
@@ -78,6 +88,14 @@ export class MaterializeCommonContributions {
     });
 
     await this.commonContributions.registerMaterialization(config, month, movement);
+  }
+
+  private async defaultCategoryId() {
+    const category = await this.categories.findBySlug(DEFAULT_CATEGORY_SLUG);
+    if (category === null || category.id === null) {
+      throw new CategoryNotFoundError();
+    }
+    return category.id;
   }
 
   private async syncMaterializedMonth(

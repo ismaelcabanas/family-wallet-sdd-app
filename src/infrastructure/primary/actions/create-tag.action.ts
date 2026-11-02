@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "../../db/client";
+import { DrizzleTagCategoryRepository } from "../../db/DrizzleTagCategoryRepository";
 import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import type { TagDTO } from "@/application/movement/dto";
 
@@ -16,7 +17,10 @@ export type CreateTagResult =
   | { ok: true; tag: TagDTO }
   | { ok: false; message: string };
 
-const createTagUseCase = new CreateTag(new DrizzleTagRepository(db));
+const createTagUseCase = new CreateTag(
+  new DrizzleTagRepository(db),
+  new DrizzleTagCategoryRepository(db),
+);
 
 export async function createTag(name: string): Promise<CreateTagResult> {
   const parsed = createTagSchema.safeParse(name);

@@ -1,76 +1,31 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategory } from "@/domain/tag-category/TagCategory";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
+import { CategoryNotFoundError } from "@/domain/tag-category/TagCategoryErrors";
 import { DuplicateTagNameError, InvalidTagError } from "@/domain/tag/TagErrors";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { TagRepository } from "./TagRepository";
+import { InMemoryCategoryRepository } from "@/application/tag-category/InMemoryCategoryRepository";
 import { CreateTag } from "./CreateTag";
-
-class InMemoryTagRepository implements TagRepository {
-  nextId = 100;
-  stored: Tag[] = [];
-
-  constructor(initial: Tag[] = []) {
-    this.stored = initial;
-  }
-
-  async findAllActive(): Promise<Tag[]> {
-    return this.stored.filter((tag) => tag.status === "active");
-  }
-
-  async findByIds(ids: readonly number[]): Promise<Tag[]> {
-    return this.stored.filter((tag) => tag.id !== null && ids.includes(tag.id));
-  }
-
-  async findBySlug(slug: string): Promise<Tag | null> {
-    return this.stored.find((tag) => tag.slug === slug) ?? null;
-  }
-
-  async findByName(name: string): Promise<Tag | null> {
-    const lowered = name.toLowerCase();
-    return this.stored.find((tag) => tag.name.toLowerCase() === lowered) ?? null;
-  }
-
-  async save(tag: Tag): Promise<Tag> {
-    const duplicate = this.stored.find(
-      (existing) => existing.name.toLowerCase() === tag.name.toLowerCase(),
-    );
-    if (duplicate) {
-      throw new DuplicateTagNameError(tag.name);
-    }
-    const persisted = Tag.rehydrate(this.nextId++, tag.name, tag.slug, tag.status);
-    this.stored.push(persisted);
-    return persisted;
-  }
-
-  async findById(): Promise<Tag | null> {
-    return null;
-  }
-
-  async findAll(): Promise<Tag[]> {
-    return [...this.stored];
-  }
-
-  async update(tag: Tag): Promise<Tag> {
-    return tag;
-  }
-
-  async mergeInto(): Promise<{ reassignedMovements: number }> {
-    return { reassignedMovements: 0 };
-  }
-}
+import { InMemoryCatalogTagRepository } from "./InMemoryCatalogTagRepository";
 
 describe("CreateTag", () => {
-  let repository: InMemoryTagRepository;
+  let repository: InMemoryCatalogTagRepository;
+  let categories: InMemoryCategoryRepository;
   let useCase: CreateTag;
 
   beforeEach(() => {
-    repository = new InMemoryTagRepository([
-      Tag.rehydrate(1, "Luz", "luz", "active"),
-      Tag.rehydrate(2, "Inactiva", "inactiva", "inactive"),
-      Tag.rehydrate(3, "Alimentacion", "alimentacion", "active"),
-      Tag.rehydrate(9, "Sin Clasificar", "sin-clasificar", "active"),
+    repository = new InMemoryCatalogTagRepository([
+      Tag.rehydrate(1, "Luz", "luz", "active", TagCategoryId(1)),
+      Tag.rehydrate(2, "Inactiva", "inactiva", "inactive", TagCategoryId(1)),
+      Tag.rehydrate(3, "Alimentacion", "alimentacion", "active", TagCategoryId(1)),
+      Tag.rehydrate(9, "Sin Clasificar", "sin-clasificar", "active", TagCategoryId(1)),
     ]);
-    useCase = new CreateTag(repository);
+    categories = new InMemoryCategoryRepository([
+      TagCategory.rehydrate(1, "General", "general"),
+      TagCategory.rehydrate(2, "Viajes", "viajes"),
+    ]);
+    useCase = new CreateTag(repository, categories);
   });
 
   it("crea una etiqueta activa con nombre trimeado y slug derivado", async () => {
@@ -81,6 +36,20 @@ describe("CreateTag", () => {
     expect(tag.slug).toBe("mascotas");
     expect(tag.status).toBe("active");
     expect(repository.stored).toHaveLength(5);
+  });
+
+  it("toda etiqueta nueva nace en la categoría genérica (FR-007)", async () => {
+    const tag = await useCase.execute({ name: "Mascotas" });
+
+    expect(tag.categoryId).toBe(1);
+  });
+
+  it("la genérica ausente rompe el invariante: CategoryNotFoundError", async () => {
+    categories.stored = [TagCategory.rehydrate(2, "Viajes", "viajes")];
+
+    await expect(useCase.execute({ name: "Mascotas" })).rejects.toThrowError(
+      CategoryNotFoundError,
+    );
   });
 
   it("rechaza nombre vacío o de solo espacios", async () => {
