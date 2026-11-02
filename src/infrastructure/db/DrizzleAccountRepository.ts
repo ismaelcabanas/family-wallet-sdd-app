@@ -3,14 +3,12 @@ import type { AccountRepository } from "@/application/account/AccountRepository"
 import { DuplicateAccountNameError } from "@/domain/account/AccountErrors";
 import { AccountId } from "@/domain/account/AccountId";
 import type { Account } from "@/domain/account/Account";
-import { Money } from "@/domain/movement/Money";
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import { mapRowToAccount, mapRowToAccountDTO } from "./mappers/account.mapper";
 import { accounts } from "./schema/accounts";
 import { members } from "./schema/members";
-import { movements } from "./schema/movements";
 import type * as schema from "./schema";
 
 export class DrizzleAccountRepository implements AccountRepository {
@@ -65,21 +63,6 @@ export class DrizzleAccountRepository implements AccountRepository {
     } catch (error) {
       throw this.translateUniqueViolation(error, account);
     }
-  }
-
-  async getBalance(id: AccountId, asOf?: string): Promise<number> {
-    const [row] = await this.db
-      .select({
-        balance: sql<number>`coalesce(sum(case when ${movements.type} = 'income' then ${movements.amountCents} else -${movements.amountCents} end), 0)`,
-      })
-      .from(movements)
-      .where(
-        asOf !== undefined
-          ? and(eq(movements.accountId, id as number), lte(movements.date, asOf))
-          : eq(movements.accountId, id as number),
-      );
-
-    return Money.fromCentsOrZero(row?.balance ?? 0).amountCents;
   }
 
   private translateUniqueViolation(error: unknown, account: Account): Error {

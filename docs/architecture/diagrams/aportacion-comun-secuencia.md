@@ -40,13 +40,13 @@ sequenceDiagram
     MCC->>RCR: registerMaterialization(config, month, movement)
     DB->>DB: tx: INSERT common_contribution_months (movement_id = id calculada) ON CONFLICT DO NOTHING RETURNING → ok → INSERT movements
     P->>LM: execute(accountId, month) — la aportación ya existe
-    LM-->>P: MovementDTO[] con el gasto (cierre y balance lo computan igual)
+    LM-->>P: MovementDTO[] con el gasto (los KPIs lo computan igual)
     P-->>U: listado del mes con el importe neto «Aportación común de {miembro}» — exactamente 1
 ```
 
 Notas:
 
-- La materialización de la aportación corre **inmediatamente después** de la de 018 y antes del `Promise.all` (dos awaits secuenciales): listado, cierre y balance ven el mismo estado (ADR 0016/0017).
+- La materialización de la aportación corre **inmediatamente después** de la de 018 y antes del `Promise.all` (dos awaits secuenciales): listado y KPIs ven el mismo estado (ADR 0016/0017).
 - `/summary` y `/annual` no materializan (decisión del propietario 2026-10-12): solo leen movimientos existentes.
 - Si el par `(config, mes)` ya está registrado (reconsulta o carrera concurrente), `registerMaterialization` devuelve `false` sin escribir movimiento; el borrado del gasto generado es definitivo.
 - Sin ingreso regular (o inactivo): el ítem del menú queda deshabilitado con «Requiere ingreso regular» y la materialización es no-op (FR-006).

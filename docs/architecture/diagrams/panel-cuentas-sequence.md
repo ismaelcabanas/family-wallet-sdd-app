@@ -27,7 +27,7 @@ sequenceDiagram
     U->>P: clic en la tarjeta «Cuenta de Miembro B»
     P-->>U: navegación a /accounts/2 (Link, sin ?month=)
     U->>A: GET /accounts/2 (mes actual por defecto, 011)
-    A-->>U: página de la cuenta (stepper, balance a mes, cierre, listado agrupado) con GlobalNav(active=panel, month)
+    A-->>U: página de la cuenta (stepper, [personales: KPIs del mes], listado agrupado; sin balance ni cierre desde 025) con GlobalNav(active=panel, month)
 ```
 
 Notas (decisiones de 012, `specs/012-panel-cuentas/research.md`):
@@ -78,7 +78,7 @@ Notas de la variante (decisiones de 020, `specs/020-menu-configuracion-cuenta/re
 - **Patrón stretched-link**: el `<Link>` de la tarjeta se estira con `after:inset-0` y el trigger ⋮ queda por encima (`relative z-10`): el clic en ⋮ nunca navega y el resto de la tarjeta sí; HTML válido (el botón no está dentro del `<a>`).
 - **El menú solo donde hay opciones**: hoy únicamente cuentas personales (ítems «Ingreso regular» y «Aportación»); es el hogar de las opciones de cuenta.
 - **Diálogo por tarjeta** (excepción consciente de «diálogos por fila»): el catálogo de cuentas es estable, no desaparece tras `revalidatePath`; instancia fresca de `useActionState` por apertura (patrón 014/018).
-- **La página de cuenta queda en movimientos + cierre + balance**: la materialización sigue disparándose solo allí, antes del `Promise.all` (ADR 0016); la configuración ya no vive en ella.
+- **La página de cuenta es vista operativa (025)**: stepper + KPIs (personales) + listado; la materialización sigue disparándose solo allí, antes del `Promise.all` (ADR 0016); la configuración ya no vive en ella.
 
 ## Variante — configurar la aportación común desde la tarjeta (feature 019)
 

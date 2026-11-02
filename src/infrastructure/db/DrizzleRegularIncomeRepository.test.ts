@@ -4,7 +4,6 @@ import { Movement } from "@/domain/movement/Movement";
 import { RegularIncome } from "@/domain/regular-income/RegularIncome";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { DrizzleAccountRepository } from "./DrizzleAccountRepository";
 import { DrizzleMovementRepository } from "./DrizzleMovementRepository";
 import { DrizzleRegularIncomeRepository } from "./DrizzleRegularIncomeRepository";
 import { accounts } from "./schema/accounts";
@@ -118,10 +117,9 @@ describe("DrizzleRegularIncomeRepository", () => {
     expect(movementRows[0].amountCents).toBe(200_000);
   });
 
-  it("el movimiento creado es visible a listByMonthAndAccount y a getBalance", async () => {
+  it("el movimiento creado es visible a listByMonthAndAccount", async () => {
     const repository = new DrizzleRegularIncomeRepository(testDb.db);
     const movementRepository = new DrizzleMovementRepository(testDb.db);
-    const accountRepository = new DrizzleAccountRepository(testDb.db);
     const saved = await repository.save(buildConfig());
 
     await repository.registerMaterialization(saved, "2026-10", buildMovement());
@@ -130,8 +128,5 @@ describe("DrizzleRegularIncomeRepository", () => {
     expect(listed).toHaveLength(1);
     expect(listed[0].amountCents).toBe(200_000);
     expect(listed[0].note).toBe("Ingreso regular de Miembro A");
-
-    const balance = await accountRepository.getBalance(AccountId(1), "2026-10-31");
-    expect(balance).toBe(200_000);
   });
 });

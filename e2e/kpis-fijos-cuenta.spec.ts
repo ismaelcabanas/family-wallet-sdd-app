@@ -176,7 +176,7 @@ test.describe("KPIs fijos en la página de cuenta personal (flujo crítico)", ()
     ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("K2: gasto común 120,55 → 379,45 / −500,00 y coherencia con el cierre", async ({ page }) => {
+  test("K2: gasto común 120,55 → 379,45 / −500,00", async ({ page }) => {
     await openAccount(page);
     await registerMovement(page, {
       note: "Compra compartida",
@@ -191,14 +191,6 @@ test.describe("KPIs fijos en la página de cuenta personal (flujo crítico)", ()
     await expect(
       balanceCell(page).getByText(new RegExp(`^\u2212500,00${EUR}`)),
     ).toBeVisible({ timeout: 10_000 });
-
-    const kpiBalanceText = await balanceCell(page)
-      .getByText(new RegExp(`^\u2212500,00${EUR}`))
-      .textContent();
-    const closure = page.getByRole("region", { name: `Cierre de ${currentMonthLabel()}` });
-    await expect(closure.getByText("Saldo del mes")).toBeVisible();
-    await expect(closure.getByText(new RegExp(`^\u2212500,00${EUR}`))).toBeVisible();
-    expect(kpiBalanceText).toBeTruthy();
   });
 
   test("K3: ‹ mes anterior → aportación 0,00 sin subtexto; › vuelve a restaurar valores", async ({

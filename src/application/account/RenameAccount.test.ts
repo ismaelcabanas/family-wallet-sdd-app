@@ -18,7 +18,6 @@ function buildRepository(
     findAll: vi.fn(),
     findById: vi.fn(),
     findByName: vi.fn(),
-    getBalance: vi.fn(),
     update: vi.fn(),
     ...overrides,
   } as unknown as AccountRepository;

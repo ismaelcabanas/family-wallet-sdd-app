@@ -52,12 +52,6 @@ export function currentMonth(now: Date = new Date()): string {
   return `${year}-${month}`;
 }
 
-export function monthEndIsoDate(month: string): string {
-  const [year, monthNumber] = month.split("-").map(Number);
-  const lastDay = new Date(year, monthNumber, 0).getDate();
-  return `${year}-${String(monthNumber).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-}
-
 export function shiftMonth(month: string, delta: number): string {
   const [year, monthNumber] = month.split("-").map(Number);
   const totalMonths = year * 12 + (monthNumber - 1) + delta;

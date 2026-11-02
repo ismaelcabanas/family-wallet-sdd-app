@@ -8,6 +8,14 @@ function movementListAny(page: Page) {
   return page.locator('[aria-labelledby="movement-list-title"] [data-testid="movement-item"]');
 }
 
+function kpisRegion(page: Page) {
+  return page.getByRole("region", { name: "KPIs del mes" });
+}
+
+function balanceCell(page: Page) {
+  return kpisRegion(page).getByText("Saldo del mes").locator("..");
+}
+
 async function openAccount(page: Page, accountName: string): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name: accountName }).click();
@@ -140,7 +148,7 @@ test.describe("registro de movimientos (flujo crítico, tanda continua)", () => 
       movementList(page).getByRole("listitem").filter({ hasText: "Cierre" }).first(),
     ).toBeVisible({ timeout: 10_000 });
 
-    await expect(page.getByText(/^500,00/).first()).toBeVisible();
+    await expect(movementListAny(page)).toHaveCount(4);
   });
 
   test("E2: gasto compartido pagado desde cuenta personal", async ({ page }) => {
@@ -159,10 +167,12 @@ test.describe("registro de movimientos (flujo crítico, tanda continua)", () => 
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("Común");
     await expect(movementItem).toContainText("Alimentación");
-    await expect(page.getByText(/^-120,50/)).toBeVisible();
+    await expect(
+      balanceCell(page).getByText(/^\u2212120,50[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
-  test("E3: ingreso nómina 1.500,00 € actualiza el balance acumulado", async ({ page }) => {
+  test("E3: ingreso nómina 1.500,00 € actualiza el saldo del mes", async ({ page }) => {
     await openAccount(page, "Cuenta de Miembro A");
 
     await registerMovement(page, { note: "Nómina", amount: "1500,00", type: "income" });
@@ -173,7 +183,9 @@ test.describe("registro de movimientos (flujo crítico, tanda continua)", () => 
     await expect(movementItem).toBeVisible();
     await expect(movementItem).toContainText("+1500,00");
 
-    await expect(page.getByText(/^1500,00/)).toBeVisible();
+    await expect(
+      balanceCell(page).getByText(/^\+1379,50[\s\u00A0\u202F]€/u),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("E3 encadenado: ingreso seleccionable sin recarga tras un registro exitoso", async ({

@@ -20,11 +20,6 @@ function currentMonthIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function currentMonthLabel(): string {
-  const now = new Date();
-  return `${MONTH_LONG_NAMES[now.getMonth()]} de ${now.getFullYear()}`;
-}
-
 function previousMonthIso(): string {
   const now = new Date();
   const totalMonths = now.getFullYear() * 12 + now.getMonth() - 1;
@@ -248,14 +243,9 @@ test.describe("KPI de gasto personal del mes en la cuenta personal (flujo críti
     await expect(contributionValue).toBeVisible();
     await expect(balanceCell(page).getByText(new RegExp(`^\\+1299,45${EUR}`))).toBeVisible();
 
-    const closure = page.getByRole("region", { name: `Cierre de ${currentMonthLabel()}` });
-    const closurePersonalLine = closure.getByText(/Gastos personales:/).locator("..");
-    await expect(closurePersonalLine).toContainText("640,55");
-
     const expenseCents = parseEur((await expenseValue.textContent()) ?? "");
     const contributionCents = parseEur((await contributionValue.textContent()) ?? "");
-    const closurePersonalCents = parseEur((await closurePersonalLine.textContent()) ?? "");
-    expect(closurePersonalCents - contributionCents).toBe(expenseCents);
+    expect(expenseCents + contributionCents).toBe(parseEur("640,55 €"));
   });
 
   test("G3: tanda de 12 gastos de 10,00 → KPI 320,55 al alta y región visible al fondo del listado", async ({

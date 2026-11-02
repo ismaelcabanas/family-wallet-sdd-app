@@ -5,7 +5,7 @@ Webapp familiar para gestionar los gastos e ingresos de una unidad familiar: 3 c
 ## Funcionalidad implementada
 
 - **Registro de movimientos** (feature `002-registro-movimientos`): gastos e ingresos con fecha, concepto, descripción opcional, importe (aritmética exacta en céntimos), cuenta, naturaleza (solo gastos: personal/compartido) y 0..n tags del catálogo (sin selección → tag por defecto «Sin Clasificar»)
-- **Pantalla principal** (`/`): selectores de cuenta y mes (estado en la URL), balance acumulado por cuenta, formulario siempre visible con validación por campo y listado mensual ordenado por fecha descendente
+- **Pantalla principal** (`/`): lanzador de cuentas (tarjetas) desde el que se accede a la página operativa de cada cuenta (selector de mes, KPIs del mes en las personales y listado mensual ordenado por fecha descendente); la consulta agregada vive en `/summary` y `/annual`
 - **Datos preconfigurados**: 2 miembros, 3 cuentas y 12 tags precargadas por seed idempotente
 
 Ámbito diferido a features futuras (ver `specs/001-family-wallet/`): cierre mensual, análisis agregado, gestión del catálogo de tags, edición/eliminación de movimientos.

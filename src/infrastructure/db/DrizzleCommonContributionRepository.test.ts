@@ -7,7 +7,6 @@ import { ContributionPercentage } from "@/domain/common-contribution/Contributio
 import { beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 
-import { DrizzleAccountRepository } from "./DrizzleAccountRepository";
 import { DrizzleCommonContributionRepository } from "./DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "./DrizzleMovementRepository";
 import { accounts } from "./schema/accounts";
@@ -130,10 +129,9 @@ describe("DrizzleCommonContributionRepository", () => {
     expect(movementRows[0].amountCents).toBe(50_000);
   });
 
-  it("el movimiento creado es visible a listByMonthAndAccount y a getBalance", async () => {
+  it("el movimiento creado es visible a listByMonthAndAccount", async () => {
     const repository = new DrizzleCommonContributionRepository(testDb.db);
     const movementRepository = new DrizzleMovementRepository(testDb.db);
-    const accountRepository = new DrizzleAccountRepository(testDb.db);
     const saved = await repository.save(buildConfig());
 
     await repository.registerMaterialization(saved, "2026-10", buildMovement());
@@ -142,9 +140,6 @@ describe("DrizzleCommonContributionRepository", () => {
     expect(listed).toHaveLength(1);
     expect(listed[0].amountCents).toBe(50_000);
     expect(listed[0].note).toBe("Aportación común de Miembro B");
-
-    const balance = await accountRepository.getBalance(AccountId(2), "2026-10-31");
-    expect(balance).toBe(-50_000);
   });
 
   it("la migración sembró la etiqueta aportacion-comun", async () => {

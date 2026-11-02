@@ -30,12 +30,12 @@ sequenceDiagram
     MRI->>RR: registerMaterialization(config, month, movement)
     DB->>DB: tx: INSERT regular_income_months ON CONFLICT DO NOTHING RETURNING → ok → INSERT movements (id max+1)
     P->>LM: execute(accountId, month) — el ingreso ya existe
-    LM-->>P: MovementDTO[] con el ingreso (cierre y balance lo computan igual)
+    LM-->>P: MovementDTO[] con el ingreso (los KPIs lo computan igual)
     P-->>U: listado del mes con el ingreso materializado — exactamente 1 (consultas repetidas: registro existente → no-op)
 ```
 
 Notas:
 
-- La materialización ocurre **antes del `Promise.all`** de lecturas de la página: listado, cierre y balance ven el mismo estado (ADR 0016).
+- La materialización ocurre **antes del `Promise.all`** de lecturas de la página: listado y KPIs ven el mismo estado (ADR 0016).
 - `/summary` y `/annual` no aparecen porque **no materializan** (decisión del propietario 2026-10-12): solo leen movimientos existentes.
 - Si el par `(config, mes)` ya está registrado (reconsulta o carrera concurrente), `registerMaterialization` devuelve `false` sin escribir movimiento.

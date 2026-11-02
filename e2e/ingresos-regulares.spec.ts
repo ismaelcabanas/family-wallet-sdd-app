@@ -37,6 +37,14 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
+function kpisRegion(page: Page) {
+  return page.getByRole("region", { name: "KPIs del mes" });
+}
+
+function balanceCell(page: Page) {
+  return kpisRegion(page).getByText("Saldo del mes").locator("..");
+}
+
 function regularIncomeItems(page: Page) {
   return movementList(page).getByRole("listitem").filter({ hasText: INCOME_NOTE });
 }
@@ -89,8 +97,9 @@ test.describe("ingresos regulares (flujo crítico)", () => {
     const EUR = "[\\s\\u00A0\\u202F]€";
 
     await page.goto(ACCOUNT_URL);
-    const balanceRegion = page.getByRole("region", { name: "Balance de Cuenta de Miembro A" });
-    const balanceBefore = await balanceRegion.getByText(new RegExp(`^2000,00${EUR}`)).textContent();
+    const balanceBefore = await balanceCell(page)
+      .getByText(new RegExp(`^\\+2000,00${EUR}`))
+      .textContent();
 
     await page.goto(`/summary?month=${currentMonthIso()}`);
     const summary = page.getByRole("region", { name: `Resumen global de ${currentMonthLabel()}` });
@@ -110,7 +119,7 @@ test.describe("ingresos regulares (flujo crítico)", () => {
 
     await page.goto(ACCOUNT_URL);
     await expect(
-      balanceRegion.getByText(new RegExp(`^${balanceBefore ?? ""}`)),
+      balanceCell(page).getByText(new RegExp(`^${(balanceBefore ?? "").replace("+", "\\+")}`)),
     ).toBeVisible();
     await page.reload();
     await expect(regularIncomeItems(page)).toHaveCount(1);

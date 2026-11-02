@@ -23,6 +23,14 @@ function movementList(page: Page) {
   return page.getByRole("region", { name: "Movimientos del mes" });
 }
 
+function kpisRegion(page: Page) {
+  return page.getByRole("region", { name: "KPIs del mes" });
+}
+
+function balanceCell(page: Page) {
+  return kpisRegion(page).getByText("Saldo del mes").locator("..");
+}
+
 async function gotoAccountMonth(page: Page, month = MONTH): Promise<void> {
   await page.goto(`/accounts/${ACCOUNT_B}?month=${month}`);
   await expect(page.getByRole("heading", { name: ACCOUNT_B_NAME, exact: true })).toBeVisible();
@@ -82,9 +90,8 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await gotoAccountMonth(page);
 
     await expect(page.getByText("Cuenta personal de Miembro B")).toBeVisible();
-    await expect(
-      page.getByRole("region").filter({ hasText: "Acumulado hasta Abril de 2026" }).first(),
-    ).toBeVisible();
+    await expect(kpisRegion(page)).toBeVisible();
+    await expect(kpisRegion(page).getByText("Abril de 2026")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Registrar movimiento" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Nuevo movimiento" })).toBeVisible();
 
@@ -178,10 +185,10 @@ test.describe("página de cuenta (flujo crítico)", () => {
       movementList(page).getByRole("listitem").filter({ hasText: "Cine" }),
     ).toHaveCount(0);
 
-    await expect(page.getByText(/^-120,00/)).toBeVisible();
+    await expect(balanceCell(page).getByText(/^\u2212120,00/)).toBeVisible({ timeout: 10_000 });
   });
 
-  test("P3: ‹ navega a marzo 2026 con estado vacío y balance heredado; › activo desde abril", async ({
+  test("P3: ‹ navega a marzo 2026 con estado vacío y KPIs a cero; › activo desde abril", async ({
     page,
   }) => {
     await gotoAccountMonth(page);
@@ -192,7 +199,7 @@ test.describe("página de cuenta (flujo crítico)", () => {
     await expect(page.getByText(/Aún no hay movimientos en este mes/)).toBeVisible({
       timeout: 10_000,
     });
-    await expect(page.getByText(/^0,00/).first()).toBeVisible();
+    await expect(balanceCell(page).getByText(/^0,00/)).toBeVisible({ timeout: 10_000 });
 
     const nextButton = page.getByRole("button", { name: "Mes siguiente" });
     await expect(nextButton).toBeEnabled();
