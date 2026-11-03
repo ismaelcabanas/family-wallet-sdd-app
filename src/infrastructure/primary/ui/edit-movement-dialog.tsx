@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import type { MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 
 import { updateMovement, type UpdateMovementState } from "../actions/update-movement.action";
 import { Button } from "./components/ui/button";
@@ -17,7 +18,7 @@ import { MovementFormFields, type MovementFormInitialValues } from "./movement-f
 
 interface EditMovementDialogProps {
   movement: MovementDTO;
-  tags: TagDTO[];
+  tagGroups: ActiveTagGroupDTO[];
   currentAccountId: number;
   currentMonth: string;
   onClose: () => void;
@@ -25,9 +26,33 @@ interface EditMovementDialogProps {
 
 const NOT_FOUND_MESSAGE = "El movimiento ya no existe.";
 
+function mergeExtraTags(
+  tagGroups: ActiveTagGroupDTO[],
+  extraTags: TagDTO[],
+): ActiveTagGroupDTO[] {
+  const extras = extraTags.filter(
+    (tag) => !tagGroups.some((group) => group.tags.some((candidate) => candidate.id === tag.id)),
+  );
+  if (extras.length === 0) return tagGroups;
+
+  const groups = tagGroups.map((group) => ({ ...group, tags: [...group.tags] }));
+  for (const tag of extras) {
+    const target = groups.find((group) => group.category.id === tag.categoryId);
+    if (target) {
+      target.tags.push(tag);
+    } else {
+      groups.push({
+        category: { id: tag.categoryId, name: tag.categoryName, isDefault: false },
+        tags: [tag],
+      });
+    }
+  }
+  return groups;
+}
+
 export function EditMovementDialog({
   movement,
-  tags,
+  tagGroups,
   currentAccountId,
   currentMonth,
   onClose,
@@ -35,9 +60,7 @@ export function EditMovementDialog({
   const [open, setOpen] = useState(true);
   const [extraTags, setExtraTags] = useState<TagDTO[]>([]);
 
-  const allTags = [...tags, ...extraTags.filter((tag) => !tags.some((t) => t.id === tag.id))].sort(
-    (a, b) => a.name.localeCompare(b.name, "es"),
-  );
+  const groupsWithExtras = mergeExtraTags(tagGroups, extraTags);
 
   return (
     <Dialog
@@ -59,7 +82,7 @@ export function EditMovementDialog({
         </DialogHeader>
         <EditMovementForm
           movement={movement}
-          tags={allTags}
+          tagGroups={groupsWithExtras}
           currentAccountId={currentAccountId}
           currentMonth={currentMonth}
           onTagCreated={(tag) => {
@@ -79,7 +102,7 @@ export function EditMovementDialog({
 
 function EditMovementForm({
   movement,
-  tags,
+  tagGroups,
   currentAccountId,
   currentMonth,
   onTagCreated,
@@ -117,7 +140,7 @@ function EditMovementForm({
       state={state}
       formAction={formAction}
       isPending={isPending}
-      tags={tags}
+      tagGroups={tagGroups}
       initialValues={initialValues}
       onTagCreated={onTagCreated}
       submitLabel="Guardar cambios"

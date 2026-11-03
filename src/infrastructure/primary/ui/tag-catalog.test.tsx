@@ -75,6 +75,20 @@ describe("TagCatalog (agrupado por categorías)", () => {
     expect(viajes).toHaveTextContent("Sin etiquetas");
   });
 
+  it("cada categoría es un contenedor con borde y las filas de etiqueta quedan dentro (árbol, FR-003)", () => {
+    render(<TagCatalog groups={GROUPS} />);
+
+    const region = screen.getByRole("region", { name: "Catálogo de etiquetas" });
+    const general = within(region).getByRole("region", { name: "Categoría General" });
+    const viajes = within(region).getByRole("region", { name: "Categoría Viajes" });
+
+    expect(general).toHaveClass("rounded-lg", "border");
+    expect(viajes).toHaveClass("rounded-lg", "border");
+    const alimentacionRow = within(general).getByRole("listitem", { name: "Alimentación" });
+    expect(alimentacionRow.closest(`section[aria-label="Categoría General"]`)).toBe(general);
+    expect(within(general).getByText("General")).toBeInTheDocument();
+  });
+
   it("renderiza los grupos en el orden del DTO (la UI no ordena)", () => {
     const reversed = [...GROUPS].reverse();
     render(<TagCatalog groups={reversed} />);
@@ -85,12 +99,11 @@ describe("TagCatalog (agrupado por categorías)", () => {
     expect(groups[1]).toHaveAttribute("aria-label", "Categoría General");
   });
 
-  it("muestra el botón «Nueva categoría» en la cabecera del catálogo", () => {
+  it("la cabecera del catálogo tiene un único botón «Nueva etiqueta» y no existe «Nueva categoría» (FR-002)", () => {
     render(<TagCatalog groups={GROUPS} />);
 
-    expect(
-      screen.getByRole("button", { name: "Nueva categoría" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nueva etiqueta" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nueva categoría" })).not.toBeInTheDocument();
   });
 
   it("el estado vacío global se muestra dentro de la genérica", () => {
@@ -179,13 +192,13 @@ describe("TagCatalog (agrupado por categorías)", () => {
     ]);
   });
 
-  it("«Nueva categoría» abre el diálogo de creación", async () => {
+  it("«Nueva etiqueta» abre el diálogo de creación montado a nivel del listado", async () => {
     const user = userEvent.setup();
     render(<TagCatalog groups={GROUPS} />);
 
-    await user.click(screen.getByRole("button", { name: "Nueva categoría" }));
+    await user.click(screen.getByRole("button", { name: "Nueva etiqueta" }));
 
-    expect(screen.getByRole("dialog", { name: "Nueva categoría" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Nueva etiqueta" })).toBeInTheDocument();
   });
 
   it("«Renombrar…» del menú de categoría abre el diálogo con el nombre actual", async () => {

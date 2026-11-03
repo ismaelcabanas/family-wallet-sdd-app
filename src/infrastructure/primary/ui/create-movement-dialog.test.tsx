@@ -26,10 +26,16 @@ vi.mock("sonner", async (importOriginal) => {
 
 import { CreateMovementDialog } from "./create-movement-dialog";
 import { todayIsoDate } from "./format";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 
-const tags = [
-  { id: 2, name: "Vivienda", slug: "vivienda" },
-  { id: 3, name: "Hipoteca", slug: "hipoteca" },
+const tagGroups: ActiveTagGroupDTO[] = [
+  {
+    category: { id: 1, name: "General", isDefault: true },
+    tags: [
+      { id: 2, name: "Vivienda", slug: "vivienda", categoryId: 1, categoryName: "General" },
+      { id: 3, name: "Hipoteca", slug: "hipoteca", categoryId: 1, categoryName: "General" },
+    ],
+  },
 ];
 
 const onCloseMock = vi.fn();
@@ -42,7 +48,7 @@ function renderDialog(
       accountId={1}
       accountName="Cuenta de Miembro A"
       accountType="personal"
-      tags={tags}
+      tagGroups={tagGroups}
       onClose={onCloseMock}
       {...overrides}
     />,

@@ -1,4 +1,5 @@
 import { Tag } from "@/domain/tag/Tag";
+import { TagCategory } from "@/domain/tag-category/TagCategory";
 import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import {
   DuplicateTagNameError,
@@ -7,11 +8,20 @@ import {
 } from "@/domain/tag/TagErrors";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
-const { executeMock } = vi.hoisted(() => ({ executeMock: vi.fn() }));
+const { executeMock, findByIdMock } = vi.hoisted(() => ({
+  executeMock: vi.fn(),
+  findByIdMock: vi.fn(),
+}));
 
 vi.mock("@/application/tag/CreateTag", () => ({
   CreateTag: vi.fn().mockImplementation(function () {
     return { execute: executeMock };
+  }),
+}));
+
+vi.mock("@/infrastructure/db/DrizzleTagCategoryRepository", () => ({
+  DrizzleTagCategoryRepository: vi.fn().mockImplementation(function () {
+    return { findById: findByIdMock };
   }),
 }));
 
@@ -41,11 +51,41 @@ describe("createTag (Server Action)", () => {
 
   it("éxito devuelve la tag como DTO, con el nombre trimeado, y revalida el layout", async () => {
     executeMock.mockResolvedValueOnce(Tag.rehydrate(15, "Mascotas", "mascotas", "active", TagCategoryId(1)));
+    findByIdMock.mockResolvedValueOnce(TagCategory.rehydrate(1, "General", "general"));
 
     const result = await createTag("  Mascotas ");
 
-    expect(result).toEqual({ ok: true, tag: { id: 15, name: "Mascotas", slug: "mascotas" } });
+    expect(result).toEqual({
+      ok: true,
+      tag: {
+        id: 15,
+        name: "Mascotas",
+        slug: "mascotas",
+        categoryId: 1,
+        categoryName: "General",
+      },
+    });
     expect(executeMock).toHaveBeenCalledExactlyOnceWith({ name: "Mascotas" });
+    expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/", "layout");
+  });
+
+  it("el DTO incluye categoryId y categoryName: la etiqueta inline nace en la genérica (027)", async () => {
+    executeMock.mockResolvedValueOnce(Tag.rehydrate(15, "Mascotas", "mascotas", "active", TagCategoryId(1)));
+    findByIdMock.mockResolvedValueOnce(TagCategory.rehydrate(1, "General", "general"));
+
+    const result = await createTag("Mascotas");
+
+    expect(findByIdMock).toHaveBeenCalledExactlyOnceWith(1);
+    expect(result).toEqual({
+      ok: true,
+      tag: {
+        id: 15,
+        name: "Mascotas",
+        slug: "mascotas",
+        categoryId: 1,
+        categoryName: "General",
+      },
+    });
     expect(revalidatePathMock).toHaveBeenCalledExactlyOnceWith("/", "layout");
   });
 

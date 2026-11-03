@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -27,12 +27,29 @@ vi.mock("sonner", async (importOriginal) => {
 import { CreateMovementDialog } from "./create-movement-dialog";
 import { MovementFormFields } from "./movement-form";
 import { todayIsoDate } from "./format";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import type { CreateMovementState } from "../actions/create-movement.action";
 
-const tags = [
-  { id: 2, name: "Vivienda", slug: "vivienda" },
-  { id: 3, name: "Hipoteca", slug: "hipoteca" },
-  { id: 9, name: "Sin Clasificar", slug: "sin-clasificar" },
+const tagGroups: ActiveTagGroupDTO[] = [
+  {
+    category: { id: 1, name: "General", isDefault: true },
+    tags: [
+      {
+        id: 9,
+        name: "Sin Clasificar",
+        slug: "sin-clasificar",
+        categoryId: 1,
+        categoryName: "General",
+      },
+    ],
+  },
+  {
+    category: { id: 2, name: "Hogar", isDefault: false },
+    tags: [
+      { id: 3, name: "Hipoteca", slug: "hipoteca", categoryId: 2, categoryName: "Hogar" },
+      { id: 2, name: "Vivienda", slug: "vivienda", categoryId: 2, categoryName: "Hogar" },
+    ],
+  },
 ];
 
 const personalAccount = {
@@ -72,7 +89,7 @@ function renderCreateDialog(
       accountId={account.accountId}
       accountName={account.accountName}
       accountType={account.accountType}
-      tags={tags}
+      tagGroups={tagGroups}
       onClose={vi.fn()}
     />,
   );
@@ -121,6 +138,58 @@ describe("CreateMovementDialog (flujo de alta)", () => {
     await user.click(screen.getByRole("radio", { name: "Ingreso" }));
     await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
     expect(screen.getByRole("option", { name: "Sin etiqueta" })).toBeInTheDocument();
+  });
+
+  it("las cabeceras de categoría son texto visible sin rol option (FR-005)", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+
+    expect(screen.getByText("General")).toBeInTheDocument();
+    expect(screen.getByText("Hogar")).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "General" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Hogar" })).not.toBeInTheDocument();
+  });
+
+  it("cada etiqueta cuelga del grupo de su categoría y «Sin etiqueta» es ítem plano (FR-004)", async () => {
+    const user = userEvent.setup();
+    renderCreateDialog();
+
+    await user.click(screen.getByRole("radio", { name: "Ingreso" }));
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+
+    const sinEtiqueta = screen.getByRole("option", { name: "Sin etiqueta" });
+    expect(sinEtiqueta.closest('[data-slot="select-group"]')).toBeNull();
+
+    const hipoteca = screen.getByRole("option", { name: "Hipoteca" });
+    const hogarGroup = hipoteca.closest('[data-slot="select-group"]') as HTMLElement | null;
+    expect(hogarGroup).not.toBeNull();
+    expect(within(hogarGroup!).getByText("Hogar")).toBeInTheDocument();
+
+    const sinClasificar = screen.getByRole("option", { name: "Sin Clasificar" });
+    const generalGroup = sinClasificar.closest('[data-slot="select-group"]') as HTMLElement | null;
+    expect(generalGroup).not.toBeNull();
+    expect(within(generalGroup!).getByText("General")).toBeInTheDocument();
+  });
+
+  it("no pinta cabeceras de categorías sin etiquetas activas (esc. 8)", async () => {
+    const user = userEvent.setup();
+    render(
+      <CreateMovementDialog
+        accountId={1}
+        accountName="Cuenta de Miembro A"
+        accountType="personal"
+        tagGroups={[tagGroups[1]]}
+        onClose={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+
+    expect(screen.getByText("Hogar")).toBeInTheDocument();
+    expect(screen.queryByText("General")).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Sin Clasificar" })).not.toBeInTheDocument();
   });
 
   it("en la cuenta común la naturaleza es compartido y no editable", () => {
@@ -279,14 +348,14 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
     const onTagCreated = vi.fn();
     createTagMock.mockResolvedValueOnce({
       ok: true,
-      tag: { id: 15, name: "Mascotas", slug: "mascotas" },
+      tag: { id: 15, name: "Mascotas", slug: "mascotas", categoryId: 1, categoryName: "General" },
     });
     render(
       <MovementFormFields
         state={{ status: "idle" }}
         formAction={actionMock}
         isPending={false}
-        tags={tags}
+        tagGroups={tagGroups}
         accountId={1}
         accountType="personal"
         onTagCreated={onTagCreated}
@@ -307,6 +376,8 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
       id: 15,
       name: "Mascotas",
       slug: "mascotas",
+      categoryId: 1,
+      categoryName: "General",
     });
     expect(screen.queryByLabelText("Nombre de la etiqueta")).not.toBeInTheDocument();
     const combobox = screen.getByRole("combobox", { name: "Etiqueta" });
@@ -314,6 +385,37 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
     expect(screen.getByLabelText("Nota")).toHaveValue("Tienda de mascotas");
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("85,00");
     expect(combobox).toHaveFocus();
+  });
+
+  it("la etiqueta inline creada aparece dentro del grupo de la genérica al desplegar (esc. 9)", async () => {
+    const user = userEvent.setup();
+    createTagMock.mockResolvedValueOnce({
+      ok: true,
+      tag: { id: 15, name: "Mascotas", slug: "mascotas", categoryId: 1, categoryName: "General" },
+    });
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        tagGroups={tagGroups}
+        accountId={1}
+        accountType="personal"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "+ Nueva etiqueta" }));
+    await user.type(screen.getByLabelText("Nombre de la etiqueta"), "Mascotas");
+    await user.click(screen.getByRole("button", { name: "Crear" }));
+
+    const combobox = await screen.findByRole("combobox", { name: "Etiqueta" });
+    await user.click(combobox);
+
+    const mascotas = screen.getByRole("option", { name: "Mascotas" });
+    const generalGroup = mascotas.closest('[data-slot="select-group"]') as HTMLElement | null;
+    expect(generalGroup).not.toBeNull();
+    expect(within(generalGroup!).getByText("General")).toBeInTheDocument();
+    expect(within(generalGroup!).getByRole("option", { name: "Sin Clasificar" })).toBeInTheDocument();
   });
 
   it("duplicado muestra role=alert con el mensaje del dominio y conserva el nombre tecleado", async () => {
@@ -352,7 +454,7 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
     const user = userEvent.setup();
     createTagMock.mockResolvedValueOnce({
       ok: true,
-      tag: { id: 15, name: "Mascotas", slug: "mascotas" },
+      tag: { id: 15, name: "Mascotas", slug: "mascotas", categoryId: 1, categoryName: "General" },
     });
     renderCreateDialog();
 
@@ -385,7 +487,7 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
       .find((button) => button.closest("div.flex.items-center.gap-2") !== null);
     expect(cancelTagCreation).toBeDisabled();
 
-    resolveCreate({ ok: true, tag: { id: 15, name: "Mascotas", slug: "mascotas" } });
+    resolveCreate({ ok: true, tag: { id: 15, name: "Mascotas", slug: "mascotas", categoryId: 1, categoryName: "General" } });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "+ Nueva etiqueta" })).toBeInTheDocument();
     });
@@ -413,7 +515,7 @@ describe("MovementFormFields (creación inline de etiquetas)", () => {
         state={{ status: "idle" }}
         formAction={actionMock}
         isPending={true}
-        tags={tags}
+        tagGroups={tagGroups}
         accountId={1}
         accountType="personal"
       />,
@@ -442,7 +544,7 @@ describe("MovementFormFields (modo edición)", () => {
         formAction={actionMock}
         isPending={false}
         submitLabel="Guardar cambios"
-        tags={tags}
+        tagGroups={tagGroups}
         initialValues={initialValues}
         {...overrides}
       />,
@@ -511,5 +613,18 @@ describe("MovementFormFields (modo edición)", () => {
     });
 
     expect(screen.getByText("El importe es obligatorio.")).toBeInTheDocument();
+  });
+
+  it("edición con etiqueta inactiva: el input hidden conserva el tagId (comportamiento vigente)", async () => {
+    const user = userEvent.setup();
+    renderEditFields({
+      initialValues: { ...initialValues, tagId: 99 },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    expect(actionMock).toHaveBeenCalledTimes(1);
+    const formData = actionMock.mock.calls[0][0] as FormData;
+    expect(formData.get("tagId")).toBe("99");
   });
 });

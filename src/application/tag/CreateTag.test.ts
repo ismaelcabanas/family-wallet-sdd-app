@@ -44,6 +44,28 @@ describe("CreateTag", () => {
     expect(tag.categoryId).toBe(1);
   });
 
+  it("crea la etiqueta en la categoría explícita cuando llega categoryId (027 FR-001)", async () => {
+    const tag = await useCase.execute({ name: "Netflix", categoryId: TagCategoryId(2) });
+
+    expect(tag.categoryId).toBe(2);
+    expect(repository.stored).toHaveLength(5);
+  });
+
+  it("categoryId inexistente lanza CategoryNotFoundError (edge otra pestaña)", async () => {
+    await expect(useCase.execute({ name: "Netflix", categoryId: TagCategoryId(99) })).rejects.toThrowError(
+      CategoryNotFoundError,
+    );
+    await expect(
+      useCase.execute({ name: "Netflix", categoryId: TagCategoryId(99) }),
+    ).rejects.toThrowError("La categoría seleccionada ya no está disponible.");
+  });
+
+  it("el duplicado case-insensitive aplica globalmente aunque la categoría difiera (regla 026)", async () => {
+    await expect(
+      useCase.execute({ name: "LUZ", categoryId: TagCategoryId(2) }),
+    ).rejects.toThrowError(new DuplicateTagNameError("LUZ"));
+  });
+
   it("la genérica ausente rompe el invariante: CategoryNotFoundError", async () => {
     categories.stored = [TagCategory.rehydrate(2, "Viajes", "viajes")];
 

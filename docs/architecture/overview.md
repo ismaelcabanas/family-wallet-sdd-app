@@ -74,9 +74,9 @@ src/
 │   │   └── ListAccounts.ts
 │   ├── tag/
 │   │   ├── TagRepository.ts     <-- PUERTO (findBySlug; findByName espejo de lower(name) + save desde 017, ADR 0015; +findById/findAll/update/mergeInto transaccional desde 004, ADR 0018; save/update persisten categoryId desde 026)
-│   │   ├── ListActiveTags.ts
-│   │   ├── dto.ts                <-- CatalogTagDTO { id, name, slug, status, isProtected } (004); +TagCatalogGroupDTO (026)
-│   │   ├── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa; desde 026 nace en la genérica (FR-007, ADR 0022)
+│   │   ├── ListGroupedActiveTags.ts <-- Etiquetas activas agrupadas por categoría → ActiveTagGroupDTO[] pre-ordenado sin grupos vacíos (027; jubila ListActiveTags: genérica primera, resto es-ES, etiquetas por nombre)
+│   │   ├── dto.ts                <-- CatalogTagDTO { id, name, slug, status, isProtected } (004); +TagCatalogGroupDTO (026); +ActiveTagGroupDTO (027)
+│   │   ├── CreateTag.ts         <-- Vía de creación del catálogo (017): trim, duplicado case-insensitive, slug derivado + colisiones -2/-3…, alta activa; desde 026 nace en la genérica (FR-007, ADR 0022); desde 027 acepta categoryId? explícita validada (sin ella → genérica, retrocompatible)
 │   │   ├── ListTagCatalog.ts    <-- Catálogo agrupado por categorías → TagCatalogGroupDTO[] pre-ordenado (026; jubila ListTags: genérica primero, resto es, activas primero)
 │   │   ├── MoveTagToCategory.ts <-- Mueve una etiqueta de categoría (misma categoría = no-op; sin protección extra, 026)
 │   │   ├── RenameTag.ts          <-- findById → protección → rename → duplicado con autoexclusión → update (004)
@@ -114,7 +114,7 @@ src/
 │   ├── accounts/[accountId]/page.tsx <-- Página de cuenta (/accounts/{id}?month=): 404 explícito si no existe (adaptador fino, patrón ADR 0008); GlobalNav active="panel"; vista operativa desde 025: MonthStepper → [personales: AccountMonthKpis sticky 4 métricas] → GroupedMovementList (con CTA «Nuevo movimiento»), SIN balance ni panel de cierre (componentes jubilados en 025); la configuración NO vive aquí desde 020 (menú ⋮ de la tarjeta en /); desde 018 materializa ingresos regulares, desde 019 aportaciones comunes y desde 023 deducciones de ahorro, los tres ANTES del Promise.all de lecturas en tres awaits secuenciales (único disparador, ADR 0016/0017; GetMonthlyClosure solo en personales con lectura condicionada, fuente interna de KPIs: GetMonthSavings lee la fila congelada y la página compone las dos restas de composición netMonthBalanceCents = cierre − ahorro y personalExpenseCents = cierre − aportación, 024)
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
-│   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004): GlobalNav active="tags" (sin contexto temporal) + ListTags → TagCatalog
+│   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004/026): GlobalNav active="tags" (sin contexto temporal) + ListTagCatalog → TagCatalog (árbol contenedor 027)
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
@@ -134,7 +134,8 @@ src/
         ├── actions/
         │   ├── movement-form.schema.ts    <-- Schema Zod del formulario compartido alta/edición (FR-002)
         │   ├── create-movement.action.ts  <-- 'use server': Zod (FormData) -> use case -> estado por campo (ADR 0008); revalida '/' y '/accounts/[accountId]' (patrón "page")
-        │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; revalidatePath('/', 'layout')
+        │   ├── create-tag.action.ts       <-- 'use server' (017, ADR 0015): createTag(name) -> CreateTagResult {ok,tag|message}; desde 027 el DTO incluye categoryId/categoryName (fusión del extra en su grupo); revalidatePath('/', 'layout')
+        │   ├── create-tag-entry.action.ts  <-- 'use server' (027): action despachadora de la única vía de creación — Zod {name, categoryId?}; sin categoryId → CreateCategory («Categoría creada»), con ella → CreateTag («Etiqueta creada»); revalidatePath('/', 'layout') (create-category.action jubilada)
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
         │   ├── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
@@ -149,7 +150,7 @@ src/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
             ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados · Etiquetas; aria-current, mes por prop con currentMonth() por defecto, features 012 + 004)
             ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular», «Aportación» y «Ahorro» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus/savingsMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019 + 023)
-            ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015)
+            ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015; Select «Etiqueta» agrupado por categoría con SelectGroup/SelectLabel desde 027 — prop tagGroups: ActiveTagGroupDTO[], cabeceras no seleccionables)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
             ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
@@ -163,7 +164,8 @@ src/
             ├── common-contribution-config-dialog.tsx <-- Diálogo «Aportación a la cuenta común» (019): espejo estructural del de 018 con un único campo «Porcentaje (%)» (formatBasisPointsForInput); lo abre el ítem «Aportación» del menú ⋮
             ├── savings-config-dialog.tsx <-- Diálogo «Ahorro mensual» (023): espejo del de 019 con input entero (inputMode numeric, String(percentage)); lo abre el ítem «Ahorro» del menú ⋮
             ├── account-month-kpis.tsx (server component sticky de las cuentas personales, 022; desde 024 dl de 4 métricas: aportación común · gasto personal · ahorro del mes · saldo del mes NETO del ahorro (restas compuestas por la página; el componente solo formatea)
-            ├── tag-catalog.tsx (client de /tags, 004: lista con chips de estado y distintivo «Sistema» sin menú, menú ⋮ por fila según estado, host de los tres diálogos a nivel del listado — convención de fila —, Reactivar como action directa + useTransition con toast)
+            ├── tag-catalog.tsx (client de /tags, 004/026/027: árbol contenedor — cada categoría rounded-lg border con cabecera y filas sangradas dentro —, chips de estado y distintivo «Sistema», menú ⋮ por fila y por categoría, host de los diálogos a nivel del listado — convención de fila —, Reactivar como action directa + useTransition con toast; único botón «Nueva etiqueta» que abre CreateTagDialog — create-category-dialog jubilado en 027)
+            ├── create-tag-dialog.tsx (027: nombre + categoría padre opcional; useActionState(createTagEntry) — inferencia de tipo en la frontera; inputs controlados y Select con restauración por ref tras el auto-reset de React 19, SC-004)
             ├── rename-tag-dialog.tsx (004: input controlado — React 19 resetea los no controlados al resolver la action; error conserva el nombre tecleado, SC-004)
             ├── merge-tags-dialog.tsx (004: Select destino excluye propia y protegidas, inactivas con sufijo; confirmación integrada texto+destructivo, FR-008)
             ├── deactivate-tag-dialog.tsx (004: AlertDialog con consecuencia explícita sin cifras, FR-008)

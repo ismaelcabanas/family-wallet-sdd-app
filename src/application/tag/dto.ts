@@ -1,4 +1,5 @@
 import type { CategoryDTO } from "@/application/tag-category/dto";
+import type { TagDTO } from "../movement/dto";
 import type { TagStatus } from "@/domain/tag/TagStatus";
 
 export interface CatalogTagDTO {
@@ -12,4 +13,9 @@ export interface CatalogTagDTO {
 export interface TagCatalogGroupDTO {
   category: CategoryDTO;
   tags: CatalogTagDTO[];
+}
+
+export interface ActiveTagGroupDTO {
+  category: CategoryDTO;
+  tags: TagDTO[];
 }

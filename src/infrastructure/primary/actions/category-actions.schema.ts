@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-export const createCategorySchema = z.object({
-  name: z.string().trim().min(1, "El nombre de la categoría es obligatorio."),
-});
-
 export const renameCategorySchema = z.object({
   categoryId: z.coerce.number().int().positive(),
   name: z.string().trim().min(1, "El nombre de la categoría es obligatorio."),

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 
-import type { MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { MovementDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 
 import { CreateMovementDialog } from "./create-movement-dialog";
 import { DeleteMovementDialog } from "./delete-movement-dialog";
@@ -34,7 +35,7 @@ function natureLabel(movement: MovementDTO): string {
 
 interface GroupedMovementListProps {
   movements: MovementDTO[];
-  tags: TagDTO[];
+  tagGroups: ActiveTagGroupDTO[];
   currentAccountId: number;
   currentMonth: string;
   accountName: string;
@@ -43,7 +44,7 @@ interface GroupedMovementListProps {
 
 export function GroupedMovementList({
   movements,
-  tags,
+  tagGroups,
   currentAccountId,
   currentMonth,
   accountName,
@@ -144,7 +145,7 @@ export function GroupedMovementList({
           accountId={currentAccountId}
           accountName={accountName}
           accountType={accountType}
-          tags={tags}
+          tagGroups={tagGroups}
           onClose={() => setCreating(false)}
         />
       ) : null}
@@ -152,7 +153,7 @@ export function GroupedMovementList({
       {editing ? (
         <EditMovementDialog
           movement={editing}
-          tags={tags}
+          tagGroups={tagGroups}
           currentAccountId={currentAccountId}
           currentMonth={currentMonth}
           onClose={() => setEditing(null)}

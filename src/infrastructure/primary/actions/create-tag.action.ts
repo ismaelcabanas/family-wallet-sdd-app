@@ -17,10 +17,8 @@ export type CreateTagResult =
   | { ok: true; tag: TagDTO }
   | { ok: false; message: string };
 
-const createTagUseCase = new CreateTag(
-  new DrizzleTagRepository(db),
-  new DrizzleTagCategoryRepository(db),
-);
+const categoryRepository = new DrizzleTagCategoryRepository(db);
+const createTagUseCase = new CreateTag(new DrizzleTagRepository(db), categoryRepository);
 
 export async function createTag(name: string): Promise<CreateTagResult> {
   const parsed = createTagSchema.safeParse(name);
@@ -31,6 +29,7 @@ export async function createTag(name: string): Promise<CreateTagResult> {
 
   try {
     const tag = await createTagUseCase.execute({ name: parsed.data });
+    const category = await categoryRepository.findById(tag.categoryId);
 
     revalidatePath("/", "layout");
 
@@ -38,8 +37,14 @@ export async function createTag(name: string): Promise<CreateTagResult> {
       ok: true,
       tag:
         tag.id === null
-          ? { id: 0, name: tag.name, slug: tag.slug }
-          : { id: tag.id, name: tag.name, slug: tag.slug },
+          ? { id: 0, name: tag.name, slug: tag.slug, categoryId: tag.categoryId, categoryName: category?.name ?? "" }
+          : {
+              id: tag.id,
+              name: tag.name,
+              slug: tag.slug,
+              categoryId: tag.categoryId,
+              categoryName: category?.name ?? "",
+            },
     };
   } catch (error) {
     if (error instanceof InvalidTagError || error instanceof DuplicateTagNameError) {

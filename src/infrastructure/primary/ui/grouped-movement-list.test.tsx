@@ -6,10 +6,24 @@ vi.mock("../actions/update-movement.action", () => ({ updateMovement: vi.fn() })
 vi.mock("../actions/delete-movement.action", () => ({ deleteMovement: vi.fn() }));
 vi.mock("../actions/create-movement.action", () => ({ createMovement: vi.fn() }));
 
-import type { MovementDTO, TagDTO } from "@/application/movement/dto";
+import type { MovementDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import { groupMovementsByDate, GroupedMovementList } from "./grouped-movement-list";
 
-const tags: TagDTO[] = [{ id: 1, name: "Alimentación", slug: "alimentacion" }];
+const tagGroups: ActiveTagGroupDTO[] = [
+  {
+    category: { id: 1, name: "General", isDefault: true },
+    tags: [
+      {
+        id: 1,
+        name: "Alimentación",
+        slug: "alimentacion",
+        categoryId: 1,
+        categoryName: "General",
+      },
+    ],
+  },
+];
 
 function buildMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
   return {
@@ -29,7 +43,7 @@ function renderList(movements: MovementDTO[]) {
   return render(
     <GroupedMovementList
       movements={movements}
-      tags={tags}
+      tagGroups={tagGroups}
       currentAccountId={2}
       currentMonth="2026-04"
       accountName="Cuenta de Miembro B"
@@ -171,7 +185,7 @@ describe("GroupedMovementList", () => {
     rerender(
       <GroupedMovementList
         movements={[]}
-        tags={tags}
+        tagGroups={tagGroups}
         currentAccountId={2}
         currentMonth="2026-04"
         accountName="Cuenta de Miembro B"
