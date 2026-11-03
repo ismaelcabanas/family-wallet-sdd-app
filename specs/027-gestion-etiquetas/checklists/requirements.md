@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,5 +31,5 @@
 
 ## Notes
 
-- Pendiente: resolver [Q1] (creación de categorías vacías por adelantado y momento de commit del alta inline) — marcada como [NEEDS CLARIFICATION] en FR-002/FR-003 y edge cases. El resto de ítems pasa la validación.
+- Resuelto [Q1] durante la planificación (2026-11-03, decisión del propietario): una sola vía de creación con **inferencia de tipo** — el diálogo «Nueva etiqueta» pide nombre y categoría padre opcional; sin padre se crea una categoría, con padre una etiqueta. Sin alta inline de categorías y sin botón «Nueva categoría» en la cabecera. La spec queda actualizada (FR-001/FR-002/FR-003, escenarios 2/4, edge cases).
 - La mención a `ListActiveTags` en Assumptions es una referencia de comportamiento vigente (solo etiquetas activas), no un detalle de implementación de la feature.
