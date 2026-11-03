@@ -113,8 +113,8 @@ test.describe("categorías de etiquetas (flujo crítico)", () => {
   test("G2: crear categoría — grupo vacío ordenado tras la genérica (esc. 2)", async ({ page }) => {
     await page.goto("/tags");
 
-    await page.getByRole("button", { name: "Nueva categoría" }).click();
-    const dialog = page.getByRole("dialog", { name: "Nueva categoría" });
+    await page.getByRole("button", { name: "Nueva etiqueta" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nueva etiqueta" });
     await expect(dialog).toBeVisible();
     await dialog.getByLabel("Nombre").fill("Alimentación");
     await dialog.getByRole("button", { name: "Crear" }).click();
@@ -136,8 +136,8 @@ test.describe("categorías de etiquetas (flujo crítico)", () => {
   test("G3: duplicado case-insensitive rechazado conservando el valor (esc. 3)", async ({ page }) => {
     await page.goto("/tags");
 
-    await page.getByRole("button", { name: "Nueva categoría" }).click();
-    const dialog = page.getByRole("dialog", { name: "Nueva categoría" });
+    await page.getByRole("button", { name: "Nueva etiqueta" }).click();
+    const dialog = page.getByRole("dialog", { name: "Nueva etiqueta" });
     await dialog.getByLabel("Nombre").fill("alimentación");
     await dialog.getByRole("button", { name: "Crear" }).click();
 

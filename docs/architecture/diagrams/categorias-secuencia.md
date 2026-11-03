@@ -1,6 +1,6 @@
 # Secuencia: categorías del catálogo de etiquetas (feature 026)
 
-Mover una etiqueta de categoría — el flujo central de la organización del catálogo (`/tags`). Crear, renombrar y eliminar categoría siguen el mismo recorrido con su acción y diálogo correspondientes. Diagrama de diseño congelado en [plan.md](../../../specs/026-categorias-tags/plan.md); este documento es la copia viva.
+Mover una etiqueta de categoría — el flujo central de la organización del catálogo (`/tags`). Renombrar y eliminar categoría siguen el mismo recorrido con su acción y diálogo correspondientes; desde 027 la **creación de categorías** pasa por la inferencia del diálogo «Nueva etiqueta» sin padre (ver [jerarquia-etiquetas-secuencia.md](./jerarquia-etiquetas-secuencia.md)). Diagrama de diseño congelado en [plan.md](../../../specs/026-categorias-tags/plan.md); este documento es la copia viva.
 
 ```mermaid
 sequenceDiagram

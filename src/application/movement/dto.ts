@@ -51,6 +51,8 @@ export interface TagDTO {
   id: number;
   name: string;
   slug: string;
+  categoryId: number;
+  categoryName: string;
 }
 
 export interface TagBreakdownEntryDTO {

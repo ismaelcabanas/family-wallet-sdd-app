@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { TagDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import type { MovementType } from "@/domain/movement/MovementType";
 
@@ -24,15 +25,39 @@ interface CreateMovementDialogProps {
   accountId: number;
   accountName: string;
   accountType: "personal" | "shared";
-  tags: TagDTO[];
+  tagGroups: ActiveTagGroupDTO[];
   onClose: () => void;
+}
+
+function mergeExtraTags(
+  tagGroups: ActiveTagGroupDTO[],
+  extraTags: TagDTO[],
+): ActiveTagGroupDTO[] {
+  const extras = extraTags.filter(
+    (tag) => !tagGroups.some((group) => group.tags.some((candidate) => candidate.id === tag.id)),
+  );
+  if (extras.length === 0) return tagGroups;
+
+  const groups = tagGroups.map((group) => ({ ...group, tags: [...group.tags] }));
+  for (const tag of extras) {
+    const target = groups.find((group) => group.category.id === tag.categoryId);
+    if (target) {
+      target.tags.push(tag);
+    } else {
+      groups.push({
+        category: { id: tag.categoryId, name: tag.categoryName, isDefault: false },
+        tags: [tag],
+      });
+    }
+  }
+  return groups;
 }
 
 export function CreateMovementDialog({
   accountId,
   accountName: _accountName,
   accountType,
-  tags,
+  tagGroups,
   onClose,
 }: CreateMovementDialogProps) {
   void _accountName;
@@ -41,9 +66,7 @@ export function CreateMovementDialog({
   const [carry, setCarry] = useState<CarryOverValues | null>(null);
   const [extraTags, setExtraTags] = useState<TagDTO[]>([]);
 
-  const allTags = [...tags, ...extraTags.filter((tag) => !tags.some((t) => t.id === tag.id))].sort(
-    (a, b) => a.name.localeCompare(b.name, "es"),
-  );
+  const groupsWithExtras = mergeExtraTags(tagGroups, extraTags);
 
   return (
     <Dialog
@@ -70,7 +93,7 @@ export function CreateMovementDialog({
           key={savedCount}
           accountId={accountId}
           accountType={accountType}
-          tags={allTags}
+          tagGroups={groupsWithExtras}
           carry={carry}
           onTagCreated={(tag) => {
             setExtraTags((current) =>
@@ -94,7 +117,7 @@ export function CreateMovementDialog({
 function CreateMovementForm({
   accountId,
   accountType,
-  tags,
+  tagGroups,
   carry,
   onTagCreated,
   onSaved,
@@ -137,7 +160,7 @@ function CreateMovementForm({
         return formAction(formData);
       }}
       isPending={isPending}
-      tags={tags}
+      tagGroups={tagGroups}
       accountId={accountId}
       accountType={accountType}
       carry={carry ?? undefined}

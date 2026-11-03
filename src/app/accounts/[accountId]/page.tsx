@@ -6,7 +6,7 @@ import { MaterializeCommonContributions } from "@/application/common-contributio
 import { MaterializeRegularIncomes } from "@/application/regular-income/MaterializeRegularIncomes";
 import { MaterializeSavingsAllocations } from "@/application/savings/MaterializeSavingsAllocations";
 import { GetMonthSavings } from "@/application/savings/GetMonthSavings";
-import { ListActiveTags } from "@/application/tag/ListActiveTags";
+import { ListGroupedActiveTags } from "@/application/tag/ListGroupedActiveTags";
 import { AccountId } from "@/domain/account/AccountId";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -86,9 +86,9 @@ export default async function AccountPage({
     regularIncomeRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, tags, closure, netContribution, savings] = await Promise.all([
+  const [movements, tagGroups, closure, netContribution, savings] = await Promise.all([
     new ListMovements(movementRepository).execute(account.id, month),
-    new ListActiveTags(tagRepository).execute(),
+    new ListGroupedActiveTags(tagRepository, new DrizzleTagCategoryRepository(db)).execute(),
     account.type === "personal"
       ? new GetMonthlyClosure(movementRepository).execute(account.id, month)
       : Promise.resolve(null),
@@ -132,7 +132,7 @@ export default async function AccountPage({
 
       <GroupedMovementList
         movements={movements}
-        tags={tags}
+        tagGroups={tagGroups}
         currentAccountId={account.id}
         currentMonth={month}
         accountName={account.name}

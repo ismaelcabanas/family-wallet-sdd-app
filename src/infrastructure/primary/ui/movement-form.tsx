@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { toast } from "sonner";
 
 import type { TagDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import type { MovementType } from "@/domain/movement/MovementType";
 
@@ -15,7 +16,9 @@ import { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
@@ -50,7 +53,7 @@ interface MovementFormFieldsProps {
   state: MovementFormState;
   formAction: (formData: FormData) => void | Promise<void>;
   isPending: boolean;
-  tags: TagDTO[];
+  tagGroups: ActiveTagGroupDTO[];
   submitLabel?: string;
   primaryIntent?: "continue";
   secondaryActions?: ReactNode;
@@ -64,11 +67,30 @@ interface MovementFormFieldsProps {
 
 const NO_TAG_VALUE = "__no_tag__";
 
+function mergeTagIntoGroups(
+  tagGroups: ActiveTagGroupDTO[],
+  tag: TagDTO,
+): ActiveTagGroupDTO[] {
+  const groupIndex = tagGroups.findIndex((group) => group.category.id === tag.categoryId);
+  if (groupIndex === -1) {
+    return [
+      ...tagGroups,
+      {
+        category: { id: tag.categoryId, name: tag.categoryName, isDefault: false },
+        tags: [tag],
+      },
+    ];
+  }
+  return tagGroups.map((group, index) =>
+    index === groupIndex ? { ...group, tags: [...group.tags, tag] } : group,
+  );
+}
+
 export function MovementFormFields({
   state,
   formAction,
   isPending,
-  tags,
+  tagGroups,
   submitLabel = "Registrar",
   primaryIntent,
   secondaryActions,
@@ -204,10 +226,11 @@ export function MovementFormFields({
         : selectedTagId;
 
   const createdTag =
-    selectedTagId !== "" && !tags.some((tag) => String(tag.id) === selectedTagId)
+    selectedTagId !== "" &&
+    !tagGroups.some((group) => group.tags.some((tag) => String(tag.id) === selectedTagId))
       ? createdTags.find((tag) => String(tag.id) === selectedTagId)
       : undefined;
-  const selectTags = createdTag ? [...tags, createdTag] : tags;
+  const selectGroups = createdTag ? mergeTagIntoGroups(tagGroups, createdTag) : tagGroups;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -433,10 +456,15 @@ export function MovementFormFields({
                 {chosenType === "income" ? (
                   <SelectItem value={NO_TAG_VALUE}>Sin etiqueta</SelectItem>
                 ) : null}
-                {selectTags.map((tag) => (
-                  <SelectItem key={tag.id} value={String(tag.id)}>
-                    {tag.name}
-                  </SelectItem>
+                {selectGroups.map((group) => (
+                  <SelectGroup key={group.category.id}>
+                    <SelectLabel>{group.category.name}</SelectLabel>
+                    {group.tags.map((tag) => (
+                      <SelectItem key={tag.id} value={String(tag.id)}>
+                        {tag.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>

@@ -26,11 +26,17 @@ vi.mock("sonner", async (importOriginal) => {
 });
 
 import type { MovementDTO } from "@/application/movement/dto";
+import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import { EditMovementDialog } from "./edit-movement-dialog";
 
-const tags = [
-  { id: 2, name: "Vivienda", slug: "vivienda" },
-  { id: 3, name: "Hipoteca", slug: "hipoteca" },
+const tagGroups: ActiveTagGroupDTO[] = [
+  {
+    category: { id: 1, name: "General", isDefault: true },
+    tags: [
+      { id: 2, name: "Vivienda", slug: "vivienda", categoryId: 1, categoryName: "General" },
+      { id: 3, name: "Hipoteca", slug: "hipoteca", categoryId: 1, categoryName: "General" },
+    ],
+  },
 ];
 
 const movement: MovementDTO = {
@@ -50,7 +56,7 @@ function renderDialog() {
   return render(
     <EditMovementDialog
       movement={movement}
-      tags={tags}
+      tagGroups={tagGroups}
       currentAccountId={1}
       currentMonth="2026-09"
       onClose={onCloseMock}

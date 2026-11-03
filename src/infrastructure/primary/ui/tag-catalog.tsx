@@ -8,7 +8,7 @@ import type { CategoryDTO } from "@/application/tag-category/dto";
 import type { CatalogTagDTO, TagCatalogGroupDTO } from "@/application/tag/dto";
 
 import { reactivateTag } from "../actions/reactivate-tag.action";
-import { CreateCategoryDialog } from "./create-category-dialog";
+import { CreateTagDialog } from "./create-tag-dialog";
 import { DeactivateTagDialog } from "./deactivate-tag-dialog";
 import { DeleteCategoryDialog } from "./delete-category-dialog";
 import { MergeTagsDialog } from "./merge-tags-dialog";
@@ -31,7 +31,7 @@ export function TagCatalog({ groups }: { groups: TagCatalogGroupDTO[] }) {
   const [merging, setMerging] = useState<CatalogTagDTO | null>(null);
   const [deactivating, setDeactivating] = useState<CatalogTagDTO | null>(null);
   const [moving, setMoving] = useState<CatalogTagDTO | null>(null);
-  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [creatingTag, setCreatingTag] = useState(false);
   const [renamingCategory, setRenamingCategory] = useState<CategoryDTO | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<CategoryDTO | null>(null);
   const [isReactivating, startReactivation] = useTransition();
@@ -63,14 +63,18 @@ export function TagCatalog({ groups }: { groups: TagCatalogGroupDTO[] }) {
           <span className="text-sm text-muted-foreground">
             {groups.length} {groups.length === 1 ? "categoría" : "categorías"}
           </span>
-          <Button type="button" variant="outline" onClick={() => setCreatingCategory(true)}>
-            Nueva categoría
+          <Button type="button" variant="outline" onClick={() => setCreatingTag(true)}>
+            Nueva etiqueta
           </Button>
         </div>
         <div className="flex flex-col gap-6">
           {groups.map((group) => (
-            <section key={group.category.id} aria-label={`Categoría ${group.category.name}`}>
-              <div className="flex items-center justify-between gap-4 border-b pb-2">
+            <section
+              key={group.category.id}
+              aria-label={`Categoría ${group.category.name}`}
+              className="rounded-lg border"
+            >
+              <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
                 <h2 className="text-sm font-semibold">
                   {group.category.name}
                   <span className="ml-2 font-normal text-muted-foreground">
@@ -98,7 +102,7 @@ export function TagCatalog({ groups }: { groups: TagCatalogGroupDTO[] }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-              <ul className="divide-y">
+              <ul className="divide-y px-4">
                 {group.tags.map((tag) => (
                   <li
                     key={tag.id}
@@ -151,15 +155,15 @@ export function TagCatalog({ groups }: { groups: TagCatalogGroupDTO[] }) {
                 ))}
               </ul>
               {group.category.isDefault && totalTags === 0 ? (
-                <p className="py-6 text-sm text-muted-foreground">No hay etiquetas todavía.</p>
+                <p className="px-4 py-6 text-sm text-muted-foreground">No hay etiquetas todavía.</p>
               ) : null}
             </section>
           ))}
         </div>
       </section>
 
-      {creatingCategory ? (
-        <CreateCategoryDialog onClose={() => setCreatingCategory(false)} />
+      {creatingTag ? (
+        <CreateTagDialog categories={allCategories} onClose={() => setCreatingTag(false)} />
       ) : null}
       {renamingCategory ? (
         <RenameCategoryDialog category={renamingCategory} onClose={() => setRenamingCategory(null)} />
