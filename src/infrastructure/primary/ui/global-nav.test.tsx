@@ -1,4 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { currentMonth } from "./format";
@@ -95,5 +96,26 @@ describe("GlobalNav", () => {
 
     expect(getLink("Resumen global").className).toContain("font-medium");
     expect(getLink("Panel").className).not.toContain("font-medium");
+  });
+
+  it("incluye el menú «Informes» con el informe de gastos por categoría", async () => {
+    const user = userEvent.setup();
+    render(<GlobalNav active="reports" month="2026-03" />);
+
+    await user.click(screen.getByRole("button", { name: "Informes" }));
+
+    const item = within(screen.getByRole("menu", { name: "Informes" })).getByRole("menuitem", {
+      name: "Gastos por categoría",
+    });
+    expect(item).toHaveAttribute("href", "/reports/annual-expenses");
+    expect(item).toHaveAttribute("aria-current", "page");
+  });
+
+  it("con active=reports ningún enlace directo queda marcado como actual", () => {
+    render(<GlobalNav active="reports" month="2026-03" />);
+
+    for (const link of screen.getAllByRole("link")) {
+      expect(link).not.toHaveAttribute("aria-current");
+    }
   });
 });

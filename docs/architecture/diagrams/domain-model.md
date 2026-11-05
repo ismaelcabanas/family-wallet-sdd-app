@@ -357,6 +357,45 @@ classDiagram
         +averageCents number
     }
 
+    class AnnualCategoryExpenseReport {
+        <<agregado de 015>>
+        +year string
+        +rows CategoryExpenseRow[]
+        +monthlyTotalCents number[12]
+        +monthlyPersonalTotalCents number[12]
+        +monthlyTotalAverageCents number
+        +personalTotalAverageCents number
+        +fromMovements(year, inputs, categories)$ AnnualCategoryExpenseReport
+    }
+
+    class CategoryExpenseRow {
+        <<VO de 015>>
+        +categoryId number
+        +categoryName string
+        +isDefaultCategory boolean
+        +monthlyAmountCents number[12]
+        +annualTotalCents number
+        +annualAverageCents number
+    }
+
+    class AnnualExpenseInput {
+        <<record de 015 (mapeo del caso de uso)>>
+        +month string
+        +type MovementType
+        +nature ExpenseNature?
+        +amountCents number
+        +tagSlug string?
+        +tagCategoryId number?
+        +accountKind personal|common
+    }
+
+    class CategoryExpenseRef {
+        <<record de 015>>
+        +id number
+        +name string
+        +slug string
+    }
+
     class TagBreakdownEntry {
         +tagId number
         +tagName string
@@ -460,6 +499,11 @@ classDiagram
     AnnualIncomeStatement o-- MemberIncomeRow
     AnnualIncomeStatement o-- MonthlyTotalsRow
     AnnualIncomeStatement o-- AnnualTagRow
+    AnnualCategoryExpenseReport o-- CategoryExpenseRow
+    AnnualCategoryExpenseReport ..> AnnualExpenseInput : fromMovements
+    AnnualCategoryExpenseReport ..> CategoryExpenseRef : fromMovements
+    AnnualCategoryExpenseReport ..> SystemTags : excluye isProtectedTagSlug (015)
+    AnnualCategoryExpenseReport ..> DefaultCategory : ordena la genérica primero (015)
     GlobalMonthlySummary o-- TagBreakdownEntry
     GlobalMonthlySummary o-- MemberBreakdownEntry
     MonthlyClosure o-- TagBreakdownEntry
@@ -487,3 +531,4 @@ classDiagram
 - **`MonthlyClosure`**: `shared + personal = expenseTotal`; cada gasto computa en su única tag (014: el desglose suma el total de gastos); mes vacío → ceros (ADR 0010).
 - **`GlobalMonthlySummary`** (ADR 0012): compone `MonthlyClosure`, por lo que hereda sus invariantes y además **global = Σ cierres por cuenta, KPI a KPI** (FR-002, garantía estructural + test de invariante); Σ `memberBreakdown` (personal+shared) = `expenseTotal`; los ingresos no aparecen en ningún desglose; las filas del desglose por miembro se agrupan por `memberId` (homónimos → filas distintas; varias cuentas del mismo miembro → una fila), con `memberId: null` para los gastos pagados desde la cuenta común (la etiqueta "Cuenta común" vive solo en la UI).
 - **`AnnualIncomeStatement`** (ADR 0013): compone 12 `GlobalMonthlySummary` (uno por mes Ene–Dic, vacíos incluidos), por lo que hereda sus invariantes y además **cada mes = resumen global de 006** (FR-006, garantía estructural + test de invariante); Σ `memberIncomeRows` mes a mes = `totalIncomeRow` (cada ingreso computa exactamente en la fila de la cuenta de registro; catálogo completo siempre presente con ceros, FR-002); `accumulatedBalanceRow.monthCells[m]` = Σ `balanceRow.monthCells[0..m]` y su total = total anual de «Saldo» (FR-012, sin media); `averageCents = Math.round(totalCents / 12)` en todas las filas salvo la acumulada (único redondeo de la feature, ADR 0007); año vacío → 12 resúmenes a ceros, filas completas a cero y `tagRows = []` (FR-007). La factory es total sobre inputs ya filtrados por el año (no re-valida el año: lo garantiza el llamador).
+- **`AnnualCategoryExpenseReport`** (015): agregado de lectura pura de `/reports/annual-expenses` (sin persistencia, FR-005); una fila por **categoría** (todas, también vacías; orden catálogo: genérica por `DEFAULT_CATEGORY_SLUG` primero, resto `localeCompare("es")`) con `monthlyAmountCents` de 12 posiciones siempre presentes; computan todos los gastos de todas las cuentas y naturalezas **excluida la etiqueta protegida «Aportación Común»** (regla declarativa por `isProtectedTagSlug`, agnóstica de la materialización 019/021), con independencia del estado activa/inactiva de la etiqueta (histórico íntegro: `TagRepository.findAll`, no `findAllActive`); fila «Gasto mensual» = Σ gastos del mes con la misma exclusión, fila de gastos personales = Σ gastos `nature = personal` AND cuenta personal (semántica del KPI de 022/024); medias = `Math.round(total / 12)` **siempre ÷ 12** (también año en curso; decisión del propietario) en céntimos enteros (ADR 0007); año vacío → estructura completa a ceros. El join tag→categoría vive en el caso de uso (`GetAnnualCategoryExpenseReport`, mapa `tagId → categoryId` en memoria: `MovementTagDTO` congelado por 027); la factory recibe el `year` explícito (los inputs pueden estar vacíos y el agregado lo expone como identidad).

@@ -124,3 +124,20 @@ export interface AnnualIncomeStatementDTO {
   accumulatedBalanceRow: AccumulatedBalanceRowDTO;
   tagRows: AnnualTagRowDTO[];
 }
+
+export interface CategoryExpenseRowDTO {
+  categoryId: number;
+  categoryName: string;
+  monthlyAmountCents: number[];
+  annualTotalCents: number;
+  annualAverageCents: number;
+}
+
+export interface AnnualCategoryExpenseReportDTO {
+  year: string;
+  rows: CategoryExpenseRowDTO[];
+  monthlyTotalCents: number[];
+  monthlyPersonalTotalCents: number[];
+  monthlyTotalAverageCents: number;
+  personalTotalAverageCents: number;
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { currentMonth } from "./format";
+import { ReportsNavMenu } from "./reports-nav-menu";
 
 const LINK_CLASSES = "text-sm text-muted-foreground underline-offset-4 hover:underline";
 const ACTIVE_LINK_CLASSES = "text-sm font-medium text-foreground";
@@ -9,7 +10,7 @@ export function GlobalNav({
   active,
   month,
 }: {
-  active: "panel" | "summary" | "annual" | "tags";
+  active: "panel" | "summary" | "annual" | "tags" | "reports";
   month?: string;
 }) {
   const contextMonth = month ?? currentMonth();
@@ -38,6 +39,7 @@ export function GlobalNav({
       >
         Cuenta de resultados
       </Link>
+      <ReportsNavMenu active={active} />
       <Link
         href="/tags"
         aria-current={active === "tags" ? "page" : undefined}
