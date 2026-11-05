@@ -14,7 +14,7 @@ import {
 
 const YEAR_RADIUS = 6;
 
-export function YearSelector({ year }: { year: string }) {
+export function YearSelector({ year, basePath = "/annual" }: { year: string; basePath?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -22,7 +22,7 @@ export function YearSelector({ year }: { year: string }) {
 
   const navigate = (nextYear: string) => {
     startTransition(() => {
-      router.replace(`/annual?year=${nextYear}`);
+      router.replace(`${basePath}?year=${nextYear}`);
     });
   };
 

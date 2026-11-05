@@ -40,6 +40,16 @@ describe("YearSelector", () => {
     expect(routerReplaceMock).toHaveBeenCalledExactlyOnceWith("/annual?year=2026");
   });
 
+  it("navega a {basePath}?year= cuando se proporciona uno propio", async () => {
+    const user = userEvent.setup();
+    render(<YearSelector year="2027" basePath="/reports/annual-expenses" />);
+
+    await user.click(screen.getByRole("combobox", { name: "Año visible" }));
+    await user.click(screen.getByRole("option", { name: "2026" }));
+
+    expect(routerReplaceMock).toHaveBeenCalledExactlyOnceWith("/reports/annual-expenses?year=2026");
+  });
+
   it("mantiene el año activo seleccionado", () => {
     render(<YearSelector year="2026" />);
 
