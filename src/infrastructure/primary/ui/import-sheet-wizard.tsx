@@ -28,6 +28,7 @@ export function ImportSheetWizard({
   const [month, setMonth] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ImportSheetResult>({ status: "idle" });
+  const [runningIntent, setRunningIntent] = useState<"preview" | "confirm" | null>(null);
   const [isWorking, startWork] = useTransition();
 
   const preview = result.status === "preview" ? result.preview : null;
@@ -57,20 +58,24 @@ export function ImportSheetWizard({
   function runPreview() {
     if (!canPreview || file === null) return;
     const currentFile = file;
+    setRunningIntent("preview");
     startWork(async () => {
       setResult(
         await importSheetAction({ accountId, month, intent: "preview", file: currentFile }),
       );
+      setRunningIntent(null);
     });
   }
 
   function runConfirm() {
     if (!canConfirm || file === null) return;
     const currentFile = file;
+    setRunningIntent("confirm");
     startWork(async () => {
       setResult(
         await importSheetAction({ accountId, month, intent: "confirm", file: currentFile }),
       );
+      setRunningIntent(null);
     });
   }
 
@@ -132,7 +137,9 @@ export function ImportSheetWizard({
           </div>
           <div className="flex items-center gap-2 self-start">
             <Button type="button" onClick={runPreview} disabled={!canPreview}>
-              {isWorking && preview === null ? "Previsualizando…" : "Previsualizar importación"}
+              {isWorking && runningIntent === "preview"
+                ? "Previsualizando…"
+                : "Previsualizar importación"}
             </Button>
           </div>
           {errorMessage ? (
@@ -257,9 +264,9 @@ export function ImportSheetWizard({
               Volver
             </Button>
             <Button type="button" onClick={runConfirm} disabled={!canConfirm}>
-              {isWorking && preview !== null
+              {isWorking && runningIntent === "confirm"
                 ? "Importando…"
-                : `Confirmar importación (${preview.totals.movements} movimientos)`}
+                : `Confirmar importación (${preview.totals.movements} ${preview.totals.movements === 1 ? "movimiento" : "movimientos"})`}
             </Button>
           </div>
         </section>
