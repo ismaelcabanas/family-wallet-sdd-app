@@ -15,7 +15,7 @@ const ACTIVE_TRIGGER_CLASSES = "text-sm font-medium text-foreground";
 export function ReportsNavMenu({
   active,
 }: {
-  active: "panel" | "summary" | "annual" | "tags" | "reports";
+  active: "panel" | "summary" | "annual" | "tags" | "reports" | "import";
 }) {
   const isReportsActive = active === "reports";
 
