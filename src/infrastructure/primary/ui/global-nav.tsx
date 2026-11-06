@@ -10,7 +10,7 @@ export function GlobalNav({
   active,
   month,
 }: {
-  active: "panel" | "summary" | "annual" | "tags" | "reports";
+  active: "panel" | "summary" | "annual" | "tags" | "reports" | "import";
   month?: string;
 }) {
   const contextMonth = month ?? currentMonth();
@@ -46,6 +46,13 @@ export function GlobalNav({
         className={active === "tags" ? ACTIVE_LINK_CLASSES : LINK_CLASSES}
       >
         Etiquetas
+      </Link>
+      <Link
+        href="/import"
+        aria-current={active === "import" ? "page" : undefined}
+        className={active === "import" ? ACTIVE_LINK_CLASSES : LINK_CLASSES}
+      >
+        Importar
       </Link>
     </nav>
   );

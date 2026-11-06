@@ -14,20 +14,21 @@ function getLink(name: string) {
 }
 
 describe("GlobalNav", () => {
-  it("muestra el landmark de navegación con los 4 enlaces en orden", () => {
+  it("muestra el landmark de navegación con los 5 enlaces en orden", () => {
     render(<GlobalNav active="panel" month="2026-03" />);
 
     const nav = screen.getByRole("navigation", { name: "Navegación principal" });
     const links = screen.getAllByRole("link");
     expect(nav).toContainElement(links[0]);
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(5);
     expect(links[0]).toHaveTextContent("Panel");
     expect(links[1]).toHaveTextContent("Resumen global");
     expect(links[2]).toHaveTextContent("Cuenta de resultados");
     expect(links[3]).toHaveTextContent("Etiquetas");
+    expect(links[4]).toHaveTextContent("Importar");
   });
 
-  it.each(["panel", "summary", "annual", "tags"] as const)(
+  it.each(["panel", "summary", "annual", "tags", "import"] as const)(
     "marca aria-current solo en el enlace activo cuando active=%s",
     (active) => {
       render(<GlobalNav active={active} month="2026-03" />);
@@ -39,14 +40,16 @@ describe("GlobalNav", () => {
             ? "Resumen global"
             : active === "annual"
               ? "Cuenta de resultados"
-              : "Etiquetas",
+              : active === "tags"
+                ? "Etiquetas"
+                : "Importar",
       );
       expect(activeLink).toHaveAttribute("aria-current", "page");
 
       const inactive = screen
         .getAllByRole("link")
         .filter((link) => link !== activeLink);
-      expect(inactive).toHaveLength(3);
+      expect(inactive).toHaveLength(4);
       for (const link of inactive) {
         expect(link).not.toHaveAttribute("aria-current");
       }
@@ -57,6 +60,14 @@ describe("GlobalNav", () => {
     render(<GlobalNav active="panel" month="2026-03" />);
 
     expect(getLink("Etiquetas")).toHaveAttribute("href", "/tags");
+  });
+
+  it("el enlace «Importar» apunta a /import sin contexto temporal y sin month", () => {
+    render(<GlobalNav active="import" month="2026-03" />);
+
+    const importLink = getLink("Importar");
+    expect(importLink).toHaveAttribute("href", "/import");
+    expect(importLink).toHaveAttribute("aria-current", "page");
   });
 
   it("sin month prop cae a currentMonth() para los destinos y Etiquetas sigue estático", () => {
