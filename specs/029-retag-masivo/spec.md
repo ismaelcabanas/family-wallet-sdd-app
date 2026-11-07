@@ -12,6 +12,14 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — cambiar la etiqueta de varios movimientos a la vez desde donde ya se consultan. No aplica excepción de agrupación.
 
+## Clarifications
+
+### Session 2026-11-07
+
+- Q: ¿La reasignación masiva actualiza `updated_at` en los movimientos reasignados? → A: **Sí** (decisión del propietario): es una edición real elegida por el usuario sobre movimientos concretos — a diferencia de la fusión de 004, cuyo sujeto era la dimensión catálogo. `updated_at` refleja el cambio.
+- Q: Si la etiqueta destino ya es la de todos los seleccionados, ¿se deshabilita o se permite confirmar? → A: **Se permite confirmar y la operación se ejecuta igual** (decisión del propietario: más sencillo); el resultado informa del recuento como siempre.
+- Q: Si algún movimiento seleccionado desaparece antes de confirmar (p. ej. borrado en otra pestaña), ¿se ignora o se aborta todo? → A: **Ignorar con aviso**: la action re-valida en servidor, reasigna los ids válidos y el resultado informa del recuento real («27 de 28 movimientos actualizados»).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Cambiar la etiqueta de varios movimientos a la vez (Priority: P1)
@@ -28,7 +36,7 @@ Como único usuario de la aplicación, quiero, desde la página de una cuenta en
 2. **Given** el diálogo de reasignación abierto con movimientos seleccionados, **When** lo reviso, **Then** veo el número de movimientos afectados y la etiqueta destino antes de poder confirmar; la confirmación es explícita (FR-002).
 3. **Given** una selección vacía (ningún movimiento marcado), **When** intento abrir la reasignación, **Then** la acción no está disponible (control deshabilitado u oculto).
 4. **Given** movimientos con la etiqueta protegida «Aportación Común» (019/021), **When** activo la selección, **Then** no son seleccionables (excluidos por protección, Edge Cases); y la etiqueta protegida jamás se ofrece como destino.
-5. **Given** movimientos seleccionados y una etiqueta destino, **When** la acción se ejecuta, **Then** la reasignación es transaccional todo-o-nada: o todos los seleccionados cambian de etiqueta, o no cambia ninguno (FR-003).
+5. **Given** movimientos seleccionados y una etiqueta destino, **When** la acción se ejecuta, **Then** la reasignación es transaccional: o todos los seleccionados válidos cambian de etiqueta, o no cambia ninguno; los ids que ya no existen se descartan con aviso del recuento real (FR-003).
 6. **Given** movimientos reasignados, **When** consulto cualquier vista derivada (KPIs del mes, `/summary`, `/annual`, informe anual por categorías de 015), **Then** todos los importes y totales son idénticos a antes de la operación al céntimo; solo la dimensión etiqueta se ha movido entre desgloses (FR-005).
 7. **Given** movimientos reasignados, **When** los edito o elimino individualmente después (003), **Then** se comportan como cualquier movimiento manual.
 
@@ -37,14 +45,14 @@ Como único usuario de la aplicación, quiero, desde la página de una cuenta en
 ### Edge Cases
 
 - **Ingresos sin etiqueta**: son seleccionables; la reasignación les fija la etiqueta elegida (la etiqueta es opcional en ingresos — 014; asignarla a posteriori es válida). Los gastos siempre tienen etiqueta y siempre tendrán una tras la reasignación (nunca se deja un gasto sin etiqueta).
-- **Etiqueta destino = etiqueta actual de todos los seleccionados**: la operación es un no-op con mensaje claro o el botón deshabilitado [NEEDS CLARIFICATION: preferencia del propietario — no-op con confirmación vs. deshabilitado].
-- **Etiqueta destino deja de existir entre previsualización y confirmación** (p. ej. fusionada en otra pestaña): la acción re-valida en servidor y termina en error sin cambiar nada (FR-003); el catálogo se relee en el siguiente render.
+- **Etiqueta destino = etiqueta actual de todos los seleccionados**: la operación se ejecuta igualmente (decisión del propietario 2026-11-07) — sin deshabilitados ni no-ops especiales; el recuento del resultado comunica lo ocurrido.
+- **Etiqueta destino deja de existir entre previsualización y confirmación** (p. ej. fusionada en otra pestaña): la acción re-valida en servidor y termina en error sin cambiar nada; el catálogo se relee en el siguiente render.
 - **Etiqueta destino inactiva o protegida**: no se ofrece en el Select (solo etiquetas activas, sin «Aportación Común»).
 - **Selección que cruza grupos de fecha del listado agrupado**: la selección opera sobre el listado completo del mes visible (grupos por fecha), no por grupo; seleccionar/deseleccionar todo es un atajo disponible.
 - **Mes en curso de una cuenta personal con aportación materializada**: los movimientos generados (etiqueta «Aportación Común») están excluidos por protección; la re-sincronización de 021 y las materializaciones (018/019/023) no se ven afectadas por reasignar otros movimientos del mes (los importes no cambian, FR-005).
 - **Meses cerrados**: la reasignación está permitida en cualquier mes consultado — cambia la dimensión etiqueta, no importes ni configs, y no interacciona con el congelado de materializaciones.
-- **`updated_at` de los movimientos reasignados** [NEEDS CLARIFICATION: la fusión de 004 no lo tocaba (operación de catálogo); aquí el usuario edita movimientos concretos — decisión de si la reasignación cuenta como edición (lo actualiza) o como operación de dimensiones (no lo toca) se cierra en clarify y se registra en el plan].
-- **Concurrencia**: un movimiento seleccionado que desaparece del mes antes de confirmar (eliminado en otra pestaña): la acción re-valida en servidor contra los ids enviados; los ids inexistentes se ignoran con aviso del recuento real [NEEDS CLARIFICATION: ignorar con aviso vs. abortar todo-o-nada — preferencia del propietario].
+- **`updated_at` de los movimientos reasignados**: se actualiza (decisión del propietario 2026-11-07) — es una edición real de movimientos, no una operación de catálogo como la fusión de 004; se registra en el plan y se anota la diferencia con ADR de 004.
+- **Concurrencia**: un movimiento seleccionado que desaparece del mes antes de confirmar (eliminado en otra pestaña): la action re-valida los ids en servidor, ignora los inexistentes/ajenos y el resultado avisa del recuento real (decisión del propietario 2026-11-07); los válidos se reasignan todos o ninguno.
 
 ## Requirements *(mandatory)*
 
@@ -52,7 +60,7 @@ Como único usuario de la aplicación, quiero, desde la página de una cuenta en
 
 - **FR-001 (selección en la página de cuenta)**: La aplicación MUST ofrecer un modo de selección sobre el listado agrupado de la página de cuenta (`/accounts/{id}`, mes visible): activar selección, marcar/desmarcar movimientos individuales (excluidos los protegidos — Edge Cases), atajo de seleccionar todo y salida limpia del modo; una barra de acción contextual ofrece «Cambiar etiqueta…» con el recuento de seleccionados. El resto del recorrido de la vista operativa (025: stepper, KPIs, edición/eliminación individual) MUST permanecer intacto cuando el modo está desactivado.
 - **FR-002 (diálogo de reasignación con confirmación informada)**: Antes de ejecutar nada, la aplicación MUST mostrar un diálogo con el **número de movimientos seleccionados** y un Select de **etiqueta destino** (solo activas, sin protegidas, agrupado por categorías — patrón 027); la confirmación explícita ejecuta y el resultado informa del recuento actualizado («N movimientos actualizados»). No se persiste nada sin esa confirmación.
-- **FR-003 (transaccionalidad y re-validación en servidor)**: La reasignación confirmada MUST ejecutarse de forma transaccional **todo-o-nada** sobre los ids validados en servidor (pertenencia a la cuenta y mes de la operación, etiqueta destino existente y activa); cualquier error no contemplado revierte todo sin cambios parciales.
+- **FR-003 (transaccionalidad y re-validación en servidor)**: La reasignación confirmada MUST ejecutarse de forma transaccional sobre los ids **re-validados en servidor**: los ids inexistentes o ajenos a la cuenta y mes de la operación se descartan y el resultado avisa del recuento real (Clarifications 2026-11-07); sobre los válidos, o todos cambian de etiqueta o no cambia ninguno; la etiqueta destino debe existir y estar activa (y no protegida) o la operación termina en error sin cambios parciales.
 - **FR-004 (reglas de dominio vigentes, sin excepciones)**: La reasignación MUST pasar por el dominio y la aplicación existentes: un movimiento siempre conserva **una única** etiqueta (014), obligatoria en gastos; la etiqueta destino es una `Tag` activa existente; «Aportación Común» está protegida en ambos papeles (origen seleccionable nunca — sus movimientos se excluyen — y destino nunca ofrecido), reutilizando la protección por slug de 004. Sin bypass de dominio ni UPDATE SQL directo desde la action.
 - **FR-005 (agregados y materializaciones intactos)**: La reasignación MUST NOT cambiar importe, fecha, nota, tipo ni naturaleza de ningún movimiento, y MUST NOT disparar ni inhibir las materializaciones (018/019/021/023); todas las vistas derivadas (KPIs, cierres internos, `/summary`, `/annual`, informe 015) reflejan el cambio por sus joins vivos, recalculando solo la dimensión etiqueta.
 - **FR-006 (caso de uso reutilizable por el futuro modo IA)**: La operación MUST implementarse como caso de uso de aplicación con contrato explícito (entrada: cuenta, mes, ids de movimientos, etiqueta destino; salida: recuento y resultado tipado), de modo que un adaptador de entrada futuro (el chat del modo IA, feature aparte) pueda ejecutarla con previsualización/confirmación equivalentes **sin cambios en dominio ni aplicación** (misma arquitectura que el resto de adaptadores inbound — constitución VII).
@@ -72,7 +80,7 @@ No se introducen entidades nuevas de dominio ni de esquema: la operación reasig
 
 - **SC-001**: Reasignar la etiqueta de 50 movimientos de un mes (incluida la revisión del diálogo) toma menos de 30 segundos, frente a ~50 ediciones individuales con el diálogo de 003.
 - **SC-002**: Tras cualquier reasignación, todos los totales y saldos de la aplicación (mes, global, anual) son idénticos al céntimo a los previos; los desgloses por etiqueta mueven exactamente los importes de los movimientos reasignados de una etiqueta a otra.
-- **SC-003**: El 100 % de los casos de error (ids ajenos, destino inválido, errores inesperados) termina sin cambios parciales en la base de datos.
+- **SC-003**: El 100 % de los casos de error (etiqueta destino inválida, errores inesperados) termina sin cambios parciales en la base de datos; los ids descartados por re-validación nunca producen altas ni cambios parciales.
 - **SC-004**: Todas las suites (dominio, aplicación, componentes, e2e) quedan en verde tras la feature.
 
 ## Assumptions
