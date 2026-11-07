@@ -89,7 +89,13 @@ src/
 │   │   └── dto.ts                <-- CategoryDTO { id, name, isDefault }
 │   ├── member/
 │   │   └── MemberRepository.ts  <-- PUERTO
-│   └── regular-income/          <-- 018 (ADR 0016)
+│   ├── import/                  <-- 028 (PoC importación hoja mensual)
+│   │   ├── sheet-import-plan.ts <-- Núcleo puro buildSheetImportPlan: clasificación (≠13 celdas → error de fila), exclusión config (concepto «Aportación Común» exacto o tipo «Ahorro»), dialecto importe ^\d{1,9}(\.\d{1,2})?$ a céntimos por cadenas, fechas (vacía → día 1 del mes, ajena → error), nota fusionada «Concepto — Descripción», tabla de mapeo fija (Gasto→personal, Gasto Común→shared, Gasto Fijo→personal, Ingreso→ingreso etiqueta opcional), etiqueta (match activa case-insensitive / colisión inactiva → error / nueva en la genérica) y Movement.create por fila con TagId(-1) centinela
+│   │   ├── BuildSheetImportPreview.ts <-- Caso de uso: plan → SheetImportPreviewDTO (accountName mostrado; nunca escribe)
+│   │   ├── ConfirmSheetImport.ts      <-- Caso de uso: recalcula el plan fresco; errores o 0 movimientos → {status:"invalid"} sin persistir (FR-005)
+│   │   ├── SheetImportRepository.ts   <-- PUERTO persist(ExecutableImportPlan) — la tx vive en el adaptador (paridad mergeInto/registerMaterialization)
+│   │   └── dto.ts                     <-- SheetPreviewRowDTO, SheetImportTotalsDTO, SheetImportPreviewDTO
+│   ├── regular-income/          <-- 018 (ADR 0016)
 │       ├── RegularIncomeRepository.ts <-- PUERTO (findByAccountId, save upsert, isMaterialized, registerMaterialización transaccional)
 │       ├── ConfigureRegularIncome.ts  <-- Upsert siempre-activo; nota default «Ingreso regular de {miembro}»; edición no resetea activación
 │       ├── DeactivateRegularIncome.ts · GetRegularIncome.ts
@@ -115,6 +121,7 @@ src/
 │   ├── summary/page.tsx         <-- Resumen global del mes (/summary?month=): adaptador fino igual que '/' (ADR 0012); GlobalNav active="summary"
 │   ├── annual/page.tsx          <-- Cuenta de resultados anual (/annual?year=): adaptador fino, patrón ADR 0008 (ADR 0013); GlobalNav active="annual"
 │   ├── tags/page.tsx            <-- Vista de administración del catálogo (/tags, 004/026): GlobalNav active="tags" (sin contexto temporal) + ListTagCatalog → TagCatalog (árbol contenedor 027)
+│   ├── import/page.tsx          <-- Asistente de importación de la hoja mensual (/import, 028): GlobalNav active="import" + ListAccounts + buildMonthWindow(currentMonth(), 24) → ImportSheetWizard
 │   ├── layout.tsx · globals.css
 │
 └── infrastructure/
@@ -128,6 +135,7 @@ src/
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
     │   ├── DrizzleCommonContributionRepository.ts (019, ADR 0017: espejo del de 018 sobre common_contributions/common_contribution_months; 021 añade enlace blando movement_id con resolución perezosa legacy + withdrawMaterialization en tx — ADR 0019)
     │   ├── DrizzleSavingsAllocationRepository.ts (023: upsert por account_id sobre savings_allocations; registerDeduction = tx de un solo INSERT en savings_allocation_months ON CONFLICT DO NOTHING RETURNING — sin movimiento ni reserva de ids)
+    │   ├── DrizzleSheetImportRepository.ts (028: implementación del puerto SheetImportRepository — una única db.transaction todo-o-nada: INSERT tags nuevas con slug único contra el catálogo y genérica, luego Movement.create autoritativo + INSERT movements; cualquier error revierte todo, FR-005)
     │   ├── seed-data.ts         <-- Datos precargados tipados (miembros, cuentas, 13 tags con «Aportación Común» desde 019)
     │   └── test-support.ts      <-- createTestDb(): libsql :memory: + migraciones
     └── primary/                 <-- ADAPTADOR INBOUND: Server Actions y UI
@@ -145,10 +153,12 @@ src/
         │   ├── configure-savings-allocation.action.ts <-- 'use server' (023): espejo de la de 019 con intents save/deactivate y mapeo de errores del módulo savings
         │   ├── tag-actions.schema.ts  <-- Schemas Zod de las 4 fronteras de catálogo + TagActionState (004)
         │   ├── rename-tag.action.ts · merge-tags.action.ts · deactivate-tag.action.ts <-- 'use server' (004): useActionState-style, mapeo de errores de dominio, revalidatePath('/', 'layout')
-        │   └── reactivate-tag.action.ts <-- 'use server' (004): action directa → ReactivateTagResult {ok} (familia ADR 0015)
+        │   ├── reactivate-tag.action.ts <-- 'use server' (004): action directa → ReactivateTagResult {ok} (familia ADR 0015)
+        │   ├── sheet-csv.ts          <-- Parser CSV propio RFC 4180 estricto (028, cero dependencias): SHEET_COLUMNS congelada (13 cabeceras de la hoja mensual como datos) + parseSheetCsv(text) → SheetCellsRow[] | error de fichero congelado (estructura/CSV ilegible/sin movimientos)
+        │   └── import-sheet.action.ts <-- 'use server' (028): action directa (familia ADR 0015 — el File viaja como argumento desde estado del cliente, SC-004): Zod args + guard 512 KB/.csv → dispatch por intent (preview → BuildSheetImportPreview sin revalidar; confirm → ConfirmSheetImport re-parseando y re-validando en servidor; revalidatePath('/', 'layout') solo en el éxito de confirmación)
         └── ui/
             ├── components/ui/   <-- shadcn/ui (copiado y versionado)
-            ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados · Etiquetas; aria-current, mes por prop con currentMonth() por defecto, features 012 + 004)
+            ├── global-nav.tsx   <-- Navegación global de servidor (Panel · Resumen global · Cuenta de resultados · Etiquetas · Importar; aria-current, mes por prop con currentMonth() por defecto, features 012 + 004 + 028)
             ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular», «Aportación» y «Ahorro» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus/savingsMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019 + 023)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015; Select «Etiqueta» agrupado por categoría con SelectGroup/SelectLabel desde 027 — prop tagGroups: ActiveTagGroupDTO[], cabeceras no seleccionables)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
@@ -169,6 +179,7 @@ src/
             ├── rename-tag-dialog.tsx (004: input controlado — React 19 resetea los no controlados al resolver la action; error conserva el nombre tecleado, SC-004)
             ├── merge-tags-dialog.tsx (004: Select destino excluye propia y protegidas, inactivas con sufijo; confirmación integrada texto+destructivo, FR-008)
             ├── deactivate-tag-dialog.tsx (004: AlertDialog con consecuencia explícita sin cifras, FR-008)
+            ├── import-sheet-wizard.tsx (028: asistente cliente de dos pasos de /import — Selects Cuenta/Mes controlados, File en estado del cliente, importSheetAction directa en useTransition, invalidación de la previsualización al cambiar cuenta/mes/fichero, botones «Previsualizar importación»/«Confirmar importación (N movimientos)»/«Volver», estado importado con enlace a /accounts/{id}?month=; la UI solo renderiza SheetImportPreviewDTO)
             └── format.ts        <-- Intl es-ES ÚNICAMENTE aquí (ADR 0007); shiftMonth deriva calendario (helper puro; monthEndIsoDate jubilado en 025); currentMonth() del adaptador parametriza la aplicación (018/019); formatBasisPointsForInput para el input de porcentaje (019)
 ```
 
@@ -256,4 +267,5 @@ Los Route Handlers (si surgieran), Server Actions y componentes actúan como ada
 - [Secuencia del ingreso regular: configurar → consultar mes → materialización](./diagrams/ingreso-regular-secuencia.md) (ADR 0016, feature 018)
 - [Secuencia de la aportación común: configurar porcentaje → consultar mes → materialización](./diagrams/aportacion-comun-secuencia.md) (ADR 0017, feature 019; variante de re-sincronización del mes en curso y retirada de 021 — ADR 0019)
 - [Secuencia del mantenimiento del catálogo de etiquetas: fusión](./diagrams/gestion-tags-secuencia.md) (ADR 0018, feature 004)
+- [Secuencia de la importación de la hoja mensual: subida → previsualización → confirmación → listado](./diagrams/importacion-hoja-secuencia.md) (feature 028)
 - [Clases del modelo de dominio](./diagrams/domain-model.md)

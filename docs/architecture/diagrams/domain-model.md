@@ -1,4 +1,4 @@
-# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018, 019, 023, 004, 008, 026 y 027)
+# Clases: modelo de dominio (features 002, 006, 009, 014, 017, 018, 019, 023, 004, 008, 026, 027 y 028)
 
 Diagrama UML del modelo de dominio puro (`src/domain/`). El glosario ES↔EN vive en el [data-model de la feature](../../../specs/002-registro-movimientos/data-model.md).
 
@@ -421,11 +421,71 @@ classDiagram
         +tags TagDTO[]
     }
 
+    class buildSheetImportPlan {
+        <<Función pura · aplicación · 028 · src/application/import/sheet-import-plan.ts>>
+        +buildSheetImportPlan(PlanInput) ImportPlan$
+        clasificación → exclusión config → dialecto importe → fechas → nota fusionada → mapeo tipos → etiqueta → Movement.create por fila (TagId(-1) centinela) → totales
+    }
+
+    class BuildSheetImportPreview {
+        <<Caso de uso · aplicación · 028>>
+        +execute({accountId, month, rows}) SheetImportPreviewDTO
+        findAll cuentas (nombre mostrado) + catálogo completo + genérica → plan; nunca escribe
+    }
+
+    class ConfirmSheetImport {
+        <<Caso de uso · aplicación · 028>>
+        +execute({accountId, month, rows}) imported | invalid
+        recalcula el plan fresco; errores o 0 movimientos → invalid sin persistir (FR-005)
+    }
+
+    class SheetImportRepository {
+        <<PUERTO · aplicación · 028>>
+        +persist(ExecutableImportPlan) {movementsCreated, tagsCreated}
+        la transacción vive en el adaptador Drizzle
+    }
+
+    class DrizzleSheetImportRepository {
+        <<Adaptador outbound · 028 · src/infrastructure/db>>
+        db.transaction: INSERT tags nuevas (slug único, genérica) + Movement.create + INSERT movimientos; rollback total
+    }
+
+    class SheetCellsRow {
+        <<record · frontera 028 (post-parseo)>>
+        +line int
+        +cells String[13]
+    }
+
+    class ExecutableImportPlan {
+        <<record · aplicación · 028>>
+        +accountId number
+        +movements PlannedMovement[]
+        +tagsToCreate {name, categoryId}[]
+    }
+
+    class SheetImportPreviewDTO {
+        <<DTO · aplicación/import/dto · 028>>
+        +accountName string
+        +month string
+        +rows SheetPreviewRowDTO[]
+        +totals SheetImportTotalsDTO
+        +tagsToCreate string[]
+    }
+
     CreateTag ..> Tag : save(Tag.create({ categoryId }))
     CreateTag ..> TagCategory : findById / findBySlug(general)
     ListGroupedActiveTags ..> Tag : findAllActive
     ListGroupedActiveTags ..> TagCategory : findAll
     ListGroupedActiveTags ..> ActiveTagGroupDTO : agrupa y congela el orden
+    buildSheetImportPlan ..> Movement : valida por fila (TagId(-1) centinela)
+    buildSheetImportPlan ..> Money : céntimos por manipulación de cadenas
+    BuildSheetImportPreview ..> buildSheetImportPlan : delega
+    ConfirmSheetImport ..> buildSheetImportPlan : recalcula fresco
+    BuildSheetImportPreview ..> SheetImportPreviewDTO : mapea (solo renderiza la UI)
+    ConfirmSheetImport ..> SheetImportRepository : persist solo si el plan es válido
+    SheetImportRepository <|.. DrizzleSheetImportRepository : implementa
+    DrizzleSheetImportRepository ..> Movement : create() dentro de la tx (FR-006)
+    DrizzleSheetImportRepository ..> ExecutableImportPlan : consume
 
     class MemberBreakdownEntry {
         <<nuevo en 006>>

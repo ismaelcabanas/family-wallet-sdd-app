@@ -1,7 +1,7 @@
 # 15. Creación de etiquetas inline con Server Action propia
 
 - **Fecha**: 2026-10-05
-- **Estado**: Aceptado (reducción de la fila 004 decidida por el propietario, 2026-10-04)
+- **Estado**: Aceptado (reducción de la fila 004 decidida por el propietario, 2026-10-04; extendido en 028, 2026-11-06)
 
 ## Contexto y problema
 
@@ -28,3 +28,7 @@ La feature 017 añade la vía de creación de tags que faltaba: hasta ahora el c
 - **Positivas**: FR-001–FR-006 cubiertos con una sola apertura de diálogo (SC-001); la tanda de 014 intacta; cero migraciones, cero dependencias nuevas; la semántica de unicidad visible al usuario es exactamente la de BD (espejo), con el mensaje nacido en el dominio.
 - **Negativas / trade-offs**: `revalidatePath("/", "layout")` invalida el árbol completo (coste irrelevante: 1 usuario, 3 cuentas); la captación inline es una **excepción documentada** al patrón «toda action con `useActionState`»: aquí la action devuelve un resultado tipo consulta y el estado (nombre, error) vive en el propio componente.
 - Las actions de movimiento no cambian: la etiqueta nueva llega al envío como un `tagId` ya persistido. `grouped-movement-list.tsx` y `page.tsx` intactos.
+
+## Extensión (028 — importación de hoja mensual, 2026-11-06)
+
+La familia de **acciones directas** (devuelven un resultado, se invocan con `useTransition`, sin `useActionState` + FormData) cubre desde 028 también `importSheetAction({ accountId, month, intent, file })`. La particularidad: el **`File` viaja como argumento desde estado del cliente** — el asistente guarda el `File` del `<input type="file">` en un `useState` y lo pasa dos veces (preview y confirm) a la action. Motivo: un file input **no puede ser controlado** ni restaurado con `defaultValue`, y React 19 restablece los inputs no controlados al resolverse una action de formulario (SC-004), lo que vaciaría la selección con `useActionState` + `<form>`; la action directa evita el formulario por completo. La confirmación **re-parsea y re-valida el fichero en servidor** (no confía en la previsualización previa), y `revalidatePath("/", "layout")` se ejecuta solo en el éxito de la confirmación (pueden crearse etiquetas — paridad 027).
