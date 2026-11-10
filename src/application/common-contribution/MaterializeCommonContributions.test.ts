@@ -150,6 +150,10 @@ class InMemoryMovementRepository implements MovementRepository {
     this.calls.push({ method: "sumSharedExpenseCents", args: [accountId, month] });
     return this.sharedExpenseCentsByMonth.get(month) ?? 0;
   }
+
+  async retagMovements(): Promise<{ updated: number }> {
+    return { updated: 0 };
+  }
 }
 
 class InMemoryRegularIncomeRepository implements RegularIncomeRepository {

@@ -13,7 +13,8 @@ export type MovementField =
   | "accountId"
   | "type"
   | "nature"
-  | "tagId";
+  | "tagId"
+  | "movementIds";
 
 export class InvalidMovementError extends DomainError {
   constructor(

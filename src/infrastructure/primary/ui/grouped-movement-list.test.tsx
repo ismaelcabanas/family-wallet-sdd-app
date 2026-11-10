@@ -2,9 +2,23 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const { bulkRetagMock, toastSuccessMock } = vi.hoisted(() => ({
+  bulkRetagMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+}));
+
 vi.mock("../actions/update-movement.action", () => ({ updateMovement: vi.fn() }));
 vi.mock("../actions/delete-movement.action", () => ({ deleteMovement: vi.fn() }));
 vi.mock("../actions/create-movement.action", () => ({ createMovement: vi.fn() }));
+vi.mock("../actions/bulk-retag.action", () => ({ bulkRetag: bulkRetagMock }));
+
+vi.mock("sonner", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("sonner")>();
+  return {
+    ...actual,
+    toast: { ...actual.toast, success: toastSuccessMock },
+  };
+});
 
 import type { MovementDTO } from "@/application/movement/dto";
 import type { ActiveTagGroupDTO } from "@/application/tag/dto";
@@ -232,5 +246,161 @@ describe("GroupedMovementList", () => {
 
     await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
     expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
+  });
+});
+
+const protectedTagGroups: ActiveTagGroupDTO[] = [
+  {
+    category: { id: 1, name: "General", isDefault: true },
+    tags: [
+      { id: 4, name: "Hogar", slug: "hogar", categoryId: 1, categoryName: "General" },
+      {
+        id: 100,
+        name: "Aportación Común",
+        slug: "aportacion-comun",
+        categoryId: 1,
+        categoryName: "General",
+      },
+    ],
+  },
+];
+
+describe("GroupedMovementList — modo de selección", () => {
+  function buildProtectedMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
+    return buildMovement({
+      tag: { id: 100, name: "Aportación Común", slug: "aportacion-comun" },
+      note: "Aportación",
+      ...overrides,
+    });
+  }
+
+  function renderSelectionList(movements: MovementDTO[]) {
+    return render(
+      <GroupedMovementList
+        movements={movements}
+        tagGroups={protectedTagGroups}
+        currentAccountId={2}
+        currentMonth="2026-04"
+        accountName="Cuenta de Miembro B"
+        accountType="personal"
+      />,
+    );
+  }
+
+  it("«Seleccionar» es visible con movimientos y ausente en el estado vacío", () => {
+    renderSelectionList([buildMovement({ id: 7 })]);
+    expect(screen.getByRole("button", { name: "Seleccionar" })).toBeInTheDocument();
+
+    cleanup();
+    renderSelectionList([]);
+    expect(screen.queryByRole("button", { name: "Seleccionar" })).not.toBeInTheDocument();
+  });
+
+  it("el modo selección pinta un checkbox por fila seleccionable y la protegida queda sin checkbox", async () => {
+    const user = userEvent.setup();
+    renderSelectionList([
+      buildMovement({ id: 1, note: "Cine" }),
+      buildMovement({ id: 2, note: "Gasolina" }),
+      buildProtectedMovement({ id: 3 }),
+    ]);
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes).toHaveLength(2);
+    expect(screen.getByRole("checkbox", { name: "Seleccionar Cine" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Seleccionar Gasolina" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Seleccionar Aportación" })).not.toBeInTheDocument();
+    expect(screen.getByText("0 seleccionados")).toBeInTheDocument();
+  });
+
+  it("«Seleccionar todo»/«Ninguno» marca y desmarca solo las filas seleccionables", async () => {
+    const user = userEvent.setup();
+    renderSelectionList([
+      buildMovement({ id: 1, note: "Cine" }),
+      buildMovement({ id: 2, note: "Gasolina" }),
+      buildProtectedMovement({ id: 3 }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    await user.click(screen.getByRole("button", { name: "Seleccionar todo" }));
+
+    expect(screen.getByText("2 seleccionados")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Seleccionar Cine" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Seleccionar Gasolina" })).toBeChecked();
+
+    await user.click(screen.getByRole("button", { name: "Ninguno" }));
+    expect(screen.getByText("0 seleccionados")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Seleccionar Cine" })).not.toBeChecked();
+  });
+
+  it("«Cambiar etiqueta…» deshabilitado con 0 y abre el diálogo con el número de seleccionados", async () => {
+    const user = userEvent.setup();
+    renderSelectionList([
+      buildMovement({ id: 1, note: "Cine" }),
+      buildMovement({ id: 2, note: "Gasolina" }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    expect(screen.getByRole("button", { name: "Cambiar etiqueta…" })).toBeDisabled();
+
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Cine" }));
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Gasolina" }));
+    expect(screen.getByText("2 seleccionados")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cambiar etiqueta…" }));
+    const dialog = screen.getByRole("dialog", { name: "Cambiar etiqueta" });
+    expect(dialog).toHaveTextContent("Se cambiará la etiqueta de 2 movimientos.");
+  });
+
+  it("el éxito de la reasignación tuesta, cierra el diálogo y sale del modo con selección limpia", async () => {
+    const user = userEvent.setup();
+    bulkRetagMock.mockResolvedValueOnce({ status: "success", message: "2 movimientos actualizados" });
+    renderSelectionList([
+      buildMovement({ id: 1, note: "Cine" }),
+      buildMovement({ id: 2, note: "Gasolina" }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Cine" }));
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Gasolina" }));
+    await user.click(screen.getByRole("button", { name: "Cambiar etiqueta…" }));
+
+    await user.click(screen.getByRole("combobox", { name: "Nueva etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Hogar" }));
+    await user.click(screen.getByRole("button", { name: "Reasignar" }));
+
+    await waitFor(() => {
+      expect(toastSuccessMock).toHaveBeenCalledWith("2 movimientos actualizados");
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByText("Seleccionar todo")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Seleccionar" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    expect(screen.getByText("0 seleccionados")).toBeInTheDocument();
+  });
+
+  it("«Salir de la selección» limpia el modo sin efectos", async () => {
+    const user = userEvent.setup();
+    renderSelectionList([buildMovement({ id: 1, note: "Cine" })]);
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    await user.click(screen.getByRole("checkbox", { name: "Seleccionar Cine" }));
+    expect(screen.getByText("1 seleccionados")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Salir de la selección" }));
+
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(bulkRetagMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+    expect(screen.getByText("0 seleccionados")).toBeInTheDocument();
   });
 });

@@ -27,6 +27,7 @@ describe("ListMovements", () => {
       update: vi.fn(),
       delete: vi.fn(),
       sumSharedExpenseCents: vi.fn(),
+      retagMovements: vi.fn(),
     };
     const useCase = new ListMovements(repository);
 
@@ -46,6 +47,7 @@ describe("ListMovements", () => {
       update: vi.fn(),
       delete: vi.fn(),
       sumSharedExpenseCents: vi.fn(),
+      retagMovements: vi.fn(),
     };
     const useCase = new ListMovements(repository);
 

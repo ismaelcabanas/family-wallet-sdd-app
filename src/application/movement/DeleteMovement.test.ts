@@ -52,6 +52,10 @@ class InMemoryMovementRepository implements MovementRepository {
   async sumSharedExpenseCents(): Promise<number> {
     return 0;
   }
+
+  async retagMovements(): Promise<{ updated: number }> {
+    return { updated: 0 };
+  }
 }
 
 describe("DeleteMovement", () => {

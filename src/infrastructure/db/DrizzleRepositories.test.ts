@@ -1,6 +1,7 @@
 import { AccountId } from "@/domain/account/AccountId";
 import { DuplicateAccountNameError } from "@/domain/account/AccountErrors";
 import { Movement } from "@/domain/movement/Movement";
+import { MovementId } from "@/domain/movement/MovementId";
 import { Money } from "@/domain/movement/Money";
 import { DuplicateMemberNameError } from "@/domain/member/MemberErrors";
 import { MemberId } from "@/domain/member/MemberId";
@@ -372,6 +373,94 @@ describe("DrizzleTagRepository", () => {
     expect(result.reassignedMovements).toBe(0);
     expect(await repository.findById(TagId(1))).toBeNull();
     expect((await repository.findAll()).map((tag) => tag.slug)).not.toContain("luz");
+  });
+});
+
+describe("DrizzleMovementRepository", () => {
+  async function insertMovement(overrides: Partial<typeof movements.$inferInsert> = {}) {
+    await testDb.db.insert(movements).values({
+      accountId: 1,
+      type: "expense",
+      date: "2026-09-15",
+      note: "Gasto",
+      amountCents: 1_000,
+      nature: "personal",
+      tagId: 1,
+      createdAt: "2026-09-01T10:00:00.000Z",
+      updatedAt: null,
+      ...overrides,
+    });
+  }
+
+  it("retagMovements cambia tag_id solo de los ids dados en la cuenta y mes indicados", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await insertMovement({ id: 1 });
+    await insertMovement({ id: 2 });
+    await insertMovement({ id: 3, date: "2026-08-15" });
+    await insertMovement({ id: 4, accountId: 3 });
+
+    const result = await repository.retagMovements(
+      AccountId(1),
+      "2026-09",
+      [MovementId(1), MovementId(2)],
+      TagId(9),
+    );
+
+    expect(result).toEqual({ updated: 2 });
+    const rows = await testDb.db.select().from(movements).orderBy(movements.id);
+    expect(rows.find((row) => row.id === 1)?.tagId).toBe(9);
+    expect(rows.find((row) => row.id === 2)?.tagId).toBe(9);
+    expect(rows.find((row) => row.id === 3)?.tagId).toBe(1);
+    expect(rows.find((row) => row.id === 4)?.tagId).toBe(1);
+  });
+
+  it("retagMovements actualiza updated_at de los reasignados y no el de los no tocados", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await insertMovement({ id: 1 });
+    await insertMovement({ id: 2 });
+    await insertMovement({ id: 3, date: "2026-08-15" });
+
+    await repository.retagMovements(AccountId(1), "2026-09", [MovementId(1), MovementId(2), MovementId(3)], TagId(9));
+
+    const rows = await testDb.db.select().from(movements).orderBy(movements.id);
+    expect(rows.find((row) => row.id === 1)?.updatedAt).not.toBeNull();
+    expect(rows.find((row) => row.id === 2)?.updatedAt).not.toBeNull();
+    expect(rows.find((row) => row.id === 3)?.updatedAt).toBeNull();
+    expect(rows.find((row) => row.id === 3)?.tagId).toBe(1);
+  });
+
+  it("retagMovements con ids inexistentes no da error y no computan en el recuento", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await insertMovement({ id: 1 });
+
+    const result = await repository.retagMovements(
+      AccountId(1),
+      "2026-09",
+      [MovementId(1), MovementId(999)],
+      TagId(9),
+    );
+
+    expect(result).toEqual({ updated: 1 });
+  });
+
+  it("retagMovements acepta una lista con un único id", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await insertMovement({ id: 1 });
+
+    const result = await repository.retagMovements(AccountId(1), "2026-09", [MovementId(1)], TagId(9));
+
+    expect(result).toEqual({ updated: 1 });
+  });
+
+  it("retagMovements asigna el destino también a un ingreso con tag_id null", async () => {
+    const repository = new DrizzleMovementRepository(testDb.db);
+    await insertMovement({ id: 5, type: "income", nature: null, tagId: null, amountCents: 200_000 });
+
+    const result = await repository.retagMovements(AccountId(1), "2026-09", [MovementId(5)], TagId(9));
+
+    expect(result).toEqual({ updated: 1 });
+    const row = (await testDb.db.select().from(movements)).find((movement) => movement.id === 5);
+    expect(row?.tagId).toBe(9);
   });
 });
 

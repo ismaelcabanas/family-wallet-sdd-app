@@ -62,13 +62,14 @@ src/
 │   │   ├── CreateMovement.ts    <-- Caso de uso (reglas FR-005/FR-006)
 │   │   ├── UpdateMovement.ts    <-- findById -> recreate (preserva id/createdAt) -> update (ADR 0011)
 │   │   ├── DeleteMovement.ts    <-- findById -> delete físico (ADR 0011)
+│   │   ├── BulkRetagMovements.ts <-- Reasignación masiva de etiqueta (029, ADR 0023): deduplica ids (vacío → InvalidMovementError), valida destino (existe+activa, semántica resolveTagId; protegida → ProtectedTagError) → retagMovements → {updatedCount, skippedCount}
 │   │   ├── movement-inputs.ts   <-- Resolutores de naturaleza y tag única (sin default desde 014) compartidos por alta y edición
 │   │   ├── ListMovements.ts     <-- Query mes+cuenta
 │   │   ├── GetMonthlyClosure.ts <-- Query cierre del mes vía puerto + VO (ADR 0010)
 │   │   ├── GetGlobalMonthlySummary.ts <-- Query resumen global del mes: listByMonth + findAll vía puertos + VO (ADR 0012)
 │   │   ├── GetAnnualIncomeStatement.ts <-- Query cuenta de resultados anual: listByYear + cuentas + miembros vía puertos + VO (ADR 0013)
-│   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO (con memberId), TagDTO, MonthlyClosureDTO, GlobalMonthlySummaryDTO, AnnualIncomeStatementDTO
-│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth y listByYear, ADR 0012/0013; sumSharedExpenseCents desde 021, ADR 0019)
+│   │   ├── dto.ts               <-- CreateMovementDTO, UpdateMovementDTO, MovementDTO, AccountDTO (con memberId), TagDTO, MonthlyClosureDTO, GlobalMonthlySummaryDTO, AnnualIncomeStatementDTO, BulkRetagInputDTO/BulkRetagResultDTO (029)
+│   │   └── MovementRepository.ts<-- PUERTO DE SALIDA (interfaz; incluye listByMonth y listByYear, ADR 0012/0013; sumSharedExpenseCents desde 021, ADR 0019; retagMovements operación masiva UPDATE único con pertenencia cuenta+mes en el WHERE desde 029, ADR 0023)
 │   ├── account/
 │   │   ├── AccountRepository.ts <-- PUERTO (findAll/findById/findByName/update; getBalance jubilado en 025, ADR 0009 anotado)
 │   │   └── ListAccounts.ts
@@ -129,7 +130,7 @@ src/
     │   ├── schema/              <-- members, accounts, tags, movements (tag_id FK 0..1 desde 014; movement_tags eliminada), regular_incomes + regular_income_months UNIQUE(config, mes) desde 018 (ADR 0016), common_contributions + common_contribution_months UNIQUE(config, mes) desde 019 (ADR 0017; migración 0004 añade además la etiqueta «Aportación Común»; movement_id blando sin FK desde 021 — migración 0005, ADR 0019), savings_allocations + savings_allocation_months UNIQUE(config, mes) con amount_cents congelado desde 023 (migración 0006, sin seed)
     │   ├── client.ts            <-- file: dev / libsql:// prod (env), reutilizado en dev por HMR
     │   ├── mappers/             <-- fila Drizzle <-> entidad de dominio
-    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011; sumSharedExpenseCents SUM sellada 021, ADR 0019)
+    │   ├── DrizzleMovementRepository.ts   (db.batch atómico movimiento+tags; findById/update pone updated_at, delete físico — ADR 0011; sumSharedExpenseCents SUM sellada 021, ADR 0019; retagMovements única UPDATE tag_id+updated_at con IN ids ∧ cuenta ∧ rango de mes, recuento por rowsAffected — 029, ADR 0023)
     │   ├── DrizzleAccountRepository.ts    (findAll/findById/findByName/update; getBalance jubilado en 025)
     │   ├── DrizzleTagRepository.ts (findByName espejo de lower(name), save INSERT con traducción del constraint a DuplicateTagNameError — 017; +findById/findAll/update y mergeInto transaccional UPDATE movements → DELETE tag sin tocar updated_at — 004, ADR 0018) · DrizzleMemberRepository.ts
     │   ├── DrizzleRegularIncomeRepository.ts (018, ADR 0016: upsert por account_id; registerMaterialization = tx registro meses ON CONFLICT DO NOTHING + movimiento en la misma tx)
@@ -146,6 +147,8 @@ src/
         │   ├── create-tag-entry.action.ts  <-- 'use server' (027): action despachadora de la única vía de creación — Zod {name, categoryId?}; sin categoryId → CreateCategory («Categoría creada»), con ella → CreateTag («Etiqueta creada»); revalidatePath('/', 'layout') (create-category.action jubilada)
         │   ├── update-movement.action.ts  <-- 'use server': compone el aviso "movido de mes" (FR-007; sin cambio de cuenta desde 014), la UI solo lo muestra; doble revalidación
         │   ├── delete-movement.action.ts  <-- 'use server': schema mínimo movementId; doble revalidación
+        │   ├── bulk-retag.schema.ts      <-- Schema Zod de la reasignación masiva (ids como campos repetidos) + BulkRetagActionState (029)
+        │   ├── bulk-retag.action.ts      <-- 'use server' (029, ADR 0023): getAll("movementIds") → BulkRetagMovements; mensajes congelados singular/plural/con-descartes; revalidatePath('/', 'layout')
         │   ├── configure-regular-income.action.ts <-- 'use server' (018): Zod + intents save/deactivate; revalidatePath('/', 'layout') — el re-render de / sincroniza el estado del ítem del menú de la tarjeta (020) y el de la página de cuenta dispara la materialización (ADR 0016)
         │   ├── contribution-form.schema.ts   <-- Patrón porcentual + parsePercentageToBasisPoints por manipulación de cadenas (019)
         │   ├── configure-common-contribution.action.ts <-- 'use server' (019): espejo de la de 018 (Zod, intents, revalidatePath '/', 'layout'; ADR 0017)
@@ -162,7 +165,8 @@ src/
             ├── account-card-grid.tsx <-- Client del panel de cuentas (/): tarjeta lanzadera con patrón stretched-link (div.relative + Link after:inset-0) y menú ⋮ de configuración SOLO en cuentas personales (ítems «Ingreso regular», «Aportación» y «Ahorro» con estado derivado de regularIncomeMenuStatus/commonContributionMenuStatus/savingsMenuStatus — deshabilitado «Requiere ingreso regular» sin ingreso 018 —, diálogos montados por tarjeta; hogar de las opciones de cuenta — 012 + 020 + 019 + 023)
             ├── movement-form.tsx (MovementFormFields con modos alta/edición: cuenta fijada o Select, naturaleza dinámica; sin wrapper embebido desde 013; captación inline «+ Nueva etiqueta» junto al Select desde 017 — action directa + useTransition, ADR 0015; Select «Etiqueta» agrupado por categoría con SelectGroup/SelectLabel desde 027 — prop tagGroups: ActiveTagGroupDTO[], cabeceras no seleccionables)
             ├── create-movement-dialog.tsx (diálogo de alta del CTA «Nuevo movimiento», feature 013; calco del patrón de 003 con createMovement; extraTags sobrevive al remonte de la tanda desde 017)
-            ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012)
+            ├── grouped-movement-list.tsx (client de /accounts/[id]: agrupa por fecha el orden de ListMovements, fila rediseñada tags/nota/importe, CTA «Nuevo movimiento» en cabecera y estado vacío, diálogos de alta/edición/eliminación al nivel del listado, vacío interno; único listado tras 012; desde 029 modo de selección — ADR 0023: estado selectionMode/selectedIds, barra contextual, Checkbox por fila con área ≥ 44 px, filas protegidas sin checkbox vía isProtectedTagSlug del dominio, BulkRetagDialog a nivel del listado y salida limpia del modo al éxito)
+            ├── bulk-retag-dialog.tsx (029: confirmación informada «Se cambiará la etiqueta de N movimientos.», Select «Nueva etiqueta» agrupado filtrando protegidas y sin «Sin etiqueta», controlado con restauración por ref — SC-004, guard de éxito blindado por envío — patrón 014; hidden inputs accountId/month/movementIds repetidos)
             ├── edit-movement-dialog.tsx · delete-movement-dialog.tsx
             ├── empty-state.tsx        <-- Estado vacío reutilizable (account-balance.tsx jubilado en 025)
             ├── month-selector.tsx        <-- Selector de mes cliente reutilizable (router.replace, ADR 0012)
