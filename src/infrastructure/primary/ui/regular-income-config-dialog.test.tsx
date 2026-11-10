@@ -146,9 +146,11 @@ describe("RegularIncomeConfigDialog", () => {
     await user.click(screen.getByRole("button", { name: "Guardar" }));
 
     const dialog = screen.getByRole("dialog", { name: "Ingreso regular" });
-    expect(
-      within(dialog).getAllByRole("alert").map((node) => node.textContent),
-    ).toEqual(["El importe es obligatorio.", "El día del mes debe estar entre 1 y 31."]);
+    await waitFor(() => {
+      expect(
+        within(dialog).getAllByRole("alert").map((node) => node.textContent),
+      ).toEqual(["El importe es obligatorio.", "El día del mes debe estar entre 1 y 31."]);
+    });
     expect(within(dialog).getByLabelText("Importe (€)")).toHaveValue("");
     expect(within(dialog).getByLabelText("Día del mes")).toHaveValue("40");
     expect(within(dialog).getByLabelText("Nota")).toHaveValue("Nómina");

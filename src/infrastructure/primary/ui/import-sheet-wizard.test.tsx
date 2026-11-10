@@ -242,9 +242,11 @@ describe("ImportSheetWizard — paso 2: previsualización", () => {
     await user.click(screen.getByRole("button", { name: "Previsualizar importación" }));
     await screen.findByRole("region", { name: "Resumen de la importación" });
 
-    expect(
-      screen.getByRole("button", { name: "Confirmar importación (13 movimientos)" }),
-    ).toBeEnabled();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Confirmar importación (13 movimientos)" }),
+      ).toBeEnabled();
+    });
     expect(screen.getByText("Ninguna etiqueta nueva.")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Filas ignoradas" })).toBeNull();
     expect(screen.queryByRole("region", { name: "Filas con error" })).toBeNull();
