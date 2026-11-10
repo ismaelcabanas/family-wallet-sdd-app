@@ -487,6 +487,40 @@ classDiagram
     DrizzleSheetImportRepository ..> Movement : create() dentro de la tx (FR-006)
     DrizzleSheetImportRepository ..> ExecutableImportPlan : consume
 
+    class BulkRetagMovements {
+        <<Caso de uso · aplicación · 029 · ADR 0023>>
+        +execute(BulkRetagInputDTO) BulkRetagResultDTO
+        deduplica ids (vacío → InvalidMovementError("movementIds"));
+        destino existe+activo (semántica resolveTagId) y no protegido
+    }
+
+    class MovementRepository_029 {
+        <<extensión de puerto · aplicación · 029>>
+        +retagMovements(accountId, month, movementIds, targetTagId) {updated}
+        pertenencia cuenta+mes en el WHERE; ids ajenos no dan error
+    }
+
+    class BulkRetagInputDTO_029 {
+        <<DTO · aplicación/movement/dto · 029>>
+        +accountId number
+        +month string
+        +movementIds number[]
+        +targetTagId number
+    }
+
+    class BulkRetagResultDTO_029 {
+        <<DTO · aplicación/movement/dto · 029>>
+        +updatedCount number
+        +skippedCount number
+    }
+
+    BulkRetagMovements ..> MovementRepository_029 : delega (retagMovements)
+    BulkRetagMovements ..> Tag : findById (destino existe+activo)
+    BulkRetagMovements ..> SystemTags : isProtectedTagSlug (dominio puro compartido)
+    BulkRetagMovements ..> BulkRetagInputDTO_029 : consume
+    BulkRetagMovements ..> BulkRetagResultDTO_029 : devuelve (skipped = únicos − actualizados)
+    DrizzleMovementRepository ..> MovementRepository_029 : implementa (única UPDATE atómica; updated_at = now, ADR 0023)
+
     class MemberBreakdownEntry {
         <<nuevo en 006>>
         +memberId number?
@@ -577,7 +611,7 @@ classDiagram
 ## Invariantes clave
 
 - **`Money`**: `amountCents` entero; `fromCents` exige `0 < cents ≤ 99.999.999.999` (999.999.999,99 €); `fromCentsOrZero` admite ≤ 0 (balances); sin conversión a/from float (ADR 0007).
-- **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003).
+- **`Movement`**: inmutable tras la creación; `nature` obligatoria si `type = expense` y prohibida si `type = income` (FR-005); **`tagId` obligatoria si `type = expense` y opcional (`null`) si `type = income` (014, regla por tipo en la entidad)**; `accountId` inmutable tras el alta (014: la edición valida `expectedAccountId` en `UpdateMovement`, no mueve de cuenta); fecha ISO de calendario real; nota única no vacía tras trim (014, fusiona concepto+descripción); `amount > 0` (los abonos se registran como ingresos, FR-003). Desde 029 (ADR 0023): la reasignación masiva de etiqueta vive en el puerto `MovementRepository.retagMovements` (única `UPDATE tag_id + updated_at` con pertenencia cuenta+mes en el `WHERE`, paridad `mergeInto` de 004 pero **sí** tocando `updated_at` — edición real de movimientos); el caso de uso `BulkRetagMovements` valida el destino (existe+activo, semántica `resolveTagId`; slug protegido → `ProtectedTagError`) y deduplica ids con `MovementId` (vacío → `InvalidMovementError("movementIds", …)`); la operación solo asigna, jamás retira la etiqueta (invariante de gasto con etiqueta intacta) y el campo `"movementIds"` se añade al union `MovementField`.
 - **`Account`**: `memberId` obligatorio si `type = personal` y `null` si `type = shared`. Desde 008 (ADR 0020): `name: string | null` — **`personal ⇒ name === null`** (el nombre mostrado se deriva siempre del miembro como «Cuenta de {miembro}» vía `personalAccountDisplayName`, aplicada en `findAll` del repositorio: `AccountDTO.name` = nombre mostrado) y **`shared ⇒ name` trimado no vacío**; `rename(name)` solo existe en `shared` (en `personal` lanza `AccountNotRenamableError`: no hay renombrado independiente) y conserva id/type/memberId (patrón ADR 0011). Unicidad de nombres almacenados ignorando mayúsculas en BD (`accounts_name_nocase_uq` sobre `lower(name)`; los NULL de las personales nunca colisionan) con check amable en `RenameAccount` (`findByName` autoexcluyéndose) y backstop de carrera traducido a `DuplicateAccountNameError` en el repositorio.
 - **`Member`**: nombre único ignorando mayúsculas (índice `members_name_nocase_uq` sobre `lower(name)`, patrón tags); desde 008 `rename(name)` trimea, valida no vacío y devuelve nueva instancia congelada con el mismo id; el duplicado se valida en `RenameMember` con `findByName` autoexcluyéndose (el autorenombrado «luz»→«Luz» está permitido) y la carrera la traduce el repositorio a `DuplicateMemberNameError`. Renombrar un miembro no escribe nada fuera de `members` (las notas materializadas congelan el nombre del momento).
 - **`Tag`**: nombre único ignorando mayúsculas/minúsculas (FR-007, índice `lower(name)` en BD); el estado `inactive` existe para no romper el histórico (gestión en feature 004). Desde 017 nace `active` por la vía de creación `CreateTag` (aplicación), que deriva el `slug` con `deriveTagSlug` (función pura del dominio: minúsculas, NFD sin diacríticos, no-alfanuméricos → guion; desde 026 el algoritmo vive en `shared/slug.ts` como `deriveSlug` y `TagSlug.ts` lo re-exporta) y resuelve colisiones con sufijos `-2`, `-3`, …; el duplicado case-insensitive (también de inactivas) lanza `DuplicateTagNameError` vía `TagRepository.findByName` (espejo del índice; ADR 0015). Desde 004 (ADR 0018): `rename` trimea y **conserva id/slug/status** (el slug es identidad estable — 019 localiza «Aportación Común» por slug); `withStatus` cubre desactivar/reactivar con nueva instancia congelada; el duplicado en renombrado/reactivación se valida en el caso de uso con `findByName` **autoexcluyéndose** (edge «luz»→«Luz» permitido); la protección de etiquetas de sistema es por slug en el dominio (`SystemTags.isProtectedTagSlug`, `ProtectedTagError` en los cuatro papeles: renombrar, desactivar, absorbida y resultante de fusión); el puerto gana `findById`/`findAll`/`update`/`mergeInto` (fusión transaccional: reasignar `movements.tag_id` → borrar la absorbida, sin tocar `updated_at`). Desde 026 (ADR 0022): `categoryId` **obligatoria** en `create`/`rehydrate` (no existe `Tag` sin categoría — FR-001 por construcción), `moveToCategory(categoryId)` es la única vía de cambio de pertenencia y `rename`/`withStatus` la conservan; toda etiqueta nueva **sin categoría explícita** nace en la genérica (`CreateTag` resuelve `findBySlug(DEFAULT_CATEGORY_SLUG)`; desde 027 el alta del catálogo puede indicar `categoryId` explícita, validada con `findById` → `CategoryNotFoundError` — la inline 017 y las de sistema siguen naciendo en la genérica); «Aportación Común» puede moverse como cualquier etiqueta (su protección no afecta a la pertenencia); la fusión conserva la categoría de la superviviente.

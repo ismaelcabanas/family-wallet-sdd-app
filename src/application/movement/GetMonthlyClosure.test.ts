@@ -46,6 +46,7 @@ function repositoryWith(rows: MovementDTO[]) {
     update: vi.fn(),
     delete: vi.fn(),
     sumSharedExpenseCents: vi.fn(),
+    retagMovements: vi.fn(),
   };
 }
 

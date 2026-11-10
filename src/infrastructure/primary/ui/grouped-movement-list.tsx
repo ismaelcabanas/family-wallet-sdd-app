@@ -4,13 +4,16 @@ import { useState } from "react";
 
 import type { MovementDTO } from "@/application/movement/dto";
 import type { ActiveTagGroupDTO } from "@/application/tag/dto";
+import { isProtectedTagSlug } from "@/domain/tag/SystemTags";
 
+import { BulkRetagDialog } from "./bulk-retag-dialog";
 import { CreateMovementDialog } from "./create-movement-dialog";
 import { DeleteMovementDialog } from "./delete-movement-dialog";
 import { EditMovementDialog } from "./edit-movement-dialog";
 import { EmptyState } from "./empty-state";
 import { formatDate, formatSignedAmountCents } from "./format";
 import { Button } from "./components/ui/button";
+import { Checkbox } from "./components/ui/checkbox";
 
 interface DateGroup {
   date: string;
@@ -53,8 +56,41 @@ export function GroupedMovementList({
   const [editing, setEditing] = useState<MovementDTO | null>(null);
   const [deleting, setDeleting] = useState<MovementDTO | null>(null);
   const [creating, setCreating] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [retagOpen, setRetagOpen] = useState(false);
 
   const groups = groupMovementsByDate(movements);
+  const selectableIds = movements
+    .filter((movement) => !(movement.tag !== null && isProtectedTagSlug(movement.tag.slug)))
+    .map((movement) => movement.id);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
+
+  function toggleSelected(id: number) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(selectableIds));
+  }
+
+  function exitSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setRetagOpen(false);
+  }
 
   return (
     <>
@@ -70,10 +106,43 @@ export function GroupedMovementList({
             <h2 id="movement-list-title" className="text-lg font-semibold">
               Movimientos del mes
             </h2>
-            <Button type="button" size="sm" onClick={() => setCreating(true)}>
-              Nuevo movimiento
-            </Button>
+            <div className="flex items-center gap-2">
+              {selectionMode ? null : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectionMode(true)}
+                >
+                  Seleccionar
+                </Button>
+              )}
+              <Button type="button" size="sm" onClick={() => setCreating(true)}>
+                Nuevo movimiento
+              </Button>
+            </div>
           </div>
+          {selectionMode ? (
+            <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 p-2">
+              <span className="px-1 text-sm font-medium">{selectedIds.size} seleccionados</span>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={toggleSelectAll}>
+                  {allSelected ? "Ninguno" : "Seleccionar todo"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setRetagOpen(true)}
+                >
+                  Cambiar etiqueta…
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={exitSelectionMode}>
+                  Salir de la selección
+                </Button>
+              </div>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-4">
             {groups.map((group) => (
               <div key={group.date} className="rounded-lg border">
@@ -87,6 +156,18 @@ export function GroupedMovementList({
                       className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 p-4"
                       data-testid="movement-item"
                     >
+                      {selectionMode ? (
+                        movement.tag !== null && isProtectedTagSlug(movement.tag.slug) ? (
+                          <span aria-hidden="true" className="size-11 shrink-0" />
+                        ) : (
+                          <Checkbox
+                            checked={selectedIds.has(movement.id)}
+                            onCheckedChange={() => toggleSelected(movement.id)}
+                            aria-label={`Seleccionar ${movement.note}`}
+                            className="relative before:absolute before:-inset-3.5"
+                          />
+                        )
+                      ) : null}
                       <div className="flex min-w-0 flex-col gap-1">
                         {movement.tag !== null ? (
                           <div className="flex flex-wrap items-center gap-1">
@@ -162,6 +243,17 @@ export function GroupedMovementList({
 
       {deleting ? (
         <DeleteMovementDialog movement={deleting} onClose={() => setDeleting(null)} />
+      ) : null}
+
+      {selectionMode && retagOpen ? (
+        <BulkRetagDialog
+          accountId={currentAccountId}
+          month={currentMonth}
+          movementIds={[...selectedIds]}
+          tagGroups={tagGroups}
+          onClose={() => setRetagOpen(false)}
+          onSuccess={exitSelectionMode}
+        />
       ) : null}
     </>
   );

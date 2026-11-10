@@ -141,3 +141,15 @@ export interface AnnualCategoryExpenseReportDTO {
   monthlyTotalAverageCents: number;
   personalTotalAverageCents: number;
 }
+
+export interface BulkRetagInputDTO {
+  accountId: number;
+  month: string;
+  movementIds: number[];
+  targetTagId: number;
+}
+
+export interface BulkRetagResultDTO {
+  updatedCount: number;
+  skippedCount: number;
+}

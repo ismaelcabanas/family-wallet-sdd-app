@@ -3,7 +3,8 @@ import type { MovementRepository } from "@/application/movement/MovementReposito
 import { AccountId } from "@/domain/account/AccountId";
 import { Movement } from "@/domain/movement/Movement";
 import { MovementId } from "@/domain/movement/MovementId";
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { TagId } from "@/domain/tag/TagId";
+import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import {
@@ -130,5 +131,29 @@ export class DrizzleMovementRepository implements MovementRepository {
       );
 
     return row?.total ?? 0;
+  }
+
+  async retagMovements(
+    accountId: AccountId,
+    month: string,
+    movementIds: readonly MovementId[],
+    targetTagId: TagId,
+  ): Promise<{ updated: number }> {
+    const result = await this.db
+      .update(movements)
+      .set({ tagId: targetTagId, updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          inArray(
+            movements.id,
+            movementIds.map((id) => id as number),
+          ),
+          eq(movements.accountId, accountId as number),
+          gte(movements.date, `${month}-01`),
+          lt(movements.date, nextMonthFirstDay(month)),
+        ),
+      );
+
+    return { updated: result.rowsAffected };
   }
 }
