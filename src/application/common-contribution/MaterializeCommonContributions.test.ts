@@ -112,6 +112,18 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
     this.nextMovementId += 1;
     return true;
   }
+
+  async registerManualContribution(): Promise<never> {
+    throw new Error("no esperado en este caso de uso");
+  }
+
+  async findMaterializedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawMaterializationForMovement(): Promise<boolean> {
+    return false;
+  }
 }
 
 class InMemoryMovementRepository implements MovementRepository {

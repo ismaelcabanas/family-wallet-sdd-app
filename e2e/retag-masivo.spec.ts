@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const ACCOUNT_URL = "/accounts/2?month=2026-02";
 const ACCOUNT_NAME = "Cuenta de Miembro B";
+const SETTINGS_TRIGGER = "Configuración de Cuenta de Miembro B";
 const EUR = "[\\s\\u00A0\\u202F]€";
 
 const OCIO_MOVEMENTS = [
@@ -26,6 +27,51 @@ function balanceCell(page: Page) {
 
 function personalExpenseCell(page: Page) {
   return kpisRegion(page).getByText("Gasto personal").locator("..");
+}
+
+function contributionCell(page: Page) {
+  return kpisRegion(page).getByText("Aportación común").locator("..");
+}
+
+async function configureIncomeAndContribution(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Ingreso regular/ }).click();
+  const incomeDialog = page.getByRole("dialog", { name: "Ingreso regular" });
+  await incomeDialog.getByLabel("Importe (€)").fill("2000,00");
+  await incomeDialog.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText("Ingreso regular guardado")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Aportación/ }).click();
+  const contributionDialog = page.getByRole("dialog", { name: "Aportación a la cuenta común" });
+  await contributionDialog.getByLabel("Porcentaje (%)").fill("25");
+  await contributionDialog.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText("Aportación guardada")).toBeVisible({ timeout: 10_000 });
+}
+
+async function registerManualContribution(
+  page: Page,
+  fields: { note: string; amount: string; date: string },
+): Promise<void> {
+  await page.getByRole("button", { name: "Nuevo movimiento" }).click();
+  const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("radio", { name: "Aportación común" }).check();
+  await dialog.getByLabel("Fecha", { exact: true }).fill(fields.date);
+  await dialog.getByLabel("Nota", { exact: true }).fill(fields.note);
+  await dialog.getByLabel("Importe (€)").fill(fields.amount);
+  await dialog.getByRole("button", { name: "Guardar y cerrar" }).click();
+  await expect(page.getByText("Aportación registrada").last()).toBeVisible({ timeout: 10_000 });
+  await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+  await expect(
+    movementList(page)
+      .getByRole("listitem")
+      .filter({ hasText: fields.note })
+      .first(),
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 async function gotoAccount(page: Page): Promise<void> {
@@ -114,14 +160,15 @@ test.describe("reasignación masiva de etiquetas (flujo crítico)", () => {
   test("G1: «Seleccionar» habilita el modo con checkboxes en las filas seleccionables", async ({
     page,
   }) => {
+    await configureIncomeAndContribution(page);
     await gotoAccount(page);
     for (const movement of OCIO_MOVEMENTS) {
       await registerMovement(page, { ...movement, nature: "personal", tag: "Ocio" });
     }
-    await registerMovement(page, {
-      ...PROTECTED_MOVEMENT,
-      nature: "personal",
-      tag: "Aportación Común",
+    await registerManualContribution(page, {
+      note: PROTECTED_MOVEMENT.note,
+      amount: PROTECTED_MOVEMENT.amount,
+      date: PROTECTED_MOVEMENT.date,
     });
     await registerMovement(page, { ...UNTAGGED_INCOME, type: "income" });
 
@@ -198,7 +245,8 @@ test.describe("reasignación masiva de etiquetas (flujo crítico)", () => {
 
     await expect(kpisRegion(page)).toBeVisible();
     await expect(balanceCell(page).getByText(new RegExp(`^−55,00${EUR}`))).toBeVisible();
-    await expect(personalExpenseCell(page).getByText(new RegExp(`^70,00${EUR}`))).toBeVisible();
+    await expect(personalExpenseCell(page).getByText(new RegExp(`^40,00${EUR}`))).toBeVisible();
+    await expect(contributionCell(page).getByText(new RegExp(`^30,00${EUR}`))).toBeVisible();
   });
 
   test("G5: no-op con destino igual al actual → «1 movimiento actualizado»", async ({ page }) => {

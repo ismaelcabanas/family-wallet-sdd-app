@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import type { MovementDTO, TagDTO } from "@/application/movement/dto";
 import type { ActiveTagGroupDTO } from "@/application/tag/dto";
+import { isProtectedTagSlug } from "@/domain/tag/SystemTags";
 
 import { updateMovement, type UpdateMovementState } from "../actions/update-movement.action";
 import { Button } from "./components/ui/button";
@@ -135,6 +136,9 @@ function EditMovementForm({
     tagId: movement.tag?.id ?? null,
   };
 
+  const isContribution =
+    movement.tag !== null && isProtectedTagSlug(movement.tag.slug);
+
   return (
     <MovementFormFields
       state={state}
@@ -142,6 +146,7 @@ function EditMovementForm({
       isPending={isPending}
       tagGroups={tagGroups}
       initialValues={initialValues}
+      contributionOption={isContribution ? "locked" : "off"}
       onTagCreated={onTagCreated}
       submitLabel="Guardar cambios"
       secondaryActions={

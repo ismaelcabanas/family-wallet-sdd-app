@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const YEAR = "2024";
 
 const EUR = "[\\s\\u00A0\\u202F]€";
+const SETTINGS_TRIGGER = "Configuración de Cuenta de Miembro B";
 
 async function openAccount(page: Page, accountName: string, month: string): Promise<void> {
   await page.goto(`/accounts/${accountName === "Cuenta común" ? 3 : accountName === "Cuenta de Miembro B" ? 2 : 1}?month=${month}`);
@@ -49,6 +50,81 @@ async function registerMovement(
       .filter({ hasText: fields.note })
       .first(),
   ).toBeVisible({ timeout: 10_000 });
+}
+
+async function registerManualContribution(
+  page: Page,
+  fields: { note: string; amount: string; date: string },
+): Promise<void> {
+  await page.getByRole("button", { name: "Nuevo movimiento" }).click();
+  const dialog = page.getByRole("dialog", { name: "Nuevo movimiento" });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole("radio", { name: "Aportación común" }).check();
+  await dialog.getByLabel("Fecha", { exact: true }).fill(fields.date);
+  await dialog.getByLabel("Nota", { exact: true }).fill(fields.note);
+  await dialog.getByLabel("Importe (€)").fill(fields.amount);
+  await dialog.getByRole("button", { name: "Guardar y cerrar" }).click();
+  await expect(page.getByText("Aportación registrada").last()).toBeVisible({ timeout: 10_000 });
+  await expect(dialog).not.toBeVisible({ timeout: 10_000 });
+
+  await expect(
+    page
+      .getByRole("region", { name: "Movimientos del mes" })
+      .getByRole("listitem")
+      .filter({ hasText: fields.note })
+      .first(),
+  ).toBeVisible({ timeout: 10_000 });
+}
+
+async function configureIncomeAndContribution(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Ingreso regular/ }).click();
+  const incomeDialog = page.getByRole("dialog", { name: "Ingreso regular" });
+  await incomeDialog.getByLabel("Importe (€)").fill("2000,00");
+  await incomeDialog.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText("Ingreso regular guardado")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Aportación/ }).click();
+  const contributionDialog = page.getByRole("dialog", { name: "Aportación a la cuenta común" });
+  await contributionDialog.getByLabel("Porcentaje (%)").fill("25");
+  await contributionDialog.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByText("Aportación guardada")).toBeVisible({ timeout: 10_000 });
+}
+
+async function deactivateIncomeAndContribution(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Aportación/ }).click();
+  const contributionDialog = page.getByRole("dialog", { name: "Aportación a la cuenta común" });
+  await contributionDialog.getByRole("button", { name: "Desactivar" }).click();
+  await expect(page.getByText("Aportación desactivada")).toBeVisible({ timeout: 10_000 });
+
+  await page.getByRole("button", { name: SETTINGS_TRIGGER }).click();
+  await page.getByRole("menu").getByRole("menuitem", { name: /Ingreso regular/ }).click();
+  const incomeDialog = page.getByRole("dialog", { name: "Ingreso regular" });
+  await incomeDialog.getByRole("button", { name: "Desactivar" }).click();
+  await expect(page.getByText("Ingreso regular desactivado")).toBeVisible({ timeout: 10_000 });
+}
+
+async function deleteMovement(page: Page, note: string): Promise<void> {
+  await page
+    .getByRole("region", { name: "Movimientos del mes" })
+    .getByRole("button", { name: `Eliminar ${note}` })
+    .first()
+    .click();
+  const confirmDialog = page.getByRole("alertdialog", { name: "Eliminar movimiento" });
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole("button", { name: /^Eliminar$/ }).click();
+  await expect(page.getByText("Movimiento eliminado").last()).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page
+      .getByRole("region", { name: "Movimientos del mes" })
+      .getByRole("listitem")
+      .filter({ hasText: note }),
+  ).toHaveCount(0, { timeout: 10_000 });
 }
 
 async function createCategoryAndTag(page: Page, category: string, tag: string): Promise<void> {
@@ -116,13 +192,12 @@ test.describe("informe anual de gastos por categorías", () => {
       tag: "Gasolina",
     });
 
-    await openAccount(page, "Cuenta de Miembro A", `${YEAR}-03`);
-    await registerMovement(page, {
+    await configureIncomeAndContribution(page);
+    await openAccount(page, "Cuenta de Miembro B", `${YEAR}-03`);
+    await registerManualContribution(page, {
       note: "Aportación manual excluida",
       amount: "20,00",
       date: `${YEAR}-03-10`,
-      nature: "personal",
-      tag: "Aportación Común",
     });
 
     await page.goto("/");
@@ -171,6 +246,10 @@ test.describe("informe anual de gastos por categorías", () => {
     await expect(personalCells.nth(0)).toContainText(new RegExp(`0,00${EUR}`));
     await expect(personalCells.nth(2)).toContainText(new RegExp(`30,00${EUR}`));
     await expect(personalCells.nth(12)).toContainText(new RegExp(`2,50${EUR}`));
+
+    await openAccount(page, "Cuenta de Miembro B", `${YEAR}-03`);
+    await deleteMovement(page, "Aportación manual excluida");
+    await deactivateIncomeAndContribution(page);
   });
 
   test("I2: año sin movimientos muestra la estructura completa a 0,00 €", async ({ page }) => {

@@ -1,10 +1,19 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
-const { executeMock } = vi.hoisted(() => ({ executeMock: vi.fn() }));
+const { executeMock, registerExecuteMock } = vi.hoisted(() => ({
+  executeMock: vi.fn(),
+  registerExecuteMock: vi.fn(),
+}));
 
 vi.mock("@/application/movement/CreateMovement", () => ({
   CreateMovement: vi.fn().mockImplementation(function () {
     return { execute: executeMock };
+  }),
+}));
+
+vi.mock("@/application/common-contribution/RegisterManualContribution", () => ({
+  RegisterManualContribution: vi.fn().mockImplementation(function () {
+    return { execute: registerExecuteMock };
   }),
 }));
 
@@ -248,5 +257,52 @@ describe("createMovement (Server Action)", () => {
     if (state.status === "error") {
       expect(state.errors.tagId).toEqual(["Selecciona una etiqueta para el gasto."]);
     }
+  });
+
+  it("despacha el tipo «contribution» al caso de uso de registro manual con nota vacía permitida", async () => {
+    registerExecuteMock.mockResolvedValueOnce(21);
+
+    const formData = buildFormData({ type: "contribution", note: "", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state).toEqual({
+      status: "success",
+      message: "Aportación registrada",
+      intent: "close",
+    });
+    expect(registerExecuteMock).toHaveBeenCalledExactlyOnceWith({
+      accountId: 3,
+      date: "2026-09-03",
+      note: "",
+      amountCents: 85_000,
+    });
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("mapea el duplicado de aportación al error de formulario del contrato", async () => {
+    const { ContributionAlreadyExistsError } = await import(
+      "@/domain/common-contribution/CommonContributionErrors"
+    );
+    registerExecuteMock.mockRejectedValueOnce(new ContributionAlreadyExistsError());
+
+    const formData = buildFormData({ type: "contribution", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors._form).toEqual(["Ya existe una aportación registrada para este mes."]);
+    }
+  });
+
+  it("rechaza una aportación que viaja con naturaleza o etiqueta explícitas", async () => {
+    const state = await run(buildFormData({ type: "contribution" }));
+
+    expect(state.status).toBe("error");
+    expect(registerExecuteMock).not.toHaveBeenCalled();
   });
 });

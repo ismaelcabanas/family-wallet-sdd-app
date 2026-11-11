@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import type { TagDTO } from "@/application/movement/dto";
 import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
-import type { MovementType } from "@/domain/movement/MovementType";
+
+import type { MovementFormType } from "../actions/movement-form.schema";
 
 import {
   createMovement,
@@ -26,6 +27,7 @@ interface CreateMovementDialogProps {
   accountName: string;
   accountType: "personal" | "shared";
   tagGroups: ActiveTagGroupDTO[];
+  contributionAvailable?: boolean;
   onClose: () => void;
 }
 
@@ -58,6 +60,7 @@ export function CreateMovementDialog({
   accountName: _accountName,
   accountType,
   tagGroups,
+  contributionAvailable = false,
   onClose,
 }: CreateMovementDialogProps) {
   void _accountName;
@@ -94,6 +97,7 @@ export function CreateMovementDialog({
           accountId={accountId}
           accountType={accountType}
           tagGroups={groupsWithExtras}
+          contributionAvailable={contributionAvailable}
           carry={carry}
           onTagCreated={(tag) => {
             setExtraTags((current) =>
@@ -118,6 +122,7 @@ function CreateMovementForm({
   accountId,
   accountType,
   tagGroups,
+  contributionAvailable,
   carry,
   onTagCreated,
   onSaved,
@@ -142,9 +147,9 @@ function CreateMovementForm({
     if (state.intent === "continue") {
       const formData = lastSubmittedRef.current;
       if (formData) {
-        const type = (formData.get("type") as MovementType) ?? "expense";
+        const type = (formData.get("type") as MovementFormType | null) ?? "expense";
         const nature =
-          type === "expense" ? ((formData.get("nature") as ExpenseNature) ?? "personal") : null;
+          type === "expense" ? ((formData.get("nature") as ExpenseNature | null) ?? "personal") : null;
         onSaved({ date: String(formData.get("date") ?? ""), type, nature });
       }
       return;
@@ -163,6 +168,7 @@ function CreateMovementForm({
       tagGroups={tagGroups}
       accountId={accountId}
       accountType={accountType}
+      contributionOption={contributionAvailable ? "available" : "off"}
       carry={carry ?? undefined}
       onTagCreated={onTagCreated}
       submitLabel="Guardar y seguir"

@@ -35,6 +35,18 @@ class InMemoryCommonContributionRepository implements CommonContributionReposito
   async withdrawMaterialization(): Promise<boolean> {
     return false;
   }
+
+  async registerManualContribution(): Promise<never> {
+    throw new Error("no esperado en este caso de uso");
+  }
+
+  async findMaterializedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawMaterializationForMovement(): Promise<boolean> {
+    return false;
+  }
 }
 
 const ACCOUNT_ID = AccountId(1);

@@ -7,6 +7,13 @@ export interface CommonContributionDTO {
   activatedAtMonth: string;
 }
 
+export interface RegisterManualContributionDTO {
+  accountId: number;
+  date: string;
+  note: string;
+  amountCents: number;
+}
+
 export function toCommonContributionDTO(config: CommonContribution): CommonContributionDTO {
   return {
     accountId: config.accountId as number,

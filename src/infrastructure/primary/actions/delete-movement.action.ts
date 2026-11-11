@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "../../db/client";
+import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
 
 export type DeleteMovementState =
@@ -19,7 +20,10 @@ const deleteSchema = z.object({
 
 const UNEXPECTED_ERROR = "No se ha podido eliminar el movimiento. Inténtalo de nuevo.";
 
-const deleteMovementUseCase = new DeleteMovement(new DrizzleMovementRepository(db));
+const deleteMovementUseCase = new DeleteMovement(
+  new DrizzleMovementRepository(db),
+  new DrizzleCommonContributionRepository(db),
+);
 
 export async function deleteMovement(
   _prevState: DeleteMovementState,

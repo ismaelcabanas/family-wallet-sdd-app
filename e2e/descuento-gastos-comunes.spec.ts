@@ -264,12 +264,24 @@ test.describe("descuento de gastos comunes en la aportación (flujo crítico)", 
     await expect(contributionItems(page)).toHaveCount(1);
   });
 
-  test("D10: eliminar la aportación es definitivo — no reaparece aunque cambie el neto", async ({
+  test("D10: eliminar la aportación del mes en curso borra fila y movimiento, y el materializador la regenera (032)", async ({
     page,
   }) => {
     await openAccount(page);
-    await deleteMovement(page, CONTRIBUTION_NOTE);
-    await expect(contributionItems(page)).toHaveCount(0);
+
+    await movementList(page)
+      .getByRole("button", { name: `Eliminar ${CONTRIBUTION_NOTE}` })
+      .first()
+      .click();
+    const confirmDialog = page.getByRole("alertdialog", { name: "Eliminar movimiento" });
+    await expect(confirmDialog).toBeVisible();
+    await confirmDialog.getByRole("button", { name: /^Eliminar$/ }).click();
+    await expect(page.getByText("Movimiento eliminado").last()).toBeVisible({ timeout: 10_000 });
+
+    const item = contributionItems(page).first();
+    await expect(item).toBeVisible({ timeout: 10_000 });
+    await expect(item).toContainText("−350,00");
+    await expect(contributionItems(page)).toHaveCount(1);
 
     await registerMovement(page, {
       note: "Post borrado",
@@ -278,9 +290,8 @@ test.describe("descuento de gastos comunes en la aportación (flujo crítico)", 
       tag: "Vivienda",
     });
 
-    await expect(contributionItems(page)).toHaveCount(0);
-    await page.reload();
-    await expect(contributionItems(page)).toHaveCount(0);
+    await expect(contributionItems(page).first()).toContainText("−320,00", { timeout: 10_000 });
+    await expect(contributionItems(page)).toHaveCount(1);
   });
 
   test("D11: limpieza — restaura Hipoteca y desactiva aportación e ingreso regular de B", async ({
@@ -305,6 +316,7 @@ test.describe("descuento de gastos comunes en la aportación (flujo crítico)", 
     await expect(page.getByText("Ingreso regular desactivado")).toBeVisible({ timeout: 10_000 });
 
     await openAccount(page);
+    await deleteMovement(page, CONTRIBUTION_NOTE);
     const regularIncomeNote = "Ingreso regular de Miembro B";
     const regularIncomeItems = movementList(page)
       .getByRole("listitem")

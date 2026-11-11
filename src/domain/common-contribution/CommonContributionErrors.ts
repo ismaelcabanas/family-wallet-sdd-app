@@ -28,3 +28,9 @@ export class MissingRegularIncomeError extends DomainError {
     super(message);
   }
 }
+
+export class ContributionAlreadyExistsError extends DomainError {
+  constructor(message = "Ya existe una aportación registrada para este mes.") {
+    super(message);
+  }
+}

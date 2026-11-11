@@ -7,6 +7,7 @@ import type { TagDTO } from "@/application/movement/dto";
 import type { ActiveTagGroupDTO } from "@/application/tag/dto";
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import type { MovementType } from "@/domain/movement/MovementType";
+import { isProtectedTagSlug } from "@/domain/tag/SystemTags";
 
 import { createTag } from "../actions/create-tag.action";
 import { Button } from "./components/ui/button";
@@ -25,6 +26,7 @@ import {
 import type {
   MovementFieldErrors,
   MovementFieldKey,
+  MovementFormType,
   MovementFormValues,
 } from "../actions/movement-form.schema";
 import { formatCentsForInput, todayIsoDate } from "./format";
@@ -45,9 +47,11 @@ export interface MovementFormInitialValues {
 
 export interface CarryOverValues {
   date: string;
-  type: MovementType;
+  type: MovementFormType;
   nature: ExpenseNature | null;
 }
+
+export type ContributionOption = "off" | "available" | "locked";
 
 interface MovementFormFieldsProps {
   state: MovementFormState;
@@ -63,6 +67,7 @@ interface MovementFormFieldsProps {
   initialValues?: MovementFormInitialValues;
   carry?: CarryOverValues;
   onTagCreated?: (tag: TagDTO) => void;
+  contributionOption?: ContributionOption;
 }
 
 const NO_TAG_VALUE = "__no_tag__";
@@ -100,23 +105,38 @@ export function MovementFormFields({
   initialValues,
   carry,
   onTagCreated,
+  contributionOption = "off",
 }: MovementFormFieldsProps) {
   const isEditMode = Boolean(initialValues && !carry);
 
-  const initialType =
+  const initialType: MovementFormType =
     state.status === "error" && state.values.type === "income"
-      ? ("income" as const)
-      : (initialValues?.type ?? carry?.type ?? ("expense" as const));
+      ? "income"
+      : state.status === "error" && state.values.type === "contribution" && contributionOption !== "off"
+        ? "contribution"
+        : contributionOption === "locked"
+          ? "contribution"
+          : (initialValues?.type ?? carry?.type ?? "expense");
   const initialNature =
     initialValues?.nature ??
     (carry?.type === "expense" ? carry.nature : null) ??
     "personal";
 
-  const [chosenType, setChosenType] = useState<MovementType>(initialType);
+  const [chosenType, setChosenType] = useState<MovementFormType>(initialType);
   const [chosenNature, setChosenNature] = useState<ExpenseNature>(initialNature);
   const [selectedTagId, setSelectedTagId] = useState<string>(
     initialValues?.tagId != null ? String(initialValues.tagId) : "",
   );
+
+  const [handledErrorState, setHandledErrorState] = useState<MovementFormState | null>(null);
+  const errorState = state.status === "error" ? state : null;
+  if (errorState !== null && errorState !== handledErrorState) {
+    setHandledErrorState(errorState);
+    const submittedType = errorState.values.type;
+    if (submittedType === "expense" || submittedType === "income" || submittedType === "contribution") {
+      setChosenType(submittedType);
+    }
+  }
 
   const noteRef = useRef<HTMLInputElement>(null);
   const tagNameInputRef = useRef<HTMLInputElement>(null);
@@ -230,7 +250,12 @@ export function MovementFormFields({
     !tagGroups.some((group) => group.tags.some((tag) => String(tag.id) === selectedTagId))
       ? createdTags.find((tag) => String(tag.id) === selectedTagId)
       : undefined;
-  const selectGroups = createdTag ? mergeTagIntoGroups(tagGroups, createdTag) : tagGroups;
+  const selectGroups = (createdTag ? mergeTagIntoGroups(tagGroups, createdTag) : tagGroups)
+    .map((group) => ({
+      ...group,
+      tags: group.tags.filter((tag) => !isProtectedTagSlug(tag.slug)),
+    }))
+    .filter((group) => group.tags.length > 0);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -291,10 +316,14 @@ export function MovementFormFields({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Tipo</legend>
+        {contributionOption === "locked" ? (
+          <input type="hidden" name="type" value="contribution" />
+        ) : null}
         <RadioGroup
           name="type"
           value={chosenType}
-          onValueChange={(value) => setChosenType(value as MovementType)}
+          onValueChange={(value) => setChosenType(value as MovementFormType)}
+          disabled={contributionOption === "locked"}
           className="flex gap-6"
         >
           <div className="flex items-center gap-2">
@@ -305,6 +334,12 @@ export function MovementFormFields({
             <RadioGroupItem value="income" id={`${idPrefix}movement-type-income`} />
             <Label htmlFor={`${idPrefix}movement-type-income`}>Ingreso</Label>
           </div>
+          {contributionOption !== "off" ? (
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="contribution" id={`${idPrefix}movement-type-contribution`} />
+              <Label htmlFor={`${idPrefix}movement-type-contribution`}>Aportación común</Label>
+            </div>
+          ) : null}
         </RadioGroup>
         {fieldError("type") ? (
           <p role="alert" className="text-sm text-red-600">
@@ -372,6 +407,7 @@ export function MovementFormFields({
         </fieldset>
       ) : null}
 
+      {chosenType === "contribution" ? null : (
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
           <Label htmlFor={`${idPrefix}movement-tag`}>Etiqueta</Label>
@@ -476,6 +512,7 @@ export function MovementFormFields({
           </>
         )}
       </div>
+      )}
 
       {state.status === "error" && state.errors._form ? (
         <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-600">
