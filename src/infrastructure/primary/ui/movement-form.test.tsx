@@ -83,6 +83,7 @@ function errorState(overrides: Partial<Extract<CreateMovementState, { status: "e
 
 function renderCreateDialog(
   account: typeof personalAccount | typeof sharedAccount = personalAccount,
+  contributionAvailable = false,
 ) {
   return render(
     <CreateMovementDialog
@@ -90,6 +91,7 @@ function renderCreateDialog(
       accountName={account.accountName}
       accountType={account.accountType}
       tagGroups={tagGroups}
+      contributionAvailable={contributionAvailable}
       onClose={vi.fn()}
     />,
   );
@@ -626,5 +628,146 @@ describe("MovementFormFields (modo edición)", () => {
     expect(actionMock).toHaveBeenCalledTimes(1);
     const formData = actionMock.mock.calls[0][0] as FormData;
     expect(formData.get("tagId")).toBe("99");
+  });
+});
+
+describe("MovementFormFields (tipo «Aportación común», 032)", () => {
+  const protectedTagGroups: ActiveTagGroupDTO[] = [
+    {
+      category: { id: 1, name: "General", isDefault: true },
+      tags: [
+        {
+          id: 100,
+          name: "Aportación Común",
+          slug: "aportacion-comun",
+          categoryId: 1,
+          categoryName: "General",
+        },
+        {
+          id: 9,
+          name: "Sin Clasificar",
+          slug: "sin-clasificar",
+          categoryId: 1,
+          categoryName: "General",
+        },
+      ],
+    },
+  ];
+
+  it("el radio «Aportación común» solo se ofrece con config activa (contributionAvailable)", () => {
+    renderCreateDialog(personalAccount, false);
+    expect(screen.queryByRole("radio", { name: "Aportación común" })).not.toBeInTheDocument();
+
+    cleanup();
+    renderCreateDialog(personalAccount, true);
+    expect(screen.getByRole("radio", { name: "Aportación común" })).toBeEnabled();
+  });
+
+  it("elegir el tipo oculta naturaleza y etiqueta, y envía type=contribution sin naturaleza ni etiqueta", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValueOnce({
+      status: "success",
+      message: "Aportación registrada",
+      intent: "close",
+    });
+    renderCreateDialog(personalAccount, true);
+
+    await user.click(screen.getByRole("radio", { name: "Aportación común" }));
+
+    expect(screen.queryByRole("radio", { name: "Personal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Compartido" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Etiqueta" })).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Importe (€)"), "300,00");
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    expect(actionMock).toHaveBeenCalledTimes(1);
+    const formData = actionMock.mock.calls[0][1] as FormData;
+    expect(formData.get("type")).toBe("contribution");
+    expect(formData.get("nature")).toBeNull();
+    expect(formData.get("tagId")).toBeNull();
+  });
+
+  it("la etiqueta protegida «Aportación Común» no es seleccionable en el flujo de gasto genérico (FR-001)", async () => {
+    const user = userEvent.setup();
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        tagGroups={protectedTagGroups}
+        accountId={1}
+        accountType="personal"
+      />,
+    );
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+
+    expect(screen.queryByRole("option", { name: "Aportación Común" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sin Clasificar" })).toBeInTheDocument();
+  });
+
+  it("edición de una aportación: identidad bloqueada y type=contribution vía input oculto", async () => {
+    const user = userEvent.setup();
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        submitLabel="Guardar cambios"
+        tagGroups={protectedTagGroups}
+        contributionOption="locked"
+        initialValues={{
+          date: "2026-09-14",
+          note: "Aportación septiembre",
+          amountCents: 30_000,
+          type: "expense",
+          nature: "personal",
+          tagId: 100,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Aportación común" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Aportación común" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Ingreso" })).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: "Personal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Etiqueta" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    const formData = actionMock.mock.calls[0][0] as FormData;
+    expect(formData.get("type")).toBe("contribution");
+    expect(formData.get("nature")).toBeNull();
+    expect(formData.get("tagId")).toBeNull();
+  });
+
+  it("el error de duplicado se muestra con role=alert y conserva el importe tecleado", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValueOnce(
+      errorState({
+        errors: { _form: ["Ya existe una aportación registrada para este mes."] },
+        values: {
+          date: "2026-09-14",
+          note: "",
+          amount: "300,00",
+          accountId: "1",
+          type: "contribution",
+          nature: "",
+          tagId: "",
+        },
+      }),
+    );
+    renderCreateDialog(personalAccount, true);
+
+    await user.click(screen.getByRole("radio", { name: "Aportación común" }));
+    await user.type(screen.getByLabelText("Importe (€)"), "300,00");
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Ya existe una aportación registrada para este mes.");
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("300,00");
+    expect(screen.getByRole("radio", { name: "Aportación común" })).toBeChecked();
   });
 });

@@ -6,6 +6,7 @@ import { MovementId } from "@/domain/movement/MovementId";
 import { InvalidMovementError, MovementNotFoundError } from "@/domain/movement/MovementErrors";
 
 import type { AccountRepository } from "../account/AccountRepository";
+import type { CommonContributionRepository } from "../common-contribution/CommonContributionRepository";
 import type { TagRepository } from "../tag/TagRepository";
 import type { UpdateMovementDTO } from "./dto";
 import { resolveNature, resolveTagId } from "./movement-inputs";
@@ -16,6 +17,7 @@ export class UpdateMovement {
     private readonly movements: MovementRepository,
     private readonly accounts: AccountRepository,
     private readonly tags: TagRepository,
+    private readonly commonContributions: CommonContributionRepository,
   ) {}
 
   async execute(dto: UpdateMovementDTO): Promise<void> {
@@ -33,14 +35,20 @@ export class UpdateMovement {
       throw new AccountNotFoundError();
     }
 
-    const nature = resolveNature(dto, account);
-    const tagId = await resolveTagId(this.tags, dto.tagId);
+    const isContributionMovement =
+      (await this.commonContributions.findMaterializedMonthByMovement(MovementId(dto.movementId))) !==
+      null;
+
+    const nature = isContributionMovement
+      ? existing.nature
+      : resolveNature(dto, account);
+    const tagId = isContributionMovement ? existing.tagId : await resolveTagId(this.tags, dto.tagId);
 
     const movement = Movement.recreate(
       MovementId(dto.movementId),
       {
         accountId: existing.accountId,
-        type: dto.type,
+        type: isContributionMovement ? existing.type : dto.type,
         date: dto.date,
         note: dto.note,
         amount: Money.fromCents(dto.amountCents),

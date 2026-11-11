@@ -2,6 +2,8 @@ import { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import { MovementType } from "@/domain/movement/MovementType";
 import { z } from "zod";
 
+export type MovementFormType = MovementType | "contribution";
+
 export type MovementFieldKey =
   | "date"
   | "note"
@@ -60,10 +62,7 @@ export function parseAmountToCents(value: string): number {
 export const movementFormSchema = z
   .object({
     date: z.string().refine(isRealCalendarDate, "Indica una fecha válida."),
-    note: z
-      .string()
-      .trim()
-      .min(1, "La nota es obligatoria."),
+    note: z.string().trim(),
     amount: z.string().superRefine((value, ctx) => {
       const trimmed = value.trim();
       if (trimmed === "") {
@@ -90,7 +89,8 @@ export const movementFormSchema = z
     type: z
       .string()
       .refine(
-        (value): value is MovementType => value === "expense" || value === "income",
+        (value): value is MovementFormType =>
+          value === "expense" || value === "income" || value === "contribution",
         "Selecciona el tipo de movimiento.",
       ),
     nature: z
@@ -107,6 +107,26 @@ export const movementFormSchema = z
       .or(z.literal("").transform(() => null)),
   })
   .superRefine((data, ctx) => {
+    if (data.type === "contribution") {
+      if (data.nature !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["nature"],
+          message: "La aportación común lleva naturaleza propia implícita.",
+        });
+      }
+      if (data.tagId !== null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["tagId"],
+          message: "La aportación común lleva la etiqueta «Aportación Común» implícita.",
+        });
+      }
+      return;
+    }
+    if (data.note === "") {
+      ctx.addIssue({ code: "custom", path: ["note"], message: "La nota es obligatoria." });
+    }
     if (data.type === "expense" && data.nature === undefined) {
       ctx.addIssue({
         code: "custom",

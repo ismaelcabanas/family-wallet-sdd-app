@@ -1,7 +1,13 @@
 "use server";
 
 import { CreateMovement } from "@/application/movement/CreateMovement";
+import { RegisterManualContribution } from "@/application/common-contribution/RegisterManualContribution";
 import { AccountNotFoundError } from "@/domain/account/AccountErrors";
+import {
+  CommonContributionNotFoundError,
+  ContributionAlreadyExistsError,
+  SharedAccountContributionError,
+} from "@/domain/common-contribution/CommonContributionErrors";
 import { InvalidMoneyError, InvalidMovementError } from "@/domain/movement/MovementErrors";
 import { InactiveTagError, TagNotFoundError } from "@/domain/tag/TagErrors";
 import { revalidatePath } from "next/cache";
@@ -9,6 +15,7 @@ import { z } from "zod";
 
 import { db } from "../../db/client";
 import { DrizzleAccountRepository } from "../../db/DrizzleAccountRepository";
+import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
 import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import {
@@ -46,11 +53,23 @@ function mapDomainErrors(error: unknown): MovementFieldErrors {
   if (error instanceof InactiveTagError || error instanceof TagNotFoundError) {
     return { tagId: ["Una de las etiquetas seleccionadas ya no está disponible."] };
   }
+  if (error instanceof ContributionAlreadyExistsError) {
+    return { _form: [error.message] };
+  }
+  if (error instanceof CommonContributionNotFoundError || error instanceof SharedAccountContributionError) {
+    return { _form: [error.message] };
+  }
   return { _form: ["No se ha podido guardar el movimiento. Inténtalo de nuevo."] };
 }
 
 const createMovementUseCase = new CreateMovement(
   new DrizzleMovementRepository(db),
+  new DrizzleAccountRepository(db),
+  new DrizzleTagRepository(db),
+);
+
+const registerManualContributionUseCase = new RegisterManualContribution(
+  new DrizzleCommonContributionRepository(db),
   new DrizzleAccountRepository(db),
   new DrizzleTagRepository(db),
 );
@@ -78,6 +97,18 @@ export async function createMovement(
   }
 
   try {
+    if (data.type === "contribution") {
+      await registerManualContributionUseCase.execute({
+        accountId: data.accountId,
+        date: data.date,
+        note: data.note,
+        amountCents: parseAmountToCents(data.amount.trim()),
+      });
+
+      revalidatePath("/", "layout");
+      return { status: "success", message: "Aportación registrada", intent };
+    }
+
     await createMovementUseCase.execute({
       accountId: data.accountId,
       type: data.type,

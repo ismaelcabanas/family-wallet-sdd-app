@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { db } from "../../db/client";
 import { DrizzleAccountRepository } from "../../db/DrizzleAccountRepository";
+import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
 import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import { monthYearLabel } from "../ui/format";
@@ -69,6 +70,7 @@ const updateMovementUseCase = new UpdateMovement(
   new DrizzleMovementRepository(db),
   new DrizzleAccountRepository(db),
   new DrizzleTagRepository(db),
+  new DrizzleCommonContributionRepository(db),
 );
 
 export async function updateMovement(
@@ -98,12 +100,12 @@ export async function updateMovement(
     await updateMovementUseCase.execute({
       movementId: context.movementId,
       expectedAccountId: context.currentAccountId,
-      type: data.type,
+      type: data.type === "contribution" ? "expense" : data.type,
       date: data.date,
       note: data.note,
       amountCents: parseAmountToCents(data.amount.trim()),
-      nature: data.nature ?? null,
-      tagId: data.tagId,
+      nature: data.type === "contribution" ? null : (data.nature ?? null),
+      tagId: data.type === "contribution" ? null : data.tagId,
     });
 
     revalidatePath("/");

@@ -58,13 +58,58 @@ class InMemoryMovementRepository implements MovementRepository {
   }
 }
 
+class StubCommonContributionRepository {
+  withdrawnMovementIds: number[] = [];
+
+  constructor(private readonly linked: boolean) {}
+
+  async findByAccountId(): Promise<null> {
+    return null;
+  }
+
+  async save(): Promise<never> {
+    throw new Error("no esperado en este caso de uso");
+  }
+
+  async isMaterialized(): Promise<boolean> {
+    return false;
+  }
+
+  async registerMaterialization(): Promise<boolean> {
+    return false;
+  }
+
+  async registerManualContribution(): Promise<never> {
+    throw new Error("no esperado en este caso de uso");
+  }
+
+  async findMaterializedMovement(): Promise<null> {
+    return null;
+  }
+
+  async findMaterializedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawMaterialization(): Promise<boolean> {
+    return false;
+  }
+
+  async withdrawMaterializationForMovement(movementId: number): Promise<boolean> {
+    this.withdrawnMovementIds.push(movementId);
+    return this.linked;
+  }
+}
+
 describe("DeleteMovement", () => {
   let movements: InMemoryMovementRepository;
+  let commonContributions: StubCommonContributionRepository;
   let useCase: DeleteMovement;
 
   beforeEach(() => {
     movements = new InMemoryMovementRepository();
-    useCase = new DeleteMovement(movements);
+    commonContributions = new StubCommonContributionRepository(false);
+    useCase = new DeleteMovement(movements, commonContributions);
   });
 
   it("elimina el movimiento por su id cuando existe", async () => {
@@ -78,5 +123,22 @@ describe("DeleteMovement", () => {
 
     await expect(useCase.execute(999)).rejects.toThrowError(MovementNotFoundError);
     expect(movements.deletedId).toBeNull();
+  });
+
+  it("elimina movimiento y fila del registro juntos cuando el mes está enlazado (regla «0 o 1»)", async () => {
+    commonContributions = new StubCommonContributionRepository(true);
+    useCase = new DeleteMovement(movements, commonContributions);
+
+    await useCase.execute(7);
+
+    expect(commonContributions.withdrawnMovementIds).toEqual([7]);
+    expect(movements.deletedId).toBeNull();
+  });
+
+  it("borra solo el movimiento cuando no hay fila del registro enlazada", async () => {
+    await useCase.execute(7);
+
+    expect(commonContributions.withdrawnMovementIds).toEqual([7]);
+    expect(movements.deletedId).toBe(7);
   });
 });

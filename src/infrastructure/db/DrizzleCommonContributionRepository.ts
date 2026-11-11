@@ -1,6 +1,7 @@
 import type { CommonContributionRepository } from "@/application/common-contribution/CommonContributionRepository";
 import { AccountId } from "@/domain/account/AccountId";
 import type { Movement } from "@/domain/movement/Movement";
+import { MovementId } from "@/domain/movement/MovementId";
 import { CommonContribution } from "@/domain/common-contribution/CommonContribution";
 import type { CommonContributionId } from "@/domain/common-contribution/CommonContributionId";
 import { and, eq, like, sql } from "drizzle-orm";
@@ -97,6 +98,46 @@ export class DrizzleCommonContributionRepository implements CommonContributionRe
     });
   }
 
+  async registerManualContribution(
+    config: CommonContribution,
+    month: string,
+    movement: Movement,
+  ): Promise<MovementId | null> {
+    if (config.id === null) {
+      throw new RangeError("registerManualContribution requiere una configuración persistida");
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [idRow] = await tx
+        .select({ nextId: sql<number>`coalesce(max(${movements.id}), 0) + 1` })
+        .from(movements);
+      const movementId = idRow?.nextId ?? 1;
+
+      const registeredRows = await tx
+        .insert(commonContributionMonths)
+        .values({
+          commonContributionId: config.id as number,
+          month,
+          createdAt: new Date().toISOString(),
+          movementId,
+        })
+        .onConflictDoUpdate({
+          target: [commonContributionMonths.commonContributionId, commonContributionMonths.month],
+          set: { movementId },
+          setWhere: sql`${commonContributionMonths.movementId} IS NULL`,
+        })
+        .returning({ id: commonContributionMonths.id });
+
+      if (registeredRows.length === 0) {
+        return null;
+      }
+
+      await tx.insert(movements).values({ id: movementId, ...mapMovementToRow(movement) });
+
+      return MovementId(movementId);
+    });
+  }
+
   async findMaterializedMovement(
     contributionId: CommonContributionId,
     month: string,
@@ -182,6 +223,37 @@ export class DrizzleCommonContributionRepository implements CommonContributionRe
         await tx.delete(movements).where(eq(movements.id, monthRow.movementId));
       }
 
+      await tx
+        .delete(commonContributionMonths)
+        .where(eq(commonContributionMonths.id, monthRow.id));
+
+      return true;
+    });
+  }
+
+  async findMaterializedMonthByMovement(movementId: MovementId): Promise<string | null> {
+    const [row] = await this.db
+      .select({ month: commonContributionMonths.month })
+      .from(commonContributionMonths)
+      .where(eq(commonContributionMonths.movementId, movementId as number))
+      .limit(1);
+
+    return row?.month ?? null;
+  }
+
+  async withdrawMaterializationForMovement(movementId: MovementId): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const [monthRow] = await tx
+        .select()
+        .from(commonContributionMonths)
+        .where(eq(commonContributionMonths.movementId, movementId as number))
+        .limit(1);
+
+      if (monthRow === undefined) {
+        return false;
+      }
+
+      await tx.delete(movements).where(eq(movements.id, movementId as number));
       await tx
         .delete(commonContributionMonths)
         .where(eq(commonContributionMonths.id, monthRow.id));

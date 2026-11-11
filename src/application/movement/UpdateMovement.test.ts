@@ -12,6 +12,7 @@ import { TagNotFoundError } from "@/domain/tag/TagErrors";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AccountRepository } from "../account/AccountRepository";
+import type { CommonContributionRepository } from "../common-contribution/CommonContributionRepository";
 import type { MovementDTO } from "./dto";
 import type { MovementRepository } from "./MovementRepository";
 import type { TagRepository } from "../tag/TagRepository";
@@ -103,6 +104,22 @@ describe("UpdateMovement", () => {
     mergeInto: async () => ({ reassignedMovements: 0 }),
   };
 
+  function buildCommonContributions(linkedMonth: string | null): CommonContributionRepository {
+    return {
+      findByAccountId: async () => null,
+      save: async (config) => config,
+      isMaterialized: async () => false,
+      registerMaterialization: async () => false,
+      registerManualContribution: async () => {
+        throw new Error("no esperado en este caso de uso");
+      },
+      findMaterializedMovement: async () => null,
+      findMaterializedMonthByMovement: async () => linkedMonth,
+      withdrawMaterialization: async () => false,
+      withdrawMaterializationForMovement: async () => false,
+    };
+  }
+
   const baseDto = {
     movementId: 7,
     expectedAccountId: 1,
@@ -116,7 +133,7 @@ describe("UpdateMovement", () => {
 
   beforeEach(() => {
     movements = new InMemoryMovementRepository();
-    useCase = new UpdateMovement(movements, accountsRepository, tagsRepository);
+    useCase = new UpdateMovement(movements, accountsRepository, tagsRepository, buildCommonContributions(null));
   });
 
   it("actualiza reconstruyendo el movimiento y preservando id, cuenta y createdAt", async () => {
@@ -235,5 +252,29 @@ describe("UpdateMovement", () => {
     expect(movements.updated?.accountId).toBe(1);
     expect(movements.updated?.date).toBe("2026-08-20");
     expect(movements.updated?.id).toBe(7);
+  });
+
+  it("la edición de una aportación enlazada congela tipo, naturaleza y etiqueta (identidad fija)", async () => {
+    useCase = new UpdateMovement(
+      movements,
+      accountsRepository,
+      tagsRepository,
+      buildCommonContributions("2026-09"),
+    );
+
+    await useCase.execute({
+      ...baseDto,
+      type: "expense",
+      nature: null,
+      tagId: null,
+      note: "Aportación septiembre",
+      amountCents: 30_000,
+    });
+
+    expect(movements.updated?.type).toBe("expense");
+    expect(movements.updated?.nature).toBe("personal");
+    expect(movements.updated?.tagId).toBe(TagId(2));
+    expect(movements.updated?.note).toBe("Aportación septiembre");
+    expect(movements.updated?.amount.amountCents).toBe(30_000);
   });
 });

@@ -1,4 +1,5 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
+import { GetCommonContribution } from "@/application/common-contribution/GetCommonContribution";
 import { GetMonthNetContribution } from "@/application/common-contribution/GetMonthNetContribution";
 import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
@@ -86,22 +87,26 @@ export default async function AccountPage({
     regularIncomeRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, tagGroups, closure, netContribution, savings] = await Promise.all([
-    new ListMovements(movementRepository).execute(account.id, month),
-    new ListGroupedActiveTags(tagRepository, new DrizzleTagCategoryRepository(db)).execute(),
-    account.type === "personal"
-      ? new GetMonthlyClosure(movementRepository).execute(account.id, month)
-      : Promise.resolve(null),
-    account.type === "personal"
-      ? new GetMonthNetContribution(commonContributionRepository).execute(
-          AccountId(account.id),
-          month,
-        )
-      : Promise.resolve(null),
-    account.type === "personal"
-      ? new GetMonthSavings(savingsAllocationRepository).execute(AccountId(account.id), month)
-      : Promise.resolve(null),
-  ]);
+  const [movements, tagGroups, closure, netContribution, savings, commonContribution] =
+    await Promise.all([
+      new ListMovements(movementRepository).execute(account.id, month),
+      new ListGroupedActiveTags(tagRepository, new DrizzleTagCategoryRepository(db)).execute(),
+      account.type === "personal"
+        ? new GetMonthlyClosure(movementRepository).execute(account.id, month)
+        : Promise.resolve(null),
+      account.type === "personal"
+        ? new GetMonthNetContribution(commonContributionRepository).execute(
+            AccountId(account.id),
+            month,
+          )
+        : Promise.resolve(null),
+      account.type === "personal"
+        ? new GetMonthSavings(savingsAllocationRepository).execute(AccountId(account.id), month)
+        : Promise.resolve(null),
+      account.type === "personal"
+        ? new GetCommonContribution(commonContributionRepository).execute(AccountId(account.id))
+        : Promise.resolve(null),
+    ]);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
@@ -137,6 +142,7 @@ export default async function AccountPage({
         currentMonth={month}
         accountName={account.name}
         accountType={account.type}
+        contributionAvailable={commonContribution !== null && commonContribution.active}
       />
     </main>
   );

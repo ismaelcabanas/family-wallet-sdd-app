@@ -276,4 +276,130 @@ describe("DrizzleCommonContributionRepository", () => {
       expect(monthRow.movementId).toBe(movementRows[0].id);
     });
   });
+
+  describe("registro manual de la aportación (032)", () => {
+    it("registerManualContribution inserta fila del registro enlazada y movimiento en la misma tx", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+
+      const movementId = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14", note: "Aportación septiembre", amount: Money.fromCents(30_000) }),
+      );
+
+      expect(movementId).not.toBeNull();
+      const [monthRow] = await testDb.db.select().from(commonContributionMonths);
+      expect(monthRow.month).toBe("2026-09");
+      expect(monthRow.movementId).toBe(movementId as number);
+      const [movementRow] = await testDb.db.select().from(movements);
+      expect(movementRow.id).toBe(movementId as number);
+      expect(movementRow.amountCents).toBe(30_000);
+      expect(movementRow.note).toBe("Aportación septiembre");
+    });
+
+    it("devuelve null si el mes ya tiene fila con movimiento enlazado, sin crear nada (regla «0 o 1»)", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerMaterialization(saved, "2026-09", buildMovement({ date: "2026-09-01" }));
+
+      const result = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14", amount: Money.fromCents(30_000) }),
+      );
+
+      expect(result).toBeNull();
+      const movementRows = await testDb.db.select().from(movements);
+      expect(movementRows).toHaveLength(1);
+      expect(movementRows[0].amountCents).toBe(50_000);
+    });
+
+    it("enlaza una fila huérfana legacy (movement_id NULL) al movimiento nuevo", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await testDb.db.insert(commonContributionMonths).values({
+        commonContributionId: saved.id as number,
+        month: "2026-09",
+        createdAt: new Date().toISOString(),
+      });
+
+      const movementId = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14", amount: Money.fromCents(20_000) }),
+      );
+
+      expect(movementId).not.toBeNull();
+      const monthRows = await testDb.db.select().from(commonContributionMonths);
+      expect(monthRows).toHaveLength(1);
+      expect(monthRows[0].movementId).toBe(movementId as number);
+      expect(await testDb.db.select().from(movements)).toHaveLength(1);
+    });
+
+    it("findMaterializedMonthByMovement devuelve el mes del registro enlazado", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      const movementId = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14" }),
+      );
+
+      expect(await repository.findMaterializedMonthByMovement(movementId!)).toBe("2026-09");
+      const unrelatedId = await new DrizzleMovementRepository(testDb.db).create(
+        buildMovement({ date: "2026-08-02", amount: Money.fromCents(1_000) }),
+      );
+      expect(await repository.findMaterializedMonthByMovement(unrelatedId)).toBeNull();
+    });
+
+    it("withdrawMaterializationForMovement borra fila y movimiento juntos en una tx", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      const movementId = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14" }),
+      );
+
+      const withdrawn = await repository.withdrawMaterializationForMovement(movementId!);
+
+      expect(withdrawn).toBe(true);
+      expect(await testDb.db.select().from(commonContributionMonths)).toHaveLength(0);
+      expect(await testDb.db.select().from(movements)).toHaveLength(0);
+    });
+
+    it("withdrawMaterializationForMovement devuelve false sin fila enlazada y no borra el movimiento", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const movementRepository = new DrizzleMovementRepository(testDb.db);
+      const movementId = await movementRepository.create(buildMovement({ date: "2026-09-14" }));
+
+      const withdrawn = await repository.withdrawMaterializationForMovement(movementId);
+
+      expect(withdrawn).toBe(false);
+      expect(await testDb.db.select().from(movements)).toHaveLength(1);
+    });
+
+    it("el mes retirado admite de nuevo el registro manual (regla «0 o 1» reversible)", async () => {
+      const repository = new DrizzleCommonContributionRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      const first = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-14", amount: Money.fromCents(30_000) }),
+      );
+      await repository.withdrawMaterializationForMovement(first!);
+
+      const second = await repository.registerManualContribution(
+        saved,
+        "2026-09",
+        buildMovement({ date: "2026-09-20", amount: Money.fromCents(25_000) }),
+      );
+
+      expect(second).not.toBeNull();
+      const monthRows = await testDb.db.select().from(commonContributionMonths);
+      expect(monthRows).toHaveLength(1);
+      expect(monthRows[0].movementId).toBe(second as number);
+    });
+  });
 });
