@@ -27,7 +27,7 @@
 
 ### Pendientes de clarify
 
-- Q: ¿Se extiende la importación (028) para traer las filas «Aportación Común» del Excel (hoy descartadas), o quedan fuera y el usuario las registra a mano? [NEEDS CLARIFICATION]
+- Q: ¿Se extiende la importación (028) para traer las filas «Aportación Común» del Excel (hoy descartadas), o quedan fuera y el usuario las registra a mano? → A: **No extender 028**: el usuario registra las aportaciones manualmente tras importar los otros movimientos. El importador sigue descartando las filas «Aportación Común» (paridad con el registro manual).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -102,7 +102,7 @@ No se introducen entidades nuevas de dominio ni de esquema (sin migraciones). Ca
 - **Ahorro (023) para meses pasados**: feature futura (mecanismo sin decidir; no es un movimiento).
 - **Retro-activación de configs** (selector «aplicar desde», amend de `activate()`): enfoque descartado en clarify.
 - **Botón «generar meses pendientes» en lote**: anulado junto con la retro-activación.
-- **Extender el importador (028) para traer las filas «Aportación Común»**: [NEEDS CLARIFICATION] dentro/fuera.
+- **Extender el importador (028) para traer las filas «Aportación Común»**: No extender (decisión del propietario). El usuario registra manualmente las aportaciones tras importar los otros movimientos.
 - **Segundo movimiento de aportación en un mes** («aportación extraordinaria»): bloqueado por la regla de unicidad; posible iteración futura si surge el caso real.
 - Reabrir, reajustar o borrar meses ya registrados por el materializador (congelados por 021).
 - Cualquier cambio en las configs o su ventana de activación.
