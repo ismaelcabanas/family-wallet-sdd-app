@@ -22,9 +22,9 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create feature documentation structure in specs/032-retroactivacion-aportacion-ahorro/
-- [ ] T002 Review existing codebase structure (src/domain, src/application, src/infrastructure)
-- [ ] T003 [P] Verify database schema supports the feature (common_contribution_months, Movement, Tag)
+- [X] T001 Create feature documentation structure in specs/032-retroactivacion-aportacion-ahorro/
+- [X] T002 Review existing codebase structure (src/domain, src/application, src/infrastructure)
+- [X] T003 [P] Verify database schema supports the feature (common_contribution_months, Movement, Tag)
 
 ---
 
@@ -32,12 +32,12 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-- [ ] T004 [P] Review MovementRepository implementation in src/infrastructure/db/repositories/
-- [ ] T005 [P] Review ContributionConfigRepository implementation in src/infrastructure/db/repositories/
-- [ ] T006 [P] Review TagRepository implementation in src/infrastructure/db/repositories/
-- [ ] T007 [P] Verify Drizzle schema for common_contribution_months table
-- [ ] T008 [P] Review MovementUseCase implementation in src/application/
-- [ ] T009 [P] Review GetMonthNetContribution use case in src/application/
+- [X] T004 [P] Review MovementRepository implementation in src/infrastructure/db/repositories/
+- [X] T005 [P] Review ContributionConfigRepository implementation in src/infrastructure/db/repositories/
+- [X] T006 [P] Review TagRepository implementation in src/infrastructure/db/repositories/
+- [X] T007 [P] Verify Drizzle schema for common_contribution_months table
+- [X] T008 [P] Review MovementUseCase implementation in src/application/
+- [X] T009 [P] Review GetMonthNetContribution use case in src/application/
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -53,33 +53,33 @@
 
 #### Paso 1: Definir la lógica de negocio en el dominio
 
-- [ ] T010 [P] [US1] Implement MovementType enum en src/domain/movement/MovementType.ts con valor «CONTRIBUTION»
-- [ ] T011 [P] [US1] Implement CreateMovementUseCase en src/application/movement/CreateMovementUseCase.ts con lógica de validación de unicidad
-- [ ] T012 [US1] Implement CreateMovementUseCase.execute() que consulte common_contribution_months por configId y mes antes de crear
-- [ ] T013 [US1] Implement CreateMovementUseCase.execute() que escriba la fila del registro en la misma transacción (ON CONFLICT DO NOTHING)
-- [ ] T014 [US1] Implement CreateMovementUseCase.validateUniqueness() que lance ContributionAlreadyExistsError si existe registro
-- [ ] T015 [US1] Implement ContributionAlreadyExistsError en src/domain/movement/exceptions/
+- [X] T010 [P] [US1] Implement MovementType enum en src/domain/movement/MovementType.ts con valor «CONTRIBUTION»
+- [X] T011 [P] [US1] Implement CreateMovementUseCase en src/application/movement/CreateMovementUseCase.ts con lógica de validación de unicidad
+- [X] T012 [US1] Implement CreateMovementUseCase.execute() que consulte common_contribution_months por configId y mes antes de crear
+- [X] T013 [US1] Implement CreateMovementUseCase.execute() que escriba la fila del registro en la misma transacción (ON CONFLICT DO NOTHING)
+- [X] T014 [US1] Implement CreateMovementUseCase.validateUniqueness() que lance ContributionAlreadyExistsError si existe registro
+- [X] T015 [US1] Implement ContributionAlreadyExistsError en src/domain/movement/exceptions/
 
 #### Paso 2: Adaptar el repositorio para soportar la lógica
 
-- [ ] T016 [P] [US1] Implement MovementRepository.create() en src/infrastructure/db/repositories/movement-repository.ts para escribir movement_id en common_contribution_months
-- [ ] T017 [P] [US1] Implement MovementRepository.create() con transacción que haga INSERT en movements y luego INSERT en common_contribution_months
-- [ ] T018 [P] [US1] Implement ContributionConfigRepository.existsForMonth() para consultar existencia de registro por configId y mes
+- [X] T016 [P] [US1] Implement MovementRepository.create() en src/infrastructure/db/repositories/movement-repository.ts para escribir movement_id en common_contribution_months
+- [X] T017 [P] [US1] Implement MovementRepository.create() con transacción que haga INSERT en movements y luego INSERT en common_contribution_months
+- [X] T018 [P] [US1] Implement ContributionConfigRepository.existsForMonth() para consultar existencia de registro por configId y mes
 
 #### Paso 3: Adaptar la UI del formulario de alta de movimiento
 
-- [ ] T019 [P] [US1] Implement SelectMovementTypeDialog en src/infrastructure/primary/ui/movement/create-movement-dialog.tsx con opción «Aportación común»
-- [ ] T020 [US1] Implement SelectMovementTypeDialog con lógica que, al seleccionar «Aportación común», implícite naturaleza propia y etiqueta «Aportación Común»
-- [ ] T021 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo en cuenta común (sin config de aportación)
-- [ ] T022 [P] [US1] Implement SelectMovementTypeDialog con validación de unicidad en el submit (llamada al use case)
-- [ ] T023 [US1] Implement SelectMovementTypeDialog con error UI con role="alert" al mostrar error de duplicado
-- [ ] T024 [P] [US1] Implement SelectMovementTypeDialog con revalidatePath("/", "layout") en éxito
+- [X] T019 [P] [US1] Implement SelectMovementTypeDialog en src/infrastructure/primary/ui/movement/create-movement-dialog.tsx con opción «Aportación común»
+- [X] T020 [US1] Implement SelectMovementTypeDialog con lógica que, al seleccionar «Aportación común», implícite naturaleza propia y etiqueta «Aportación Común»
+- [X] T021 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo en cuenta común (sin config de aportación)
+- [X] T022 [P] [US1] Implement SelectMovementTypeDialog con validación de unicidad en el submit (llamada al use case)
+- [X] T023 [US1] Implement SelectMovementTypeDialog con error UI con role="alert" al mostrar error de duplicado
+- [X] T024 [P] [US1] Implement SelectMovementTypeDialog con revalidatePath("/", "layout") en éxito
 
 #### Paso 4: Integración y validación
 
-- [ ] T025 [US1] Implement SelectMovementTypeDialog con botón de cancelar que no guarde nada
-- [ ] T026 [US1] Implement SelectMovementTypeDialog con toast de éxito al crear movimiento de aportación
-- [ ] T027 [US1] Implement SelectMovementTypeDialog con toast de error al intentar crear duplicado
+- [X] T025 [US1] Implement SelectMovementTypeDialog con botón de cancelar que no guarde nada
+- [X] T026 [US1] Implement SelectMovementTypeDialog con toast de éxito al crear movimiento de aportación
+- [X] T027 [US1] Implement SelectMovementTypeDialog con toast de error al intentar crear duplicado
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -91,38 +91,38 @@
 
 ### Edge Case: Mes dentro de ventana de config activa
 
-- [ ] T028 [US1] Implement SelectMovementTypeDialog con lógica que permita registro manual en mes en curso (no bloquee por estar en ventana activa)
-- [ ] T029 [US1] Implement SelectMovementTypeDialog con validación que respete la fila existente si el materializador ya generó una
+- [X] T028 [US1] Implement SelectMovementTypeDialog con lógica que permita registro manual en mes en curso (no bloquee por estar en ventana activa)
+- [X] T029 [US1] Implement SelectMovementTypeDialog con validación que respete la fila existente si el materializador ya generó una
 
 ### Edge Case: Segundo movimiento de aportación en un mes
 
-- [ ] T030 [US1] Implement SelectMovementTypeDialog con error de unicidad al intentar crear segundo movimiento en mismo mes
-- [ ] T031 [US1] Implement SelectMovementTypeDialog con mensaje claro: «Ya existe una aportación registrada para este mes»
+- [X] T030 [US1] Implement SelectMovementTypeDialog con error de unicidad al intentar crear segundo movimiento en mismo mes
+- [X] T031 [US1] Implement SelectMovementTypeDialog con mensaje claro: «Ya existe una aportación registrada para este mes»
 
 ### Edge Case: Sin config de aportación activa
 
-- [ ] T032 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo «Aportación común» si no hay config activa
-- [ ] T033 [US1] Implement SelectMovementTypeDialog con toast informativo: «Esta cuenta no tiene configurada la aportación común»
+- [X] T032 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo «Aportación común» si no hay config activa
+- [X] T033 [US1] Implement SelectMovementTypeDialog con toast informativo: «Esta cuenta no tiene configurada la aportación común»
 
 ### Edge Case: Borrado del movimiento manual
 
-- [ ] T034 [US1] Implement MovementUseCase.delete() que elimine también la fila del registro en la misma transacción
-- [ ] T035 [US1] Implement MovementUseCase.delete() con lógica que verifique que el movimiento es de tipo CONTRIBUTION antes de borrar registro
+- [X] T034 [US1] Implement MovementUseCase.delete() que elimine también la fila del registro en la misma transacción
+- [X] T035 [US1] Implement MovementUseCase.delete() con lógica que verifique que el movimiento es de tipo CONTRIBUTION antes de borrar registro
 
 ### Edge Case: Edición del movimiento de aportación
 
-- [ ] T036 [US1] Implement MovementUseCase.update() que mantenga inmutable el tipo, naturaleza y etiqueta para movimientos de tipo CONTRIBUTION
-- [ ] T037 [US1] Implement MovementUseCase.update() que permita solo editar importe, nota y fecha
+- [X] T036 [US1] Implement MovementUseCase.update() que mantenga inmutable el tipo, naturaleza y etiqueta para movimientos de tipo CONTRIBUTION
+- [X] T037 [US1] Implement MovementUseCase.update() que permita solo editar importe, nota y fecha
 
 ### Edge Case: Cuenta común
 
-- [ ] T038 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo «Aportación común» en cuenta común
-- [ ] T039 [US1] Implement SelectMovementTypeDialog con validación que verifique accountId de cuenta personal
+- [X] T038 [US1] Implement SelectMovementTypeDialog con guardia que oculte el tipo «Aportación común» en cuenta común
+- [X] T039 [US1] Implement SelectMovementTypeDialog con validación que verifique accountId de cuenta personal
 
 ### Edge Case: Importe manual incorrecto
 
-- [ ] T040 [US1] Implement SelectMovementTypeDialog sin validación contra porcentajes de la config
-- [ ] T041 [US1] Implement SelectMovementTypeDialog que acepte cualquier importe positivo
+- [X] T040 [US1] Implement SelectMovementTypeDialog sin validación contra porcentajes de la config
+- [X] T041 [US1] Implement SelectMovementTypeDialog que acepte cualquier importe positivo
 
 **Checkpoint**: All edge cases covered and tested
 
@@ -134,27 +134,27 @@
 
 ### Tests de Unidad
 
-- [ ] T042 [P] [US1] Unit test for CreateMovementUseCase.create() with new contribution (src/application/movement/CreateMovementUseCase.test.ts)
-- [ ] T043 [P] [US1] Unit test for CreateMovementUseCase.validateUniqueness() with existing record (src/application/movement/CreateMovementUseCase.test.ts)
-- [ ] T044 [P] [US1] Unit test for CreateMovementUseCase.validateUniqueness() with no existing record (src/application/movement/CreateMovementUseCase.test.ts)
-- [ ] T045 [P] [US1] Unit test for MovementRepository.create() writes to common_contribution_months (src/infrastructure/db/repositories/movement-repository.test.ts)
-- [ ] T046 [P] [US1] Unit test for MovementRepository.delete() deletes both movement and record (src/infrastructure/db/repositories/movement-repository.test.ts)
-- [ ] T047 [P] [US1] Unit test for ContributionConfigRepository.existsForMonth() (src/infrastructure/db/repositories/contribution-config-repository.test.ts)
+- [X] T042 [P] [US1] Unit test for CreateMovementUseCase.create() with new contribution (src/application/movement/CreateMovementUseCase.test.ts)
+- [X] T043 [P] [US1] Unit test for CreateMovementUseCase.validateUniqueness() with existing record (src/application/movement/CreateMovementUseCase.test.ts)
+- [X] T044 [P] [US1] Unit test for CreateMovementUseCase.validateUniqueness() with no existing record (src/application/movement/CreateMovementUseCase.test.ts)
+- [X] T045 [P] [US1] Unit test for MovementRepository.create() writes to common_contribution_months (src/infrastructure/db/repositories/movement-repository.test.ts)
+- [X] T046 [P] [US1] Unit test for MovementRepository.delete() deletes both movement and record (src/infrastructure/db/repositories/movement-repository.test.ts)
+- [X] T047 [P] [US1] Unit test for ContributionConfigRepository.existsForMonth() (src/infrastructure/db/repositories/contribution-config-repository.test.ts)
 
 ### Tests de Componente
 
-- [ ] T048 [P] [US1] Component test for SelectMovementTypeDialog shows CONTRIBUTION option with active config (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
-- [ ] T049 [P] [US1] Component test for SelectMovementTypeDialog hides CONTRIBUTION option without active config (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
-- [ ] T050 [P] [US1] Component test for SelectMovementTypeDialog implies OWN nature and protected tag (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
-- [ ] T051 [P] [US1] Component test for SelectMovementTypeDialog shows error with role="alert" on duplicate (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
-- [ ] T052 [P] [US1] Component test for SelectMovementTypeDialog revalidates page on success (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
+- [X] T048 [P] [US1] Component test for SelectMovementTypeDialog shows CONTRIBUTION option with active config (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
+- [X] T049 [P] [US1] Component test for SelectMovementTypeDialog hides CONTRIBUTION option without active config (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
+- [X] T050 [P] [US1] Component test for SelectMovementTypeDialog implies OWN nature and protected tag (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
+- [X] T051 [P] [US1] Component test for SelectMovementTypeDialog shows error with role="alert" on duplicate (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
+- [X] T052 [P] [US1] Component test for SelectMovementTypeDialog revalidates page on success (src/infrastructure/primary/ui/movement/create-movement-dialog.test.tsx)
 
 ### Tests E2E
 
-- [ ] T053 [P] [US1] E2E test for creating manual contribution in past month (e2e/contribution-manual.test.ts)
-- [ ] T054 [P] [US1] E2E test for duplicate contribution error (e2e/contribution-manual.test.ts)
-- [ ] T055 [P] [US1] E2E test for contribution appearing in KPI and summary (e2e/contribution-manual.test.ts)
-- [ ] T056 [P] [US1] E2E test for deleting contribution removes record (e2e/contribution-manual.test.ts)
+- [X] T053 [P] [US1] E2E test for creating manual contribution in past month (e2e/contribution-manual.test.ts)
+- [X] T054 [P] [US1] E2E test for duplicate contribution error (e2e/contribution-manual.test.ts)
+- [X] T055 [P] [US1] E2E test for contribution appearing in KPI and summary (e2e/contribution-manual.test.ts)
+- [X] T056 [P] [US1] E2E test for deleting contribution removes record (e2e/contribution-manual.test.ts)
 
 **Checkpoint**: All tests passing - feature ready for production
 
@@ -164,11 +164,11 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T057 [P] Documentation: Update AGENTS.md with manual contribution registration pattern
-- [ ] T058 [P] Documentation: Create ADR for manual contribution registration (docs/architecture/adr/adr-XXX-manual-contribution.md)
-- [ ] T059 [P] Documentation: Update roadmap maestro specs/001-family-wallet/spec.md marking 032 as completed
-- [ ] T060 [P] Run quickstart.md validation for feature 032
-- [ ] T061 [P] Code cleanup and ensure no dead code from discarded approaches (retro-activation of configs)
+- [X] T057 [P] Documentation: Update AGENTS.md with manual contribution registration pattern
+- [X] T058 [P] Documentation: Create ADR for manual contribution registration (docs/architecture/adr/adr-XXX-manual-contribution.md)
+- [X] T059 [P] Documentation: Update roadmap maestro specs/001-family-wallet/spec.md marking 032 as completed
+- [X] T060 [P] Run quickstart.md validation for feature 032
+- [X] T061 [P] Code cleanup and ensure no dead code from discarded approaches (retro-activation of configs)
 
 ---
 
