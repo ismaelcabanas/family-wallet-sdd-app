@@ -138,6 +138,7 @@ export function MovementFormFields({
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
   const noteRef = useRef<HTMLInputElement>(null);
   const tagNameInputRef = useRef<HTMLInputElement>(null);
   const tagSelectRef = useRef<HTMLButtonElement>(null);
@@ -148,6 +149,27 @@ export function MovementFormFields({
   const [createdTags, setCreatedTags] = useState<TagDTO[]>([]);
   const [focusTagSelectAfterCreation, setFocusTagSelectAfterCreation] = useState(false);
   const [isCreatingTag, startTagCreation] = useTransition();
+
+  useEffect(() => {
+    const form = formRef.current;
+    if (form === null) return;
+    const restoreTypeAfterReset = () => {
+      const submittedType = form.querySelector<HTMLInputElement>(
+        'input[type="radio"][name="type"]:checked',
+      )?.value;
+      if (
+        submittedType === "expense" ||
+        submittedType === "income" ||
+        submittedType === "contribution"
+      ) {
+        queueMicrotask(() => {
+          setChosenType(submittedType);
+        });
+      }
+    };
+    form.addEventListener("reset", restoreTypeAfterReset);
+    return () => form.removeEventListener("reset", restoreTypeAfterReset);
+  }, []);
 
   useEffect(() => {
     if (carry && noteRef.current) {
@@ -258,7 +280,7 @@ export function MovementFormFields({
     .filter((group) => group.tags.length > 0);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       {children}
       {isEditMode ? null : <input type="hidden" name="accountId" value={accountId} />}
 
