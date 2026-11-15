@@ -30,6 +30,7 @@ import {
   movementFormSchema,
   movementIntentSchema,
   parseAmountToCents,
+  relocateHiddenFieldErrors,
   toMovementFormValues,
   type MovementFieldErrors,
   type MovementFormValues,
@@ -104,7 +105,11 @@ export async function createMovement(
 
   if (!parsed.success) {
     const fieldErrors = z.flattenError(parsed.error).fieldErrors as MovementFieldErrors;
-    return { status: "error", errors: fieldErrors, values: toMovementFormValues(raw) };
+    return {
+      status: "error",
+      errors: relocateHiddenFieldErrors(fieldErrors, raw.type),
+      values: toMovementFormValues(raw),
+    };
   }
 
   const data = parsed.data;
@@ -155,6 +160,10 @@ export async function createMovement(
     revalidatePath("/accounts/[accountId]", "page");
     return { status: "success", message: "Movimiento guardado", intent };
   } catch (error) {
-    return { status: "error", errors: mapDomainErrors(error), values: toMovementFormValues(raw) };
+    return {
+      status: "error",
+      errors: relocateHiddenFieldErrors(mapDomainErrors(error), raw.type),
+      values: toMovementFormValues(raw),
+    };
   }
 }

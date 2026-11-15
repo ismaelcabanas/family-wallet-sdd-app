@@ -19,6 +19,7 @@ import {
   extractMovementFormData,
   movementFormSchema,
   parseAmountToCents,
+  relocateHiddenFieldErrors,
   toMovementFormValues,
   type MovementFieldErrors,
   type MovementFormValues,
@@ -89,7 +90,11 @@ export async function updateMovement(
 
   if (!parsedForm.success) {
     const fieldErrors = z.flattenError(parsedForm.error).fieldErrors as MovementFieldErrors;
-    return { status: "error", errors: fieldErrors, values: toMovementFormValues(raw) };
+    return {
+      status: "error",
+      errors: relocateHiddenFieldErrors(fieldErrors, raw.type),
+      values: toMovementFormValues(raw),
+    };
   }
   if (!parsedContext.success) {
     return { status: "error", errors: { _form: [UNEXPECTED_ERROR] }, values: toMovementFormValues(raw) };
@@ -121,6 +126,10 @@ export async function updateMovement(
       revalidatePath("/");
       revalidatePath("/accounts/[accountId]", "page");
     }
-    return { status: "error", errors: mapDomainErrors(error), values: toMovementFormValues(raw) };
+    return {
+      status: "error",
+      errors: relocateHiddenFieldErrors(mapDomainErrors(error), raw.type),
+      values: toMovementFormValues(raw),
+    };
   }
 }

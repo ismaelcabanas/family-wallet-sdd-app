@@ -180,4 +180,22 @@ describe("updateMovement (Server Action)", () => {
       tagId: null,
     });
   });
+
+  it("mapea TagNotFoundError de la etiqueta implícita del ahorro a error de formulario visible", async () => {
+    const { TagNotFoundError } = await import("@/domain/tag/TagErrors");
+    updateExecuteMock.mockRejectedValueOnce(new TagNotFoundError());
+
+    const formData = buildFormData({ type: "savings", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors._form).toEqual([
+        "Una de las etiquetas seleccionadas ya no está disponible.",
+      ]);
+      expect(state.errors.tagId).toBeUndefined();
+    }
+  });
 });
