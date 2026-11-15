@@ -199,3 +199,26 @@ export function toMovementFormValues(raw: RawMovementInput): MovementFormValues 
     tagId: raw.tagId,
   };
 }
+
+const HIDDEN_FIELDS_BY_TYPE: Record<string, MovementFieldKey[]> = {
+  contribution: ["nature", "tagId"],
+  savings: ["nature", "tagId"],
+};
+
+export function relocateHiddenFieldErrors(
+  errors: MovementFieldErrors,
+  type: string,
+): MovementFieldErrors {
+  const hiddenFields = HIDDEN_FIELDS_BY_TYPE[type];
+  if (hiddenFields === undefined) return errors;
+  const relocated: MovementFieldErrors = { ...errors };
+  const formMessages = [...(relocated._form ?? [])];
+  for (const field of hiddenFields) {
+    const messages = relocated[field];
+    if (messages !== undefined) {
+      formMessages.push(...messages);
+      delete relocated[field];
+    }
+  }
+  return formMessages.length > 0 ? { ...relocated, _form: formMessages } : relocated;
+}

@@ -913,4 +913,32 @@ describe("MovementFormFields (tipo «Ahorro», 033)", () => {
     expect(screen.getByLabelText("Importe (€)")).toHaveValue("250,00");
     expect(screen.getByRole("radio", { name: "Ahorro" })).toBeChecked();
   });
+
+  it("el error de la etiqueta implícita del ahorro se muestra aunque el selector esté oculto", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValueOnce(
+      errorState({
+        errors: { _form: ["Una de las etiquetas seleccionadas ya no está disponible."] },
+        values: {
+          date: "2026-05-14",
+          note: "",
+          amount: "250,00",
+          accountId: "1",
+          type: "savings",
+          nature: "",
+          tagId: "",
+        },
+      }),
+    );
+    renderCreateDialog(personalAccount, false, true);
+
+    await user.click(screen.getByRole("radio", { name: "Ahorro" }));
+    await user.type(screen.getByLabelText("Importe (€)"), "250,00");
+    await user.click(screen.getByRole("button", { name: "Guardar y seguir" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Una de las etiquetas seleccionadas ya no está disponible.");
+    expect(screen.queryByRole("combobox", { name: "Etiqueta" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Importe (€)")).toHaveValue("250,00");
+  });
 });

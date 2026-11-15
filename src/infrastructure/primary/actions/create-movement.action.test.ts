@@ -378,14 +378,43 @@ describe("createMovement (Server Action)", () => {
     }
   });
 
-  it("rechaza un ahorro que viaja con naturaleza o etiqueta explícitas", async () => {
+  it("rechaza un ahorro que viaja con naturaleza o etiqueta explícitas, degradadas a _form", async () => {
     const state = await run(buildFormData({ type: "savings" }));
 
     expect(state.status).toBe("error");
     if (state.status === "error") {
-      expect(state.errors.nature).toEqual(["El ahorro lleva naturaleza propia implícita."]);
-      expect(state.errors.tagId).toEqual(["El ahorro lleva la etiqueta «Ahorro» implícita."]);
+      expect(state.errors._form).toEqual([
+        "El ahorro lleva naturaleza propia implícita.",
+        "El ahorro lleva la etiqueta «Ahorro» implícita.",
+      ]);
+      expect(state.errors.nature).toBeUndefined();
+      expect(state.errors.tagId).toBeUndefined();
     }
     expect(savingsExecuteMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["savings", "savingsExecuteMock"],
+    ["contribution", "registerExecuteMock"],
+  ])(
+    "mapea TagNotFoundError de la etiqueta implícita de %s a error de formulario visible",
+    async (type, mockName) => {
+      const { TagNotFoundError } = await import("@/domain/tag/TagErrors");
+      const mock = mockName === "savingsExecuteMock" ? savingsExecuteMock : registerExecuteMock;
+      mock.mockRejectedValueOnce(new TagNotFoundError());
+
+      const formData = buildFormData({ type, tagId: "" });
+      formData.delete("nature");
+
+      const state = await run(formData);
+
+      expect(state.status).toBe("error");
+      if (state.status === "error") {
+        expect(state.errors._form).toEqual([
+          "Una de las etiquetas seleccionadas ya no está disponible.",
+        ]);
+        expect(state.errors.tagId).toBeUndefined();
+      }
+    },
+  );
 });
