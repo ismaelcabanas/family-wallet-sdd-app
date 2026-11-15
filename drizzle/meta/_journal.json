@@ -64,6 +64,13 @@
       "when": 1793639934527,
       "tag": "0008_categorias-tags",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794720000000,
+      "tag": "0009_ahorro-movimiento",
+      "breakpoints": true
     }
   ]
 }

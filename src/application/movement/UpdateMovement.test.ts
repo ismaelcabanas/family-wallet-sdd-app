@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AccountRepository } from "../account/AccountRepository";
 import type { CommonContributionRepository } from "../common-contribution/CommonContributionRepository";
+import type { SavingsAllocationRepository } from "../savings/SavingsAllocationRepository";
 import type { MovementDTO } from "./dto";
 import type { MovementRepository } from "./MovementRepository";
 import type { TagRepository } from "../tag/TagRepository";
@@ -120,6 +121,22 @@ describe("UpdateMovement", () => {
     };
   }
 
+  function buildSavings(linkedMonth: string | null): SavingsAllocationRepository {
+    return {
+      findByAccountId: async () => null,
+      save: async (config) => config,
+      isDeducted: async () => false,
+      registerMaterialization: async () => false,
+      registerManualSavings: async () => {
+        throw new Error("no esperado en este caso de uso");
+      },
+      findDeductedAmount: async () => null,
+      findDeductedMovement: async () => null,
+      findDeductedMonthByMovement: async () => linkedMonth,
+      withdrawDeductionForMovement: async () => false,
+    };
+  }
+
   const baseDto = {
     movementId: 7,
     expectedAccountId: 1,
@@ -133,7 +150,13 @@ describe("UpdateMovement", () => {
 
   beforeEach(() => {
     movements = new InMemoryMovementRepository();
-    useCase = new UpdateMovement(movements, accountsRepository, tagsRepository, buildCommonContributions(null));
+    useCase = new UpdateMovement(
+      movements,
+      accountsRepository,
+      tagsRepository,
+      buildCommonContributions(null),
+      buildSavings(null),
+    );
   });
 
   it("actualiza reconstruyendo el movimiento y preservando id, cuenta y createdAt", async () => {
@@ -260,6 +283,7 @@ describe("UpdateMovement", () => {
       accountsRepository,
       tagsRepository,
       buildCommonContributions("2026-09"),
+      buildSavings(null),
     );
 
     await useCase.execute({
@@ -276,5 +300,30 @@ describe("UpdateMovement", () => {
     expect(movements.updated?.tagId).toBe(TagId(2));
     expect(movements.updated?.note).toBe("Aportación septiembre");
     expect(movements.updated?.amount.amountCents).toBe(30_000);
+  });
+
+  it("la edición de un ahorro enlazado congela tipo, naturaleza y etiqueta (identidad fija)", async () => {
+    useCase = new UpdateMovement(
+      movements,
+      accountsRepository,
+      tagsRepository,
+      buildCommonContributions(null),
+      buildSavings("2026-09"),
+    );
+
+    await useCase.execute({
+      ...baseDto,
+      type: "expense",
+      nature: null,
+      tagId: null,
+      note: "Ahorro corregido",
+      amountCents: 27_500,
+    });
+
+    expect(movements.updated?.type).toBe("expense");
+    expect(movements.updated?.nature).toBe("personal");
+    expect(movements.updated?.tagId).toBe(TagId(2));
+    expect(movements.updated?.note).toBe("Ahorro corregido");
+    expect(movements.updated?.amount.amountCents).toBe(27_500);
   });
 });

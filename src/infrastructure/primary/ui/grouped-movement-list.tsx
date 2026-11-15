@@ -44,6 +44,7 @@ interface GroupedMovementListProps {
   accountName: string;
   accountType: "personal" | "shared";
   contributionAvailable?: boolean;
+  savingsAvailable?: boolean;
 }
 
 export function GroupedMovementList({
@@ -54,6 +55,7 @@ export function GroupedMovementList({
   accountName,
   accountType,
   contributionAvailable = false,
+  savingsAvailable = false,
 }: GroupedMovementListProps) {
   const [editing, setEditing] = useState<MovementDTO | null>(null);
   const [deleting, setDeleting] = useState<MovementDTO | null>(null);
@@ -230,6 +232,7 @@ export function GroupedMovementList({
           accountType={accountType}
           tagGroups={tagGroups}
           contributionAvailable={contributionAvailable}
+          savingsAvailable={savingsAvailable}
           onClose={() => setCreating(false)}
         />
       ) : null}

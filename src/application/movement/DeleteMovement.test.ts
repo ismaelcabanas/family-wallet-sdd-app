@@ -101,15 +101,60 @@ class StubCommonContributionRepository {
   }
 }
 
+class StubSavingsAllocationRepository {
+  withdrawnMovementIds: number[] = [];
+
+  constructor(private readonly linked: boolean) {}
+
+  async findByAccountId(): Promise<null> {
+    return null;
+  }
+
+  async save(): Promise<never> {
+    throw new Error("no esperado en este caso de uso");
+  }
+
+  async isDeducted(): Promise<boolean> {
+    return false;
+  }
+
+  async registerMaterialization(): Promise<boolean> {
+    return false;
+  }
+
+  async registerManualSavings(): Promise<null> {
+    return null;
+  }
+
+  async findDeductedAmount(): Promise<number | null> {
+    return null;
+  }
+
+  async findDeductedMovement(): Promise<null> {
+    return null;
+  }
+
+  async findDeductedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawDeductionForMovement(movementId: number): Promise<boolean> {
+    this.withdrawnMovementIds.push(movementId);
+    return this.linked;
+  }
+}
+
 describe("DeleteMovement", () => {
   let movements: InMemoryMovementRepository;
   let commonContributions: StubCommonContributionRepository;
+  let savingsAllocations: StubSavingsAllocationRepository;
   let useCase: DeleteMovement;
 
   beforeEach(() => {
     movements = new InMemoryMovementRepository();
     commonContributions = new StubCommonContributionRepository(false);
-    useCase = new DeleteMovement(movements, commonContributions);
+    savingsAllocations = new StubSavingsAllocationRepository(false);
+    useCase = new DeleteMovement(movements, commonContributions, savingsAllocations);
   });
 
   it("elimina el movimiento por su id cuando existe", async () => {
@@ -127,11 +172,12 @@ describe("DeleteMovement", () => {
 
   it("elimina movimiento y fila del registro juntos cuando el mes está enlazado (regla «0 o 1»)", async () => {
     commonContributions = new StubCommonContributionRepository(true);
-    useCase = new DeleteMovement(movements, commonContributions);
+    useCase = new DeleteMovement(movements, commonContributions, savingsAllocations);
 
     await useCase.execute(7);
 
     expect(commonContributions.withdrawnMovementIds).toEqual([7]);
+    expect(savingsAllocations.withdrawnMovementIds).toEqual([]);
     expect(movements.deletedId).toBeNull();
   });
 
@@ -139,6 +185,18 @@ describe("DeleteMovement", () => {
     await useCase.execute(7);
 
     expect(commonContributions.withdrawnMovementIds).toEqual([7]);
+    expect(savingsAllocations.withdrawnMovementIds).toEqual([7]);
     expect(movements.deletedId).toBe(7);
+  });
+
+  it("borrado uniforme de ahorro: movimiento y fila de savings juntos, cualquier origen", async () => {
+    savingsAllocations = new StubSavingsAllocationRepository(true);
+    useCase = new DeleteMovement(movements, commonContributions, savingsAllocations);
+
+    await useCase.execute(7);
+
+    expect(commonContributions.withdrawnMovementIds).toEqual([7]);
+    expect(savingsAllocations.withdrawnMovementIds).toEqual([7]);
+    expect(movements.deletedId).toBeNull();
   });
 });

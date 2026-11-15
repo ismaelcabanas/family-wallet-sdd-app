@@ -23,6 +23,12 @@ export class SavingsAllocationNotFoundError extends DomainError {
   }
 }
 
+export class SavingsAlreadyExistsError extends DomainError {
+  constructor(message = "Ya existe un ahorro registrado para este mes.") {
+    super(message);
+  }
+}
+
 export class MissingRegularIncomeError extends DomainError {
   constructor(message = "Configura primero el ingreso regular de este miembro.") {
     super(message);

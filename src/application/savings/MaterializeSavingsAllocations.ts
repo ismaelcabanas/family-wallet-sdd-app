@@ -1,12 +1,20 @@
 import type { AccountId } from "@/domain/account/AccountId";
+import { Money } from "@/domain/movement/Money";
+import { Movement } from "@/domain/movement/Movement";
+import { SAVINGS_TAG_SLUG } from "@/domain/tag/SystemTags";
+import { TagNotFoundError } from "@/domain/tag/TagErrors";
 import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRepository";
+import type { TagRepository } from "../tag/TagRepository";
 
 import type { SavingsAllocationRepository } from "./SavingsAllocationRepository";
+
+const DEFAULT_NOTE = "Ahorro";
 
 export class MaterializeSavingsAllocations {
   constructor(
     private readonly savingsAllocations: SavingsAllocationRepository,
     private readonly regularIncomes: RegularIncomeRepository,
+    private readonly tags: TagRepository,
   ) {}
 
   async ensureForAccountAndMonth(
@@ -37,6 +45,21 @@ export class MaterializeSavingsAllocations {
       return;
     }
 
-    await this.savingsAllocations.registerDeduction(config, month, amountCents);
+    const tag = await this.tags.findBySlug(SAVINGS_TAG_SLUG);
+    if (tag === null || tag.id === null) {
+      throw new TagNotFoundError();
+    }
+
+    const movement = Movement.create({
+      accountId,
+      type: "expense",
+      date: `${month}-01`,
+      note: DEFAULT_NOTE,
+      amount: Money.fromCents(amountCents),
+      nature: "personal",
+      tagId: tag.id,
+    });
+
+    await this.savingsAllocations.registerMaterialization(config, month, movement);
   }
 }

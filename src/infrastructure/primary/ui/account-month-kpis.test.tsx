@@ -10,7 +10,7 @@ const EUR = "[\\s\\u00A0\\u202F]€$";
 interface RenderKpisInput {
   netContribution: { configured: boolean; amountCents: number };
   personalExpenseCents: number;
-  savings: { configured: boolean; amountCents: number };
+  savings: { configured: boolean; amountCents: number; backedByMovement?: boolean };
   netMonthBalanceCents: number;
   month?: string;
 }
@@ -26,7 +26,7 @@ function renderKpis({
     <AccountMonthKpis
       netContribution={netContribution}
       personalExpenseCents={personalExpenseCents}
-      savings={savings}
+      savings={{ backedByMovement: false, ...savings }}
       netMonthBalanceCents={netMonthBalanceCents}
       month={month}
     />,

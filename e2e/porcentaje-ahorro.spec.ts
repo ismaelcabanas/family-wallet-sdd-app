@@ -147,7 +147,7 @@ test.describe("porcentaje de ahorro con apartado informativo (flujo crítico)", 
     movementsBeforeSavings = await movementList(page).getByRole("listitem").count();
   });
 
-  test("A2: configurar 10 % → KPI «Ahorro del mes» 300,00, saldo neto = bruto − 300, sin movimiento nuevo", async ({
+  test("A2: configurar 10 % → fila «Ahorro» −300,00, KPI 300,00 y saldo neto = bruto (descuento único)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -172,21 +172,21 @@ test.describe("porcentaje de ahorro con apartado informativo (flujo crítico)", 
     });
     await expect(savingsCell(page).getByText("Sin ahorro configurado")).toHaveCount(0);
 
+    const savingsRow = movementList(page).getByRole("listitem").filter({ hasText: "Ahorro" });
+    await expect(savingsRow).toHaveCount(1);
+    await expect(savingsRow.first()).toContainText("\u2212300,00");
+    expect(await movementList(page).getByRole("listitem").count()).toBe(movementsBeforeSavings + 1);
+
     const rowTexts = await movementList(page).getByRole("listitem").allTextContents();
     const grossCents = rowTexts.reduce((sum, text) => {
       const match = text.match(/[+\u2212]\d+(?:[.,]\d{2})?[\s\u00A0\u202F]€/);
       return match ? sum + parseEurCents(match[0]) : sum;
     }, 0);
-    const expectedNetCents = grossCents - 30_000;
+    const expectedNetCents = grossCents;
 
     await expect(
       balanceCell(page).getByText(new RegExp(`${formatSignedEurPattern(expectedNetCents)}${EUR}`)),
     ).toBeVisible({ timeout: 10_000 });
-
-    await expect(
-      movementList(page).getByRole("listitem").filter({ hasText: "Ahorro" }),
-    ).toHaveCount(0);
-    expect(await movementList(page).getByRole("listitem").count()).toBe(movementsBeforeSavings);
   });
 
   test("A3: idempotencia — recargas y navegación ‹ › no duplican ni alteran la deducción", async ({
@@ -240,7 +240,7 @@ test.describe("porcentaje de ahorro con apartado informativo (flujo crítico)", 
     await expect(savingsCell(page).getByText("Sin ahorro configurado")).toHaveCount(0);
   });
 
-  test("A6: limpieza — desactiva ahorro e ingreso, sin movimiento de ahorro y deducción congelada", async ({
+  test("A6: limpieza — desactiva ahorro e ingreso, borra el movimiento de ahorro y KPI a 0,00", async ({
     page,
   }) => {
     await page.goto("/");
@@ -265,9 +265,13 @@ test.describe("porcentaje de ahorro con apartado informativo (flujo crítico)", 
 
     await expect(
       movementList(page).getByRole("listitem").filter({ hasText: "Ahorro" }),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
+    await deleteMovementByNote(page, "Ahorro");
 
-    await expect(savingsCell(page).getByText(new RegExp(`^300,00${EUR}`))).toBeVisible({
+    await expect(
+      movementList(page).getByRole("listitem").filter({ hasText: "Ahorro" }),
+    ).toHaveCount(0);
+    await expect(savingsCell(page).getByText(new RegExp(`^0,00${EUR}`))).toBeVisible({
       timeout: 10_000,
     });
 

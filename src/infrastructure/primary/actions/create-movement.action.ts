@@ -2,6 +2,7 @@
 
 import { CreateMovement } from "@/application/movement/CreateMovement";
 import { RegisterManualContribution } from "@/application/common-contribution/RegisterManualContribution";
+import { RegisterManualSavings } from "@/application/savings/RegisterManualSavings";
 import { AccountNotFoundError } from "@/domain/account/AccountErrors";
 import {
   CommonContributionNotFoundError,
@@ -9,6 +10,11 @@ import {
   SharedAccountContributionError,
 } from "@/domain/common-contribution/CommonContributionErrors";
 import { InvalidMoneyError, InvalidMovementError } from "@/domain/movement/MovementErrors";
+import {
+  SavingsAllocationNotFoundError,
+  SavingsAlreadyExistsError,
+  SharedAccountSavingsError,
+} from "@/domain/savings/SavingsAllocationErrors";
 import { InactiveTagError, TagNotFoundError } from "@/domain/tag/TagErrors";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -17,6 +23,7 @@ import { db } from "../../db/client";
 import { DrizzleAccountRepository } from "../../db/DrizzleAccountRepository";
 import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
+import { DrizzleSavingsAllocationRepository } from "../../db/DrizzleSavingsAllocationRepository";
 import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import {
   extractMovementFormData,
@@ -59,6 +66,13 @@ function mapDomainErrors(error: unknown): MovementFieldErrors {
   if (error instanceof CommonContributionNotFoundError || error instanceof SharedAccountContributionError) {
     return { _form: [error.message] };
   }
+  if (
+    error instanceof SavingsAlreadyExistsError ||
+    error instanceof SavingsAllocationNotFoundError ||
+    error instanceof SharedAccountSavingsError
+  ) {
+    return { _form: [error.message] };
+  }
   return { _form: ["No se ha podido guardar el movimiento. Inténtalo de nuevo."] };
 }
 
@@ -70,6 +84,12 @@ const createMovementUseCase = new CreateMovement(
 
 const registerManualContributionUseCase = new RegisterManualContribution(
   new DrizzleCommonContributionRepository(db),
+  new DrizzleAccountRepository(db),
+  new DrizzleTagRepository(db),
+);
+
+const registerManualSavingsUseCase = new RegisterManualSavings(
+  new DrizzleSavingsAllocationRepository(db),
   new DrizzleAccountRepository(db),
   new DrizzleTagRepository(db),
 );
@@ -107,6 +127,18 @@ export async function createMovement(
 
       revalidatePath("/", "layout");
       return { status: "success", message: "Aportación registrada", intent };
+    }
+
+    if (data.type === "savings") {
+      await registerManualSavingsUseCase.execute({
+        accountId: data.accountId,
+        date: data.date,
+        note: data.note,
+        amountCents: parseAmountToCents(data.amount.trim()),
+      });
+
+      revalidatePath("/", "layout");
+      return { status: "success", message: "Ahorro registrado", intent };
     }
 
     await createMovementUseCase.execute({

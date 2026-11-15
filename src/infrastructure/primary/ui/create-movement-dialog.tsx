@@ -28,6 +28,7 @@ interface CreateMovementDialogProps {
   accountType: "personal" | "shared";
   tagGroups: ActiveTagGroupDTO[];
   contributionAvailable?: boolean;
+  savingsAvailable?: boolean;
   onClose: () => void;
 }
 
@@ -61,6 +62,7 @@ export function CreateMovementDialog({
   accountType,
   tagGroups,
   contributionAvailable = false,
+  savingsAvailable = false,
   onClose,
 }: CreateMovementDialogProps) {
   void _accountName;
@@ -98,6 +100,7 @@ export function CreateMovementDialog({
           accountType={accountType}
           tagGroups={groupsWithExtras}
           contributionAvailable={contributionAvailable}
+          savingsAvailable={savingsAvailable}
           carry={carry}
           onTagCreated={(tag) => {
             setExtraTags((current) =>
@@ -123,6 +126,7 @@ function CreateMovementForm({
   accountType,
   tagGroups,
   contributionAvailable,
+  savingsAvailable,
   carry,
   onTagCreated,
   onSaved,
@@ -169,6 +173,7 @@ function CreateMovementForm({
       accountId={accountId}
       accountType={accountType}
       contributionOption={contributionAvailable ? "available" : "off"}
+      savingsOption={savingsAvailable ? "available" : "off"}
       carry={carry ?? undefined}
       onTagCreated={onTagCreated}
       submitLabel="Guardar y seguir"

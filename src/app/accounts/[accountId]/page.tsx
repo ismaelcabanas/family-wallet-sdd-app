@@ -85,6 +85,7 @@ export default async function AccountPage({
   await new MaterializeSavingsAllocations(
     savingsAllocationRepository,
     regularIncomeRepository,
+    tagRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
   const [movements, tagGroups, closure, netContribution, savings, commonContribution] =
@@ -128,9 +129,13 @@ export default async function AccountPage({
       closure !== null ? (
         <AccountMonthKpis
           netContribution={netContribution}
-          personalExpenseCents={closure.personalExpenseCents - netContribution.amountCents}
+          personalExpenseCents={
+            closure.personalExpenseCents - netContribution.amountCents - savings.amountCents
+          }
           savings={savings}
-          netMonthBalanceCents={closure.monthBalanceCents - savings.amountCents}
+          netMonthBalanceCents={
+            closure.monthBalanceCents - (savings.backedByMovement ? 0 : savings.amountCents)
+          }
           month={month}
         />
       ) : null}
@@ -143,6 +148,7 @@ export default async function AccountPage({
         accountName={account.name}
         accountType={account.type}
         contributionAvailable={commonContribution !== null && commonContribution.active}
+        savingsAvailable={savings !== null && savings.configured}
       />
     </main>
   );
