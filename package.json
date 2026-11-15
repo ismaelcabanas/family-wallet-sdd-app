@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "pretest:e2e": "rm -f e2e.sqlite && DATABASE_URL=file:./e2e.sqlite npm run db:migrate && DATABASE_URL=file:./e2e.sqlite npm run db:seed",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "drizzle-kit migrate --config=drizzle.prod.config.ts",
     "db:seed": "tsx scripts/seed.ts"
   },
   "dependencies": {

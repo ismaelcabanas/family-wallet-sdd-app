@@ -83,7 +83,7 @@ Otros comandos: `npm run format` (Prettier), `npm run build` / `npm run start`.
 Migración y seed como paso local pre-deploy (sin secretos en CI):
 
 ```bash
-TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run db:migrate -- --config=drizzle.prod.config.ts
+TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run db:migrate:prod
 TURSO_DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... npm run db:seed
 ```
 
