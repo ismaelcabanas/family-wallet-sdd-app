@@ -1,0 +1,24 @@
+# 25. El ahorro como movimiento: segunda vía de escritura del registro, enlace blando y composición condicional del saldo
+
+- **Fecha**: 2026-11-15
+- **Estado**: Aceptado (feature 033, `specs/033-ahorro-como-movimiento/`)
+- **Relacionados**: [ADR 0022](./0022-porcentaje-ahorro-apartado-informativo.md) (ahorro como apartado informativo congelado), [ADR 0024](./0024-registro-manual-aportacion-comun.md) (dual de aportación: segunda vía de escritura y registro manual), [ADR 0017](./0017-aportacion-comun-porcentaje-materializacion.md) (materializador con movimiento)
+
+## Contexto y problema
+
+El ahorro mensual (023) vive como **apartado informativo congelado** en `savings_allocation_months`: el KPI «Ahorro del mes» lee esa fila (`GetMonthSavings`), la página descuenta el importe del «Saldo del mes» por composición, y `/summary`/`/annual` no lo conocen. No existe vía para fijar el ahorro de un mes pasado fuera de la ventana de la config (visitas nunca realizadas, meses anteriores a la activación, huecos inactivos) ni para corregir una cantidad ya congelada. 032 dejó el ahorro apuntado como feature futura («El ahorro de meses pasados sigue sin vía»); el propietario decidió (clarify 2026-11-15) que el ahorro se comporte **como un movimiento**, dual de la aportación común.
+
+## Decisión
+
+- **El ahorro pasa a ser un movimiento real** (gasto de naturaleza propia con la nueva etiqueta protegida «Ahorro», slug `ahorro`, nacida en la migración `0009` y en el seed; sin nuevo `MovementType` de dominio — concepto de la frontera, paridad 032): tipo «Ahorro» en el alta (solo cuenta personal), naturaleza y etiqueta implícitas, nota por defecto «Ahorro».
+- **`savings_allocation_months` gana el enlace blando `movement_id`** (sin FK, paridad de `0005`) y una **segunda vía de escritura**: además del materializador (que pasa a crear movimiento + fila enlazada en la misma tx, paridad 019/021; `registerDeduction` jubilado por `registerMaterialization`), la creación manual escribe/enlaza la fila con `registerManualSavings` — `ON CONFLICT (config, mes) DO UPDATE SET movement_id, amount_cents WHERE movement_id IS NULL RETURNING`: una fila huérfana legacy se **re-enlaza** (sincronizando `amount_cents` con la realidad declarada), una fila enlazada → 0 filas → `SavingsAlreadyExistsError`.
+- **Config como ancla, sin exigir activa** (diferencia deliberada con 032): la vía manual solo exige que la config **exista** — la guarda «0 o 1» es `UNIQUE (config, mes)` y la fila la referencia por FK; así se cubren meses anteriores a la activación y huecos inactivos. La guarda de «activa» sigue aplicando solo al materializador (paridad 023).
+- **Borrado uniforme** (diferencia deliberada con 032/021): cualquier origen (manual o generado) → movimiento y fila se eliminan juntos en la misma tx (`withdrawDeductionForMovement`); sin filas huérfanas por borrado. Dentro de la ventana de una config activa el materializador puede regenerarlo (porcentaje × ingreso) en una visita posterior — la guarda por registro queda reabierta.
+- **KPIs con composición condicional** (FR-004): `GetMonthSavings` expone `backedByMovement` — importe del movimiento enlazado cuando existe, si no la cantidad congelada de la fila (fallback de huérfanas). «Saldo del mes» descuenta el ahorro **exactamente una vez**: `closure.monthBalanceCents − (backedByMovement ? 0 : savings.amountCents)`; «Gasto personal» lo excluye siempre (`closure.personalExpenseCents − aportación − ahorro`); `/summary`, `/annual` y el informe anual lo cuentan como gasto por construcción (el closure ya lo incluye como movimiento).
+- **Sin backfill automático** (decisión del propietario): las filas congeladas por 023 quedan huérfanas (`movement_id NULL`) a la espera de re-enlace manual vía la vía manual; el importe manual es la realidad histórica declarada, sin validación contra porcentajes.
+
+## Consecuencias
+
+- **Positivas**: el histórico de ahorro se completa y corrige como cualquier movimiento (menos de 30 s, sin tocar configs); listado, KPI, saldo (descuento único) y agregados cuadran por construcción; el materializador y la vía manual convergen en la misma guarda `UNIQUE (config, mes)` sin duplicarse jamás.
+- **Negativas / trade-offs**: `savings_allocation_months` pasa de una vía de escritura a dos (documentado aquí, paridad del dual de aportación); el registro manual con config inactiva puede escribir meses fuera de ventana con importes que no cuadran con porcentajes (asumido: realidad histórica); la edición con fecha a otro mes no mueve la fila del registro (la detección es por `movement_id` — corregir el mes = borrar y re-registrar).
+- Las configs nunca cambian por la vía manual (`activatedAtMonth`, porcentajes y estados intactos; FR-006); los meses congelados por el materializador no se reabren ni reajustan por ella.

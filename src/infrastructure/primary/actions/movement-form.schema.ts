@@ -2,7 +2,7 @@ import { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import { MovementType } from "@/domain/movement/MovementType";
 import { z } from "zod";
 
-export type MovementFormType = MovementType | "contribution";
+export type MovementFormType = MovementType | "contribution" | "savings";
 
 export type MovementFieldKey =
   | "date"
@@ -90,7 +90,10 @@ export const movementFormSchema = z
       .string()
       .refine(
         (value): value is MovementFormType =>
-          value === "expense" || value === "income" || value === "contribution",
+          value === "expense" ||
+          value === "income" ||
+          value === "contribution" ||
+          value === "savings",
         "Selecciona el tipo de movimiento.",
       ),
     nature: z
@@ -120,6 +123,23 @@ export const movementFormSchema = z
           code: "custom",
           path: ["tagId"],
           message: "La aportación común lleva la etiqueta «Aportación Común» implícita.",
+        });
+      }
+      return;
+    }
+    if (data.type === "savings") {
+      if (data.nature !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["nature"],
+          message: "El ahorro lleva naturaleza propia implícita.",
+        });
+      }
+      if (data.tagId !== null) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["tagId"],
+          message: "El ahorro lleva la etiqueta «Ahorro» implícita.",
         });
       }
       return;

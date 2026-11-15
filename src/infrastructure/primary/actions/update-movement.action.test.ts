@@ -159,4 +159,25 @@ describe("updateMovement (Server Action)", () => {
     }
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
+
+  it("el tipo «savings» viaja al caso de uso como gasto con naturaleza y etiqueta implícitas", async () => {
+    updateExecuteMock.mockResolvedValueOnce(undefined);
+
+    const formData = buildFormData({ type: "savings", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state.status).toBe("success");
+    expect(updateExecuteMock).toHaveBeenCalledExactlyOnceWith({
+      movementId: 7,
+      expectedAccountId: 1,
+      type: "expense",
+      date: "2026-09-10",
+      note: "Mercadona",
+      amountCents: 7_850,
+      nature: null,
+      tagId: null,
+    });
+  });
 });

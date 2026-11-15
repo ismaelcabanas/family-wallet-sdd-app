@@ -53,7 +53,10 @@ function buildMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
   };
 }
 
-function renderList(movements: MovementDTO[]) {
+function renderList(
+  movements: MovementDTO[],
+  extraProps: Partial<Parameters<typeof GroupedMovementList>[0]> = {},
+) {
   return render(
     <GroupedMovementList
       movements={movements}
@@ -62,6 +65,7 @@ function renderList(movements: MovementDTO[]) {
       currentMonth="2026-04"
       accountName="Cuenta de Miembro B"
       accountType="personal"
+      {...extraProps}
     />,
   );
 }
@@ -246,6 +250,23 @@ describe("GroupedMovementList", () => {
 
     await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
     expect(screen.getByRole("dialog", { name: "Nuevo movimiento" })).toBeInTheDocument();
+  });
+
+  it("savingsAvailable arranca hasta el formulario: el radio «Ahorro» solo se ofrece con config", async () => {
+    const user = userEvent.setup();
+    renderList([buildMovement({ id: 7 })]);
+
+    await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
+    expect(screen.queryByRole("radio", { name: "Ahorro" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    cleanup();
+    renderList([buildMovement({ id: 7 })], { savingsAvailable: true });
+    await user.click(screen.getByRole("button", { name: "Nuevo movimiento" }));
+    expect(screen.getByRole("radio", { name: "Ahorro" })).toBeEnabled();
   });
 });
 

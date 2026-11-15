@@ -1,21 +1,29 @@
 import { describe, expect, it } from "vitest";
 
 import type { RegularIncomeRepository } from "../regular-income/RegularIncomeRepository";
+import type { TagRepository } from "../tag/TagRepository";
 import { AccountId } from "@/domain/account/AccountId";
 import { Money } from "@/domain/movement/Money";
+import { Movement } from "@/domain/movement/Movement";
 import { RegularIncome } from "@/domain/regular-income/RegularIncome";
 import { RegularIncomeId } from "@/domain/regular-income/RegularIncomeId";
 import { SavingsAllocation } from "@/domain/savings/SavingsAllocation";
 import { SavingsPercentage } from "@/domain/savings/SavingsPercentage";
 import { SavingsAllocationId } from "@/domain/savings/SavingsAllocationId";
+import { Tag } from "@/domain/tag/Tag";
+import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
+import { TagId } from "@/domain/tag/TagId";
 
 import { MaterializeSavingsAllocations } from "./MaterializeSavingsAllocations";
 import type { SavingsAllocationRepository } from "./SavingsAllocationRepository";
 
+const SAVINGS_TAG = Tag.rehydrate(101, "Ahorro", "ahorro", "active", TagCategoryId(1));
+
 class InMemorySavingsAllocationRepository implements SavingsAllocationRepository {
   private readonly configsByAccountId = new Map<number, SavingsAllocation>();
-  private readonly deductedAmounts = new Map<string, number>();
-  registerDeductionCalls: Array<{ allocationId: number; month: string; amountCents: number }> = [];
+  private readonly deductedMonths = new Set<string>();
+  registerMaterializationCalls: Array<{ allocationId: number; month: string; movement: Movement }> =
+    [];
   forceLoseRace = false;
   private nextId = 1;
 
@@ -39,38 +47,51 @@ class InMemorySavingsAllocationRepository implements SavingsAllocationRepository
   }
 
   async isDeducted(allocationId: SavingsAllocationId, month: string): Promise<boolean> {
-    return this.deductedAmounts.has(`${allocationId}:${month}`);
+    return this.deductedMonths.has(`${allocationId}:${month}`);
   }
 
-  async registerDeduction(
+  async registerMaterialization(
     config: SavingsAllocation,
     month: string,
-    amountCents: number,
+    movement: Movement,
   ): Promise<boolean> {
     if (config.id === null) {
-      throw new Error("registerDeduction requiere una config persistida");
+      throw new Error("registerMaterialization requiere una config persistida");
     }
-    this.registerDeductionCalls.push({
-      allocationId: config.id as number,
-      month,
-      amountCents,
-    });
     if (this.forceLoseRace) {
       return false;
     }
     const key = `${config.id}:${month}`;
-    if (this.deductedAmounts.has(key)) {
+    if (this.deductedMonths.has(key)) {
       return false;
     }
-    this.deductedAmounts.set(key, amountCents);
+    this.deductedMonths.add(key);
+    this.registerMaterializationCalls.push({
+      allocationId: config.id as number,
+      month,
+      movement,
+    });
     return true;
   }
 
-  async findDeductedAmount(
-    allocationId: SavingsAllocationId,
-    month: string,
-  ): Promise<number | null> {
-    return this.deductedAmounts.get(`${allocationId}:${month}`) ?? null;
+  async registerManualSavings(): Promise<never> {
+    throw new Error("no aplicable en este test");
+  }
+
+  async findDeductedAmount(): Promise<number | null> {
+    return null;
+  }
+
+  async findDeductedMovement(): Promise<Movement | null> {
+    return null;
+  }
+
+  async findDeductedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawDeductionForMovement(): Promise<boolean> {
+    return false;
   }
 }
 
@@ -93,6 +114,18 @@ class InMemoryRegularIncomeRepository implements RegularIncomeRepository {
     return false;
   }
 }
+
+const tagsRepository: TagRepository = {
+  findAllActive: async () => [],
+  findByIds: async () => [],
+  findBySlug: async (slug) => (slug === "ahorro" ? SAVINGS_TAG : null),
+  findByName: async () => null,
+  save: async (tag) => tag,
+  findById: async () => null,
+  findAll: async () => [],
+  update: async (tag) => tag,
+  mergeInto: async () => ({ reassignedMovements: 0 }),
+};
 
 const ACCOUNT_ID = AccountId(1);
 const ACTIVATED_AT = "2026-09";
@@ -128,24 +161,27 @@ async function seedConfig(
 
 function buildUseCase(incomeConfig: RegularIncome | null = income()) {
   const savings = new InMemorySavingsAllocationRepository();
-  const useCase = new MaterializeSavingsAllocations(
-    savings,
-    new InMemoryRegularIncomeRepository(incomeConfig),
-  );
+  const useCase = new MaterializeSavingsAllocations(savings, new InMemoryRegularIncomeRepository(incomeConfig), tagsRepository);
   return { savings, useCase };
 }
 
 describe("MaterializeSavingsAllocations", () => {
-  it("la primera consulta de un mes en ventana registra la deducción con el importe calculado", async () => {
+  it("la primera consulta de un mes en ventana registra fila y movimiento en la misma llamada", async () => {
     const { savings, useCase } = buildUseCase();
     await seedConfig(savings);
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toEqual([
-      { allocationId: 1, month: CURRENT_MONTH, amountCents: 30_000 },
-    ]);
-    expect(await savings.findDeductedAmount(SavingsAllocationId(1), CURRENT_MONTH)).toBe(30_000);
+    expect(savings.registerMaterializationCalls).toHaveLength(1);
+    const { allocationId, month, movement } = savings.registerMaterializationCalls[0];
+    expect(allocationId).toBe(1);
+    expect(month).toBe(CURRENT_MONTH);
+    expect(movement.type).toBe("expense");
+    expect(movement.nature).toBe("personal");
+    expect(movement.tagId).toBe(TagId(101));
+    expect(movement.note).toBe("Ahorro");
+    expect(movement.date).toBe(`${CURRENT_MONTH}-01`);
+    expect(movement.amount).toEqual(Money.fromCents(30_000));
   });
 
   it("la consulta repetida del mismo mes no duplica (isDeducted → no-op)", async () => {
@@ -155,25 +191,25 @@ describe("MaterializeSavingsAllocations", () => {
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(1);
+    expect(savings.registerMaterializationCalls).toHaveLength(1);
   });
 
-  it("un mes anterior a activatedAtMonth nunca se deduce (sin retroactivo)", async () => {
+  it("un mes anterior a activatedAtMonth nunca se materializa (sin retroactivo)", async () => {
     const { savings, useCase } = buildUseCase();
     await seedConfig(savings);
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, "2026-08", CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
   });
 
-  it("un mes posterior a currentMonth nunca se deduce (futuro)", async () => {
+  it("un mes posterior a currentMonth nunca se materializa (futuro)", async () => {
     const { savings, useCase } = buildUseCase();
     await seedConfig(savings);
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, "2026-11", CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
   });
 
   it("un mes ya registrado no se reajusta tras cambiar el porcentaje (importe congelado)", async () => {
@@ -188,16 +224,14 @@ describe("MaterializeSavingsAllocations", () => {
     );
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, "2026-09", CURRENT_MONTH);
 
-    expect(await savings.findDeductedAmount(SavingsAllocationId(1), "2026-09")).toBe(30_000);
-    expect(savings.registerDeductionCalls).toHaveLength(1);
+    expect(savings.registerMaterializationCalls).toHaveLength(1);
+    expect(savings.registerMaterializationCalls[0].movement.amount.amountCents).toBe(30_000);
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
-    expect(savings.registerDeductionCalls).toHaveLength(2);
-    expect(savings.registerDeductionCalls[1]).toEqual({
-      allocationId: 1,
-      month: CURRENT_MONTH,
-      amountCents: 45_000,
-    });
+    expect(savings.registerMaterializationCalls).toHaveLength(2);
+    expect(savings.registerMaterializationCalls[1].movement.amount).toEqual(
+      Money.fromCents(45_000),
+    );
   });
 
   it("un cambio del importe del ingreso no toca el mes ya registrado y aplica al pendiente", async () => {
@@ -208,10 +242,13 @@ describe("MaterializeSavingsAllocations", () => {
     const withNewIncome = new MaterializeSavingsAllocations(
       savings,
       new InMemoryRegularIncomeRepository(income({ amount: Money.fromCents(400_000) })),
+      tagsRepository,
     );
     await withNewIncome.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(await savings.findDeductedAmount(config.id!, CURRENT_MONTH)).toBe(30_000);
+    expect(savings.registerMaterializationCalls).toHaveLength(1);
+    expect(savings.registerMaterializationCalls[0].movement.amount.amountCents).toBe(30_000);
+    expect(config.id).not.toBeNull();
   });
 
   it("sin config → no-op", async () => {
@@ -219,7 +256,7 @@ describe("MaterializeSavingsAllocations", () => {
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
   });
 
   it("config inactiva → no-op", async () => {
@@ -228,7 +265,7 @@ describe("MaterializeSavingsAllocations", () => {
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
   });
 
   it("sin ingreso regular → no-op sin registrar el mes (mes abierto)", async () => {
@@ -237,7 +274,7 @@ describe("MaterializeSavingsAllocations", () => {
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
     expect(await savings.isDeducted(SavingsAllocationId(1), CURRENT_MONTH)).toBe(false);
   });
 
@@ -247,7 +284,7 @@ describe("MaterializeSavingsAllocations", () => {
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
     expect(await savings.isDeducted(SavingsAllocationId(1), CURRENT_MONTH)).toBe(false);
   });
 
@@ -259,11 +296,11 @@ describe("MaterializeSavingsAllocations", () => {
 
     await useCase.ensureForAccountAndMonth(ACCOUNT_ID, CURRENT_MONTH, CURRENT_MONTH);
 
-    expect(savings.registerDeductionCalls).toHaveLength(0);
+    expect(savings.registerMaterializationCalls).toHaveLength(0);
     expect(await savings.isDeducted(SavingsAllocationId(1), CURRENT_MONTH)).toBe(false);
   });
 
-  it("carrera (registerDeduction devuelve false) → no-op silencioso", async () => {
+  it("carrera (registerMaterialization devuelve false) → no-op silencioso", async () => {
     const { savings, useCase } = buildUseCase();
     await seedConfig(savings);
     savings.forceLoseRace = true;

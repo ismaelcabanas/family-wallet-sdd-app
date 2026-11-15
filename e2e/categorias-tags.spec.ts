@@ -97,6 +97,7 @@ test.describe("categorías de etiquetas (flujo crítico)", () => {
       "Vivienda",
       "Hipoteca",
       "Aportación Común",
+      "Ahorro",
     ]) {
       await expect(general.getByRole("listitem").filter({ hasText: tagName })).toBeVisible();
     }
@@ -104,7 +105,7 @@ test.describe("categorías de etiquetas (flujo crítico)", () => {
     await expect(
       tagCatalog(page).getByRole("region", { name: /^Categoría / }).filter({ hasNotText: "General" }),
     ).toHaveCount(0);
-    await expect(general.getByText("13 etiquetas")).toBeVisible();
+    await expect(general.getByText("14 etiquetas")).toBeVisible();
 
     const contributionRow = general.getByRole("listitem").filter({ hasText: "Aportación Común" });
     await expect(contributionRow).toHaveText(/Sistema/);
@@ -300,6 +301,6 @@ test.describe("categorías de etiquetas (flujo crítico)", () => {
     ).toHaveCount(1);
     const general = categoryGroup(page, "General");
     await expect(general.getByRole("listitem").filter({ hasText: "Mercadona" })).toBeVisible();
-    await expect(general.getByText("14 etiquetas")).toBeVisible();
+    await expect(general.getByText("15 etiquetas")).toBeVisible();
   });
 });

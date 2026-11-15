@@ -7,6 +7,7 @@ import { InvalidMovementError, MovementNotFoundError } from "@/domain/movement/M
 
 import type { AccountRepository } from "../account/AccountRepository";
 import type { CommonContributionRepository } from "../common-contribution/CommonContributionRepository";
+import type { SavingsAllocationRepository } from "../savings/SavingsAllocationRepository";
 import type { TagRepository } from "../tag/TagRepository";
 import type { UpdateMovementDTO } from "./dto";
 import { resolveNature, resolveTagId } from "./movement-inputs";
@@ -18,6 +19,7 @@ export class UpdateMovement {
     private readonly accounts: AccountRepository,
     private readonly tags: TagRepository,
     private readonly commonContributions: CommonContributionRepository,
+    private readonly savingsAllocations: SavingsAllocationRepository,
   ) {}
 
   async execute(dto: UpdateMovementDTO): Promise<void> {
@@ -38,17 +40,20 @@ export class UpdateMovement {
     const isContributionMovement =
       (await this.commonContributions.findMaterializedMonthByMovement(MovementId(dto.movementId))) !==
       null;
+    const isSavingsMovement = isContributionMovement
+      ? false
+      : (await this.savingsAllocations.findDeductedMonthByMovement(MovementId(dto.movementId))) !==
+        null;
+    const hasFrozenIdentity = isContributionMovement || isSavingsMovement;
 
-    const nature = isContributionMovement
-      ? existing.nature
-      : resolveNature(dto, account);
-    const tagId = isContributionMovement ? existing.tagId : await resolveTagId(this.tags, dto.tagId);
+    const nature = hasFrozenIdentity ? existing.nature : resolveNature(dto, account);
+    const tagId = hasFrozenIdentity ? existing.tagId : await resolveTagId(this.tags, dto.tagId);
 
     const movement = Movement.recreate(
       MovementId(dto.movementId),
       {
         accountId: existing.accountId,
-        type: isContributionMovement ? existing.type : dto.type,
+        type: hasFrozenIdentity ? existing.type : dto.type,
         date: dto.date,
         note: dto.note,
         amount: Money.fromCents(dto.amountCents),

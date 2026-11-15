@@ -239,4 +239,38 @@ describe("EditMovementDialog", () => {
       expect(toastSuccessMock).toHaveBeenCalledWith("Movimiento actualizado");
     });
   });
+
+  it("un movimiento con la etiqueta «Ahorro» se edita con identidad bloqueada y type=savings (033)", async () => {
+    const user = userEvent.setup();
+    actionMock.mockResolvedValueOnce({ status: "success", message: "Movimiento actualizado" });
+    render(
+      <EditMovementDialog
+        movement={{
+          ...movement,
+          note: "Ahorro",
+          tag: { id: 101, name: "Ahorro", slug: "ahorro" },
+        }}
+        tagGroups={tagGroups}
+        currentAccountId={1}
+        currentMonth="2026-05"
+        onClose={onCloseMock}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Ahorro" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Gasto" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Ingreso" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Ahorro" })).toBeDisabled();
+    expect(screen.queryByRole("combobox", { name: "Etiqueta" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }));
+
+    await waitFor(() => {
+      expect(actionMock).toHaveBeenCalledTimes(1);
+    });
+    const formData = actionMock.mock.calls[0][1] as FormData;
+    expect(formData.get("type")).toBe("savings");
+    expect(formData.get("nature")).toBeNull();
+    expect(formData.get("tagId")).toBeNull();
+  });
 });

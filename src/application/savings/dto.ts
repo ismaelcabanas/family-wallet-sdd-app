@@ -7,6 +7,13 @@ export interface SavingsAllocationDTO {
   activatedAtMonth: string;
 }
 
+export interface RegisterManualSavingsDTO {
+  accountId: number;
+  date: string;
+  note: string;
+  amountCents: number;
+}
+
 export function toSavingsAllocationDTO(config: SavingsAllocation): SavingsAllocationDTO {
   return {
     accountId: config.accountId as number,

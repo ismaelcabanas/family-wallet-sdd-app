@@ -90,7 +90,7 @@ describe("DrizzleTagCategoryRepository", () => {
       { id: 2, name: "Ocio", slug: "ocio", status: "inactive", categoryId: 1 },
     ]);
 
-    expect(await repository.countTags(TagCategoryId(1))).toBe(3);
+    expect(await repository.countTags(TagCategoryId(1))).toBe(4);
     expect(await repository.countTags(TagCategoryId(999))).toBe(0);
   });
 

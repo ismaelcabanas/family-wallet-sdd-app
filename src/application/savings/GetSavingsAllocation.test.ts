@@ -23,7 +23,23 @@ class InMemorySavingsAllocationRepository implements SavingsAllocationRepository
     return false;
   }
 
-  async registerDeduction(): Promise<boolean> {
+  async registerMaterialization(): Promise<boolean> {
+    return false;
+  }
+
+  async registerManualSavings(): Promise<null> {
+    return null;
+  }
+
+  async findDeductedMovement(): Promise<null> {
+    return null;
+  }
+
+  async findDeductedMonthByMovement(): Promise<string | null> {
+    return null;
+  }
+
+  async withdrawDeductionForMovement(): Promise<boolean> {
     return false;
   }
 

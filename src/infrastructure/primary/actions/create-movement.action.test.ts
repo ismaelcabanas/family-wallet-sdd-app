@@ -1,8 +1,9 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
 
-const { executeMock, registerExecuteMock } = vi.hoisted(() => ({
+const { executeMock, registerExecuteMock, savingsExecuteMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),
   registerExecuteMock: vi.fn(),
+  savingsExecuteMock: vi.fn(),
 }));
 
 vi.mock("@/application/movement/CreateMovement", () => ({
@@ -14,6 +15,12 @@ vi.mock("@/application/movement/CreateMovement", () => ({
 vi.mock("@/application/common-contribution/RegisterManualContribution", () => ({
   RegisterManualContribution: vi.fn().mockImplementation(function () {
     return { execute: registerExecuteMock };
+  }),
+}));
+
+vi.mock("@/application/savings/RegisterManualSavings", () => ({
+  RegisterManualSavings: vi.fn().mockImplementation(function () {
+    return { execute: savingsExecuteMock };
   }),
 }));
 
@@ -304,5 +311,81 @@ describe("createMovement (Server Action)", () => {
 
     expect(state.status).toBe("error");
     expect(registerExecuteMock).not.toHaveBeenCalled();
+  });
+
+  it("despacha el tipo «savings» al caso de uso de ahorro manual con nota vacía permitida", async () => {
+    savingsExecuteMock.mockResolvedValueOnce(31);
+
+    const formData = buildFormData({ type: "savings", note: "", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state).toEqual({
+      status: "success",
+      message: "Ahorro registrado",
+      intent: "close",
+    });
+    expect(savingsExecuteMock).toHaveBeenCalledExactlyOnceWith({
+      accountId: 3,
+      date: "2026-09-03",
+      note: "",
+      amountCents: 85_000,
+    });
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("mapea el duplicado de ahorro al error de formulario del contrato", async () => {
+    const { SavingsAlreadyExistsError } = await import(
+      "@/domain/savings/SavingsAllocationErrors"
+    );
+    savingsExecuteMock.mockRejectedValueOnce(new SavingsAlreadyExistsError());
+
+    const formData = buildFormData({ type: "savings", tagId: "" });
+    formData.delete("nature");
+
+    const state = await run(formData);
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors._form).toEqual(["Ya existe un ahorro registrado para este mes."]);
+    }
+  });
+
+  it("mapea la cuenta común y la config ausente de ahorro al error de formulario", async () => {
+    const { SharedAccountSavingsError, SavingsAllocationNotFoundError } = await import(
+      "@/domain/savings/SavingsAllocationErrors"
+    );
+    savingsExecuteMock.mockRejectedValueOnce(new SharedAccountSavingsError());
+
+    const formData = buildFormData({ type: "savings", tagId: "" });
+    formData.delete("nature");
+
+    const shared = await run(formData);
+    expect(shared.status).toBe("error");
+    if (shared.status === "error") {
+      expect(shared.errors._form).toEqual(["La cuenta común no puede tener ahorro."]);
+    }
+
+    savingsExecuteMock.mockRejectedValueOnce(new SavingsAllocationNotFoundError());
+    const missingConfig = await run(formData);
+    expect(missingConfig.status).toBe("error");
+    if (missingConfig.status === "error") {
+      expect(missingConfig.errors._form).toEqual([
+        "No existe ahorro configurado para esta cuenta.",
+      ]);
+    }
+  });
+
+  it("rechaza un ahorro que viaja con naturaleza o etiqueta explícitas", async () => {
+    const state = await run(buildFormData({ type: "savings" }));
+
+    expect(state.status).toBe("error");
+    if (state.status === "error") {
+      expect(state.errors.nature).toEqual(["El ahorro lleva naturaleza propia implícita."]);
+      expect(state.errors.tagId).toEqual(["El ahorro lleva la etiqueta «Ahorro» implícita."]);
+    }
+    expect(savingsExecuteMock).not.toHaveBeenCalled();
   });
 });

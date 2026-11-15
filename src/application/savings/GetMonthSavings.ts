@@ -7,6 +7,7 @@ const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 export interface MonthSavingsDTO {
   configured: boolean;
   amountCents: number;
+  backedByMovement: boolean;
 }
 
 export class GetMonthSavings {
@@ -19,10 +20,15 @@ export class GetMonthSavings {
 
     const config = await this.savingsAllocations.findByAccountId(accountId);
     if (config === null || config.id === null) {
-      return { configured: false, amountCents: 0 };
+      return { configured: false, amountCents: 0, backedByMovement: false };
+    }
+
+    const movement = await this.savingsAllocations.findDeductedMovement(config.id, month);
+    if (movement !== null) {
+      return { configured: true, amountCents: movement.amount.amountCents, backedByMovement: true };
     }
 
     const amountCents = await this.savingsAllocations.findDeductedAmount(config.id, month);
-    return { configured: true, amountCents: amountCents ?? 0 };
+    return { configured: true, amountCents: amountCents ?? 0, backedByMovement: false };
   }
 }

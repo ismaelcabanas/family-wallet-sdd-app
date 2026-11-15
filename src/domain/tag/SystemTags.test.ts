@@ -1,9 +1,18 @@
-import { CONTRIBUTION_TAG_SLUG, SYSTEM_TAG_SLUGS, isProtectedTagSlug } from "./SystemTags";
+import {
+  CONTRIBUTION_TAG_SLUG,
+  SAVINGS_TAG_SLUG,
+  SYSTEM_TAG_SLUGS,
+  isProtectedTagSlug,
+} from "./SystemTags";
 import { describe, expect, it } from "vitest";
 
 describe("isProtectedTagSlug", () => {
   it("protege el slug de la etiqueta de aportación común", () => {
     expect(isProtectedTagSlug("aportacion-comun")).toBe(true);
+  });
+
+  it("protege el slug de la etiqueta de ahorro", () => {
+    expect(isProtectedTagSlug("ahorro")).toBe(true);
   });
 
   it.each(["luz", "sin-clasificar", ""])("no protege el slug %j", (slug) => {
@@ -15,5 +24,10 @@ describe("SYSTEM_TAG_SLUGS", () => {
   it("contiene el slug de aportación común con CONTRIBUTION_TAG_SLUG", () => {
     expect(CONTRIBUTION_TAG_SLUG).toBe("aportacion-comun");
     expect(SYSTEM_TAG_SLUGS).toContain(CONTRIBUTION_TAG_SLUG);
+  });
+
+  it("contiene el slug de ahorro con SAVINGS_TAG_SLUG", () => {
+    expect(SAVINGS_TAG_SLUG).toBe("ahorro");
+    expect(SYSTEM_TAG_SLUGS).toContain(SAVINGS_TAG_SLUG);
   });
 });

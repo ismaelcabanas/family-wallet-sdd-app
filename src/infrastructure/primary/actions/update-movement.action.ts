@@ -12,6 +12,7 @@ import { db } from "../../db/client";
 import { DrizzleAccountRepository } from "../../db/DrizzleAccountRepository";
 import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
+import { DrizzleSavingsAllocationRepository } from "../../db/DrizzleSavingsAllocationRepository";
 import { DrizzleTagRepository } from "../../db/DrizzleTagRepository";
 import { monthYearLabel } from "../ui/format";
 import {
@@ -71,6 +72,7 @@ const updateMovementUseCase = new UpdateMovement(
   new DrizzleAccountRepository(db),
   new DrizzleTagRepository(db),
   new DrizzleCommonContributionRepository(db),
+  new DrizzleSavingsAllocationRepository(db),
 );
 
 export async function updateMovement(
@@ -100,12 +102,12 @@ export async function updateMovement(
     await updateMovementUseCase.execute({
       movementId: context.movementId,
       expectedAccountId: context.currentAccountId,
-      type: data.type === "contribution" ? "expense" : data.type,
+      type: data.type === "contribution" || data.type === "savings" ? "expense" : data.type,
       date: data.date,
       note: data.note,
       amountCents: parseAmountToCents(data.amount.trim()),
-      nature: data.type === "contribution" ? null : (data.nature ?? null),
-      tagId: data.type === "contribution" ? null : data.tagId,
+      nature: data.type === "contribution" || data.type === "savings" ? null : (data.nature ?? null),
+      tagId: data.type === "contribution" || data.type === "savings" ? null : data.tagId,
     });
 
     revalidatePath("/");

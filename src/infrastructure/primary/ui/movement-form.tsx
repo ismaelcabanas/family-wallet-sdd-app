@@ -68,6 +68,7 @@ interface MovementFormFieldsProps {
   carry?: CarryOverValues;
   onTagCreated?: (tag: TagDTO) => void;
   contributionOption?: ContributionOption;
+  savingsOption?: ContributionOption;
 }
 
 const NO_TAG_VALUE = "__no_tag__";
@@ -106,6 +107,7 @@ export function MovementFormFields({
   carry,
   onTagCreated,
   contributionOption = "off",
+  savingsOption = "off",
 }: MovementFormFieldsProps) {
   const isEditMode = Boolean(initialValues && !carry);
 
@@ -114,9 +116,13 @@ export function MovementFormFields({
       ? "income"
       : state.status === "error" && state.values.type === "contribution" && contributionOption !== "off"
         ? "contribution"
-        : contributionOption === "locked"
-          ? "contribution"
-          : (initialValues?.type ?? carry?.type ?? "expense");
+        : state.status === "error" && state.values.type === "savings" && savingsOption !== "off"
+          ? "savings"
+          : contributionOption === "locked"
+            ? "contribution"
+            : savingsOption === "locked"
+              ? "savings"
+              : (initialValues?.type ?? carry?.type ?? "expense");
   const initialNature =
     initialValues?.nature ??
     (carry?.type === "expense" ? carry.nature : null) ??
@@ -133,7 +139,12 @@ export function MovementFormFields({
   if (errorState !== null && errorState !== handledErrorState) {
     setHandledErrorState(errorState);
     const submittedType = errorState.values.type;
-    if (submittedType === "expense" || submittedType === "income" || submittedType === "contribution") {
+    if (
+      submittedType === "expense" ||
+      submittedType === "income" ||
+      (submittedType === "contribution" && contributionOption !== "off") ||
+      (submittedType === "savings" && savingsOption !== "off")
+    ) {
       setChosenType(submittedType);
     }
   }
@@ -160,7 +171,8 @@ export function MovementFormFields({
       if (
         submittedType === "expense" ||
         submittedType === "income" ||
-        submittedType === "contribution"
+        (submittedType === "contribution" && contributionOption !== "off") ||
+        (submittedType === "savings" && savingsOption !== "off")
       ) {
         queueMicrotask(() => {
           setChosenType(submittedType);
@@ -169,7 +181,7 @@ export function MovementFormFields({
     };
     form.addEventListener("reset", restoreTypeAfterReset);
     return () => form.removeEventListener("reset", restoreTypeAfterReset);
-  }, []);
+  }, [contributionOption, savingsOption]);
 
   useEffect(() => {
     if (carry && noteRef.current) {
@@ -338,14 +350,18 @@ export function MovementFormFields({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Tipo</legend>
-        {contributionOption === "locked" ? (
-          <input type="hidden" name="type" value="contribution" />
+        {contributionOption === "locked" || savingsOption === "locked" ? (
+          <input
+            type="hidden"
+            name="type"
+            value={contributionOption === "locked" ? "contribution" : "savings"}
+          />
         ) : null}
         <RadioGroup
           name="type"
           value={chosenType}
           onValueChange={(value) => setChosenType(value as MovementFormType)}
-          disabled={contributionOption === "locked"}
+          disabled={contributionOption === "locked" || savingsOption === "locked"}
           className="flex gap-6"
         >
           <div className="flex items-center gap-2">
@@ -360,6 +376,12 @@ export function MovementFormFields({
             <div className="flex items-center gap-2">
               <RadioGroupItem value="contribution" id={`${idPrefix}movement-type-contribution`} />
               <Label htmlFor={`${idPrefix}movement-type-contribution`}>Aportación común</Label>
+            </div>
+          ) : null}
+          {savingsOption !== "off" ? (
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="savings" id={`${idPrefix}movement-type-savings`} />
+              <Label htmlFor={`${idPrefix}movement-type-savings`}>Ahorro</Label>
             </div>
           ) : null}
         </RadioGroup>
@@ -429,7 +451,7 @@ export function MovementFormFields({
         </fieldset>
       ) : null}
 
-      {chosenType === "contribution" ? null : (
+      {chosenType === "contribution" || chosenType === "savings" ? null : (
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
           <Label htmlFor={`${idPrefix}movement-tag`}>Etiqueta</Label>

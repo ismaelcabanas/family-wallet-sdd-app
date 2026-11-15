@@ -24,6 +24,7 @@ export const savingsAllocationMonths = sqliteTable(
       .references(() => savingsAllocations.id, { onDelete: "cascade" }),
     month: text("month").notNull(),
     amountCents: integer("amount_cents").notNull(),
+    movementId: integer("movement_id"),
     createdAt: text("created_at").notNull(),
   },
   (table) => [

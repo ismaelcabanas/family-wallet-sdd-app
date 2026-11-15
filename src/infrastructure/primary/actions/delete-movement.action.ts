@@ -8,6 +8,7 @@ import { z } from "zod";
 import { db } from "../../db/client";
 import { DrizzleCommonContributionRepository } from "../../db/DrizzleCommonContributionRepository";
 import { DrizzleMovementRepository } from "../../db/DrizzleMovementRepository";
+import { DrizzleSavingsAllocationRepository } from "../../db/DrizzleSavingsAllocationRepository";
 
 export type DeleteMovementState =
   | { status: "idle" }
@@ -23,6 +24,7 @@ const UNEXPECTED_ERROR = "No se ha podido eliminar el movimiento. Inténtalo de 
 const deleteMovementUseCase = new DeleteMovement(
   new DrizzleMovementRepository(db),
   new DrizzleCommonContributionRepository(db),
+  new DrizzleSavingsAllocationRepository(db),
 );
 
 export async function deleteMovement(
