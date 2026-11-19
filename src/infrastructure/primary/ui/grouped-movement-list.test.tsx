@@ -48,7 +48,7 @@ function buildMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
     note: "Mercadona",
     amountCents: 8_500,
     nature: "personal",
-    tag: { id: 1, name: "Alimentación", slug: "alimentacion" },
+    tag: { id: 1, name: "Alimentación", slug: "alimentacion", status: "active" },
     ...overrides,
   };
 }
@@ -166,7 +166,10 @@ describe("GroupedMovementList", () => {
 
   it("pinta la tag única como chip y sin chip cuando no hay tag", () => {
     renderList([
-      buildMovement({ id: 1, tag: { id: 9, name: "Sin Clasificar", slug: "sin-clasificar" } }),
+      buildMovement({
+        id: 1,
+        tag: { id: 9, name: "Sin Clasificar", slug: "sin-clasificar", status: "active" },
+      }),
       buildMovement({ id: 2, tag: null, note: "Nómina" }),
     ]);
 
@@ -270,6 +273,83 @@ describe("GroupedMovementList", () => {
   });
 });
 
+describe("GroupedMovementList — etiquetas inactivas (034)", () => {
+  it("el chip inactivo lleva borde discontinuo, title «{nombre} (inactiva)», marca accesible y data-inactive", () => {
+    renderList([
+      buildMovement({
+        id: 1,
+        tag: { id: 5, name: "Vacaciones", slug: "vacaciones", status: "inactive" },
+      }),
+    ]);
+
+    const inactiveChip = screen.getByTitle("Vacaciones (inactiva)");
+    expect(inactiveChip).toBeInTheDocument();
+    expect(inactiveChip).toHaveAttribute("data-inactive", "true");
+    expect(inactiveChip.className).toContain("border-dashed");
+    expect(inactiveChip.className).toContain("text-muted-foreground");
+    expect(inactiveChip).toHaveTextContent("Vacaciones (inactiva)");
+    const srOnlySuffix = inactiveChip.querySelector("span.sr-only");
+    expect(srOnlySuffix?.textContent).toBe(" (inactiva)");
+  });
+
+  it("el chip activo es exactamente el de hoy: sin data-inactive, sin title, con bg-secondary", () => {
+    renderList([
+      buildMovement({
+        id: 1,
+        tag: { id: 1, name: "Alimentación", slug: "alimentacion", status: "active" },
+      }),
+    ]);
+
+    const activeChip = screen.getByText("Alimentación");
+    expect(activeChip).not.toHaveAttribute("data-inactive");
+    expect(activeChip).not.toHaveAttribute("title");
+    expect(activeChip.className).toContain("bg-secondary");
+    expect(activeChip.className).toContain("text-secondary-foreground");
+    expect(activeChip.className).not.toContain("border-dashed");
+  });
+
+  it("el marcador sigue visible en modo selección y la fila con inactiva es seleccionable", async () => {
+    const user = userEvent.setup();
+    renderList([
+      buildMovement({
+        id: 1,
+        note: "Viaje julio",
+        tag: { id: 5, name: "Vacaciones", slug: "vacaciones", status: "inactive" },
+      }),
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Seleccionar" }));
+
+    expect(screen.getByTitle("Vacaciones (inactiva)")).toHaveAttribute("data-inactive", "true");
+    expect(
+      screen.getByRole("checkbox", { name: "Seleccionar Viaje julio" }),
+    ).toBeInTheDocument();
+  });
+
+  it("la fila protegida no muestra marcador aunque su chip esté presente", () => {
+    render(
+      <GroupedMovementList
+        movements={[
+          buildMovement({
+            id: 1,
+            note: "Aportación",
+            tag: { id: 100, name: "Aportación Común", slug: "aportacion-comun", status: "active" },
+          }),
+        ]}
+        tagGroups={protectedTagGroups}
+        currentAccountId={2}
+        currentMonth="2026-04"
+        accountName="Cuenta de Miembro B"
+        accountType="personal"
+      />,
+    );
+
+    const protectedChip = screen.getByText("Aportación Común");
+    expect(protectedChip).not.toHaveAttribute("data-inactive");
+    expect(screen.queryByTitle(/inactiva/)).not.toBeInTheDocument();
+  });
+});
+
 const protectedTagGroups: ActiveTagGroupDTO[] = [
   {
     category: { id: 1, name: "General", isDefault: true },
@@ -289,7 +369,7 @@ const protectedTagGroups: ActiveTagGroupDTO[] = [
 describe("GroupedMovementList — modo de selección", () => {
   function buildProtectedMovement(overrides: Partial<MovementDTO> = {}): MovementDTO {
     return buildMovement({
-      tag: { id: 100, name: "Aportación Común", slug: "aportacion-comun" },
+      tag: { id: 100, name: "Aportación Común", slug: "aportacion-comun", status: "active" },
       note: "Aportación",
       ...overrides,
     });

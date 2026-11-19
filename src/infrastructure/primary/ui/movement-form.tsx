@@ -69,6 +69,7 @@ interface MovementFormFieldsProps {
   onTagCreated?: (tag: TagDTO) => void;
   contributionOption?: ContributionOption;
   savingsOption?: ContributionOption;
+  currentInactiveTag?: { id: number; name: string } | null;
 }
 
 const NO_TAG_VALUE = "__no_tag__";
@@ -108,6 +109,7 @@ export function MovementFormFields({
   onTagCreated,
   contributionOption = "off",
   savingsOption = "off",
+  currentInactiveTag = null,
 }: MovementFormFieldsProps) {
   const isEditMode = Boolean(initialValues && !carry);
 
@@ -533,6 +535,11 @@ export function MovementFormFields({
                 <SelectValue placeholder="Selecciona etiqueta" />
               </SelectTrigger>
               <SelectContent>
+                {currentInactiveTag != null && selectValue === String(currentInactiveTag.id) ? (
+                  <SelectItem value={String(currentInactiveTag.id)} disabled>
+                    {currentInactiveTag.name} (inactiva)
+                  </SelectItem>
+                ) : null}
                 {chosenType === "income" ? (
                   <SelectItem value={NO_TAG_VALUE}>Sin etiqueta</SelectItem>
                 ) : null}

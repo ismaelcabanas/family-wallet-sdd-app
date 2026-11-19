@@ -32,7 +32,7 @@ const movement: MovementDTO = {
   note: "Mercadona",
   amountCents: 8_500,
   nature: "personal",
-  tag: { id: 2, name: "Vivienda", slug: "vivienda" },
+  tag: { id: 2, name: "Vivienda", slug: "vivienda", status: "active" },
 };
 
 const onCloseMock = vi.fn();

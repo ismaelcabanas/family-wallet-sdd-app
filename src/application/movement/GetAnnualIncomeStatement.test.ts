@@ -43,7 +43,7 @@ const movements: MovementDTO[] = [
     note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tag: { id: 2, name: "Hipoteca", slug: "hipoteca" },
+    tag: { id: 2, name: "Hipoteca", slug: "hipoteca", status: "active" },
   },
   {
     id: 5,
@@ -53,7 +53,7 @@ const movements: MovementDTO[] = [
     note: "Gasolina",
     amountCents: 6_000,
     nature: "personal",
-    tag: { id: 3, name: "Coche", slug: "coche" },
+    tag: { id: 3, name: "Coche", slug: "coche", status: "active" },
   },
   {
     id: 6,
@@ -63,7 +63,7 @@ const movements: MovementDTO[] = [
     note: "Compra semanal",
     amountCents: 306_000,
     nature: "shared",
-    tag: { id: 4, name: "Alimentación", slug: "alimentacion" },
+    tag: { id: 4, name: "Alimentación", slug: "alimentacion", status: "active" },
   },
   {
     id: 7,

@@ -1,5 +1,6 @@
 import type { ExpenseNature } from "@/domain/movement/ExpenseNature";
 import type { MovementType } from "@/domain/movement/MovementType";
+import type { TagStatus } from "@/domain/tag/TagStatus";
 
 export interface CreateMovementDTO {
   accountId: number;
@@ -26,6 +27,7 @@ export interface MovementTagDTO {
   id: number;
   name: string;
   slug: string;
+  status: TagStatus;
 }
 
 export interface MovementDTO {

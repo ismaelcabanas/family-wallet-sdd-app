@@ -79,6 +79,7 @@ export class DrizzleMovementRepository implements MovementRepository {
         tagId: tags.id,
         tagName: tags.name,
         tagSlug: tags.slug,
+        tagStatus: tags.status,
       })
       .from(movements)
       .leftJoin(tags, eq(tags.id, movements.tagId))

@@ -12,7 +12,7 @@ const movements: MovementDTO[] = [
     note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tag: { id: 2, name: "Vivienda", slug: "vivienda" },
+    tag: { id: 2, name: "Vivienda", slug: "vivienda", status: "active" },
   },
 ];
 

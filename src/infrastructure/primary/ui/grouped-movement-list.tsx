@@ -175,9 +175,20 @@ export function GroupedMovementList({
                       <div className="flex min-w-0 flex-col gap-1">
                         {movement.tag !== null ? (
                           <div className="flex flex-wrap items-center gap-1">
-                            <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                              {movement.tag.name}
-                            </span>
+                            {movement.tag.status === "inactive" ? (
+                              <span
+                                className="rounded-full border border-dashed px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                                title={`${movement.tag.name} (inactiva)`}
+                                data-inactive="true"
+                              >
+                                {movement.tag.name}
+                                <span className="sr-only"> (inactiva)</span>
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                                {movement.tag.name}
+                              </span>
+                            )}
                           </div>
                         ) : null}
                         <span className="text-xs text-muted-foreground">{movement.note}</span>
