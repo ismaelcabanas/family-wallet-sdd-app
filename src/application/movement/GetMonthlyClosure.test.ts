@@ -22,7 +22,7 @@ const movements: MovementDTO[] = [
     note: "Hipoteca",
     amountCents: 85_000,
     nature: "shared",
-    tag: { id: 2, name: "Hipoteca", slug: "hipoteca" },
+    tag: { id: 2, name: "Hipoteca", slug: "hipoteca", status: "active" },
   },
   {
     id: 3,
@@ -32,7 +32,7 @@ const movements: MovementDTO[] = [
     note: "Luz",
     amountCents: 12_050,
     nature: "shared",
-    tag: { id: 3, name: "Hogar", slug: "hogar" },
+    tag: { id: 3, name: "Hogar", slug: "hogar", status: "active" },
   },
 ];
 

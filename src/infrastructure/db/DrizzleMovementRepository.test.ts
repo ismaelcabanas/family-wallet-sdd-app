@@ -86,7 +86,7 @@ describe("DrizzleMovementRepository", () => {
 
     const [movement] = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
 
-    expect(movement.tag).toEqual({ id: 2, name: "Vivienda", slug: "vivienda" });
+    expect(movement.tag).toEqual({ id: 2, name: "Vivienda", slug: "vivienda", status: "active" });
   });
 
   it("la tag del DTO es null para un movimiento sin tag", async () => {
@@ -169,9 +169,14 @@ describe("DrizzleMovementRepository", () => {
         "Hipoteca común",
       ]);
       const gasolina = result.find((movement) => movement.note === "Gasolina");
-      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche" });
+      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche", status: "active" });
       const hipoteca = result.find((movement) => movement.note === "Hipoteca común");
-      expect(hipoteca?.tag).toEqual({ id: 2, name: "Vivienda", slug: "vivienda" });
+      expect(hipoteca?.tag).toEqual({
+        id: 2,
+        name: "Vivienda",
+        slug: "vivienda",
+        status: "active",
+      });
     });
 
     it("respeta el rango exacto del mes sin meses contiguos ni otros años", async () => {
@@ -274,9 +279,9 @@ describe("DrizzleMovementRepository", () => {
         "Hipoteca enero",
       ]);
       const gasolina = result.find((movement) => movement.note === "Gasolina julio");
-      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche" });
+      expect(gasolina?.tag).toEqual({ id: 1, name: "Coche", slug: "coche", status: "active" });
       const hipoteca = result.find((movement) => movement.note === "Hipoteca enero");
-      expect(hipoteca?.tag).toEqual({ id: 3, name: "Hipoteca", slug: "hipoteca" });
+      expect(hipoteca?.tag).toEqual({ id: 3, name: "Hipoteca", slug: "hipoteca", status: "active" });
     });
 
     it("respeta el rango exacto del año sin el 31-dic anterior ni el 1-ene siguiente", async () => {
@@ -315,6 +320,73 @@ describe("DrizzleMovementRepository", () => {
       const byId = (list: typeof year) => [...list].sort((a, b) => a.id - b.id);
       expect(byId(year)).toEqual(byId(months.flat()));
       expect(year).toHaveLength(3);
+    });
+  });
+
+  describe("tag status en las lecturas (034)", () => {
+    beforeEach(async () => {
+      await testDb.db.insert(tags).values([
+        { id: 4, name: "Vacaciones", slug: "vacaciones", status: "inactive", categoryId: 1 },
+      ]);
+    });
+
+    it("listByMonthAndAccount sirve el status de la etiqueta de cada fila", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-02", note: "Con inactiva", tagId: TagId(4) }));
+      await repository.create(buildMovement({ date: "2026-09-03", note: "Con activa" }));
+      await repository.create(
+        buildMovement({ date: "2026-09-04", note: "Sin etiqueta", type: "income", nature: null, tagId: null }),
+      );
+
+      const result = await repository.listByMonthAndAccount(AccountId(3), "2026-09");
+
+      const inactiva = result.find((movement) => movement.note === "Con inactiva");
+      expect(inactiva?.tag).toEqual({
+        id: 4,
+        name: "Vacaciones",
+        slug: "vacaciones",
+        status: "inactive",
+      });
+      const activa = result.find((movement) => movement.note === "Con activa");
+      expect(activa?.tag).toMatchObject({ id: 2, status: "active" });
+      const sinEtiqueta = result.find((movement) => movement.note === "Sin etiqueta");
+      expect(sinEtiqueta?.tag).toBeNull();
+    });
+
+    it("listByMonth sirve el status de la etiqueta de cada fila", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-02", note: "Con inactiva", tagId: TagId(4) }));
+      await repository.create(buildMovement({ date: "2026-09-03", note: "Con activa" }));
+      await repository.create(
+        buildMovement({ date: "2026-09-04", note: "Sin etiqueta", type: "income", nature: null, tagId: null }),
+      );
+
+      const result = await repository.listByMonth("2026-09");
+
+      const inactiva = result.find((movement) => movement.note === "Con inactiva");
+      expect(inactiva?.tag).toMatchObject({ id: 4, status: "inactive" });
+      const activa = result.find((movement) => movement.note === "Con activa");
+      expect(activa?.tag).toMatchObject({ id: 2, status: "active" });
+      const sinEtiqueta = result.find((movement) => movement.note === "Sin etiqueta");
+      expect(sinEtiqueta?.tag).toBeNull();
+    });
+
+    it("listByYear sirve el status de la etiqueta de cada fila", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-07-02", note: "Con inactiva", tagId: TagId(4) }));
+      await repository.create(buildMovement({ date: "2026-07-03", note: "Con activa" }));
+      await repository.create(
+        buildMovement({ date: "2026-07-04", note: "Sin etiqueta", type: "income", nature: null, tagId: null }),
+      );
+
+      const result = await repository.listByYear("2026");
+
+      const inactiva = result.find((movement) => movement.note === "Con inactiva");
+      expect(inactiva?.tag).toMatchObject({ id: 4, status: "inactive" });
+      const activa = result.find((movement) => movement.note === "Con activa");
+      expect(activa?.tag).toMatchObject({ id: 2, status: "active" });
+      const sinEtiqueta = result.find((movement) => movement.note === "Sin etiqueta");
+      expect(sinEtiqueta?.tag).toBeNull();
     });
   });
 

@@ -4,6 +4,7 @@ import { Money } from "@/domain/movement/Money";
 import { Movement } from "@/domain/movement/Movement";
 import { MovementType } from "@/domain/movement/MovementType";
 import { TagId } from "@/domain/tag/TagId";
+import type { TagStatus } from "@/domain/tag/TagStatus";
 
 import type { MovementDTO } from "@/application/movement/dto";
 import type { MovementRow, NewMovementRow } from "../schema/movements";
@@ -29,11 +30,13 @@ export interface MovementJoinedRow
   tagId: number | null;
   tagName: string | null;
   tagSlug: string | null;
+  tagStatus: string | null;
 }
 
 export function mapJoinedRowToMovementDTO(row: MovementJoinedRow): MovementDTO {
-  const { tagId, tagName, tagSlug } = row;
-  const hasTag = tagId !== null && tagName !== null && tagSlug !== null;
+  const { tagId, tagName, tagSlug, tagStatus } = row;
+  const hasTag =
+    tagId !== null && tagName !== null && tagSlug !== null && tagStatus !== null;
   return {
     id: row.id,
     accountId: row.accountId,
@@ -42,7 +45,9 @@ export function mapJoinedRowToMovementDTO(row: MovementJoinedRow): MovementDTO {
     note: row.note,
     amountCents: row.amountCents,
     nature: row.nature as ExpenseNature | null,
-    tag: hasTag ? { id: tagId, name: tagName, slug: tagSlug } : null,
+    tag: hasTag
+      ? { id: tagId, name: tagName, slug: tagSlug, status: tagStatus as TagStatus }
+      : null,
   };
 }
 

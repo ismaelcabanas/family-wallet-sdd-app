@@ -15,7 +15,7 @@ const movements: MovementDTO[] = [
     note: "Compra semanal",
     amountCents: 30_000,
     nature: "shared",
-    tag: { id: 11, name: "Alimentación", slug: "alimentacion" },
+    tag: { id: 11, name: "Alimentación", slug: "alimentacion", status: "active" },
   },
   {
     id: 2,
@@ -25,7 +25,7 @@ const movements: MovementDTO[] = [
     note: "Compra común",
     amountCents: 12_000,
     nature: "shared",
-    tag: { id: 12, name: "Supermercado", slug: "supermercado" },
+    tag: { id: 12, name: "Supermercado", slug: "supermercado", status: "active" },
   },
   {
     id: 3,
@@ -35,7 +35,7 @@ const movements: MovementDTO[] = [
     note: "Aportación",
     amountCents: 96_000,
     nature: "personal",
-    tag: { id: 13, name: "Aportación Común", slug: "aportacion-comun" },
+    tag: { id: 13, name: "Aportación Común", slug: "aportacion-comun", status: "active" },
   },
   {
     id: 4,
@@ -45,7 +45,7 @@ const movements: MovementDTO[] = [
     note: "Gasolina",
     amountCents: 6_000,
     nature: "personal",
-    tag: { id: 14, name: "Coche", slug: "coche" },
+    tag: { id: 14, name: "Coche", slug: "coche", status: "active" },
   },
   {
     id: 5,

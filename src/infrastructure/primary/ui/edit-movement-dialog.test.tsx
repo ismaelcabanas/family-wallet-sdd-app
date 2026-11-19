@@ -47,7 +47,7 @@ const movement: MovementDTO = {
   note: "Mercadona",
   amountCents: 8_500,
   nature: "personal",
-  tag: { id: 2, name: "Vivienda", slug: "vivienda" },
+  tag: { id: 2, name: "Vivienda", slug: "vivienda", status: "active" },
 };
 
 const onCloseMock = vi.fn();
@@ -248,7 +248,7 @@ describe("EditMovementDialog", () => {
         movement={{
           ...movement,
           note: "Ahorro",
-          tag: { id: 101, name: "Ahorro", slug: "ahorro" },
+          tag: { id: 101, name: "Ahorro", slug: "ahorro", status: "active" },
         }}
         tagGroups={tagGroups}
         currentAccountId={1}
@@ -272,5 +272,45 @@ describe("EditMovementDialog", () => {
     expect(formData.get("type")).toBe("savings");
     expect(formData.get("nature")).toBeNull();
     expect(formData.get("tagId")).toBeNull();
+  });
+});
+
+describe("EditMovementDialog — etiqueta inactiva actual (034)", () => {
+  function renderDialogWith(overrides: Partial<MovementDTO> = {}) {
+    return render(
+      <EditMovementDialog
+        movement={{ ...movement, ...overrides }}
+        tagGroups={tagGroups}
+        currentAccountId={1}
+        currentMonth="2026-09"
+        onClose={onCloseMock}
+      />,
+    );
+  }
+
+  it("con etiqueta inactiva el trigger muestra «{nombre} (inactiva)»", () => {
+    renderDialogWith({
+      tag: { id: 5, name: "Vacaciones", slug: "vacaciones", status: "inactive" },
+    });
+
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Vacaciones (inactiva)",
+    );
+  });
+
+  it("con etiqueta activa pasa null: trigger con el nombre y sin marca de inactiva", () => {
+    renderDialogWith();
+
+    const combobox = screen.getByRole("combobox", { name: "Etiqueta" });
+    expect(combobox).toHaveTextContent("Vivienda");
+    expect(combobox).not.toHaveTextContent("(inactiva)");
+  });
+
+  it("sin etiqueta pasa null: trigger vacío y sin marca de inactiva", () => {
+    renderDialogWith({ type: "income", nature: null, tag: null });
+
+    const combobox = screen.getByRole("combobox", { name: "Etiqueta" });
+    expect(combobox).toHaveTextContent("Selecciona etiqueta");
+    expect(combobox).not.toHaveTextContent("(inactiva)");
   });
 });

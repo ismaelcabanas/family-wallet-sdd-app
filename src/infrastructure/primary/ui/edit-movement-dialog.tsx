@@ -138,6 +138,10 @@ function EditMovementForm({
 
   const isContribution = movement.tag !== null && movement.tag.slug === CONTRIBUTION_TAG_SLUG;
   const isSavings = movement.tag !== null && movement.tag.slug === SAVINGS_TAG_SLUG;
+  const currentInactiveTag =
+    movement.tag !== null && movement.tag.status === "inactive"
+      ? { id: movement.tag.id, name: movement.tag.name }
+      : null;
 
   return (
     <MovementFormFields
@@ -149,6 +153,7 @@ function EditMovementForm({
       contributionOption={isContribution ? "locked" : "off"}
       savingsOption={isSavings ? "locked" : "off"}
       onTagCreated={onTagCreated}
+      currentInactiveTag={currentInactiveTag}
       submitLabel="Guardar cambios"
       secondaryActions={
         <Button type="button" variant="outline" onClick={onClose}>

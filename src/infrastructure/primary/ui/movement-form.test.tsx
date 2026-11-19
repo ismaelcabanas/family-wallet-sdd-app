@@ -633,6 +633,117 @@ describe("MovementFormFields (modo edición)", () => {
   });
 });
 
+describe("MovementFormFields (etiqueta inactiva actual, 034)", () => {
+  const inactiveInitialValues = {
+    date: "2026-07-14",
+    note: "Viaje",
+    amountCents: 50_000,
+    type: "expense" as const,
+    nature: "personal" as const,
+    tagId: 99,
+  };
+  const currentInactiveTag = { id: 99, name: "Vacaciones" };
+
+  function renderEditWithInactiveTag(
+    overrides: Partial<Parameters<typeof MovementFormFields>[0]> = {},
+  ) {
+    return render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        submitLabel="Guardar cambios"
+        tagGroups={tagGroups}
+        initialValues={inactiveInitialValues}
+        currentInactiveTag={currentInactiveTag}
+        {...overrides}
+      />,
+    );
+  }
+
+  it("el trigger muestra «{nombre} (inactiva)» como valor actual", () => {
+    renderEditWithInactiveTag();
+
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Vacaciones (inactiva)",
+    );
+  });
+
+  it("el ítem del dropdown está primero, fuera de grupos y deshabilitado; los destinos son solo activas", async () => {
+    const user = userEvent.setup();
+    renderEditWithInactiveTag();
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+
+    const inactiveOption = screen.getByRole("option", { name: "Vacaciones (inactiva)" });
+    expect(inactiveOption).toHaveAttribute("aria-disabled", "true");
+    expect(inactiveOption).toHaveAttribute("data-disabled", "");
+    expect(inactiveOption.closest('[data-slot="select-group"]')).toBeNull();
+    const allOptions = screen.getAllByRole("option");
+    expect(allOptions[0]).toBe(inactiveOption);
+
+    expect(screen.getByRole("option", { name: "Hipoteca" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Vivienda" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sin Clasificar" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Vacaciones" })).not.toBeInTheDocument();
+  });
+
+  it("al elegir un destino el ítem inactivo deja de renderizarse", async () => {
+    const user = userEvent.setup();
+    renderEditWithInactiveTag();
+
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    await user.click(screen.getByRole("option", { name: "Vivienda" }));
+
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent("Vivienda");
+    await user.click(screen.getByRole("combobox", { name: "Etiqueta" }));
+    expect(
+      screen.queryByRole("option", { name: "Vacaciones (inactiva)" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("guardar sin cambiar mantiene el ítem visible con el error existente sobre el campo (escenario 5)", () => {
+    renderEditWithInactiveTag({
+      state: {
+        status: "error",
+        errors: { tagId: ["Una de las etiquetas seleccionadas ya no está disponible."] },
+        values: {
+          date: "2026-07-14",
+          note: "Viaje",
+          amount: "500,00",
+          accountId: "",
+          type: "expense",
+          nature: "personal",
+          tagId: "99",
+        },
+      },
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Una de las etiquetas seleccionadas ya no está disponible.");
+    expect(screen.getByRole("combobox", { name: "Etiqueta" })).toHaveTextContent(
+      "Vacaciones (inactiva)",
+    );
+  });
+
+  it("sin la prop, un tagId inactivo deja el trigger vacío como hoy (alta y retag sin cambios)", () => {
+    render(
+      <MovementFormFields
+        state={{ status: "idle" }}
+        formAction={actionMock}
+        isPending={false}
+        submitLabel="Guardar cambios"
+        tagGroups={tagGroups}
+        initialValues={inactiveInitialValues}
+      />,
+    );
+
+    const combobox = screen.getByRole("combobox", { name: "Etiqueta" });
+    expect(combobox.textContent).toBe("");
+    expect(combobox).not.toHaveTextContent("(inactiva)");
+  });
+});
+
 describe("MovementFormFields (tipo «Aportación común», 032)", () => {
   const protectedTagGroups: ActiveTagGroupDTO[] = [
     {
