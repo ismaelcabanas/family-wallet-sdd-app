@@ -12,6 +12,13 @@
 
 **Granularidad** (constitución II): una única user story pequeña con valor propio — consultar de un vistazo y de forma continua el ahorro acumulado del año (la suma de los saldos de sus meses) mientras se opera en la cuenta. No aplica excepción de agrupación.
 
+## Clarifications
+
+### Session 2026-11-21
+
+- Q: Cuando la visita a un mes del mismo año dispara una materialización perezosa (aportación/ahorro de un mes aún no visitado) que cambia el saldo de ese mes, debe el KPI de ahorro acumulado recalcularse con los datos ya materializados o permanecer congelado durante esa visita? → A: Recalcular con los datos vigentes en cada render: si la visita materializa movimientos, el acumulado cambia de forma coherente en esa misma visita (la «estabilidad» significa que no depende del mes consultado a igualdad de datos, no que congele valores).
+- Q: En qué año debe fijarse el flujo e2e de la feature para garantizar resultados deterministas sobre la BD compartida de los tests e2e? → A: En un año pasado (p. ej. 2025) en una cuenta personal propia: ningún otro spec e2e escribe ahí y el acumulado esperado es inmutable entre runs.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Consultar el ahorro acumulado del año junto a los KPIs del mes (Priority: P1)
@@ -27,7 +34,7 @@ Como miembro con cuenta personal, al consultar la página de mi cuenta quiero ve
 1. **Given** varios meses del año de mi cuenta personal con saldo (positivos y negativos), **When** consulto cualquier mes de ese año, **Then** el bloque «KPIs del mes» muestra 5 métricas (aportación común, gasto personal, ahorro del mes, saldo del mes y ahorro acumulado) y el KPI de ahorro acumulado muestra la **suma con signo de los «Saldo del mes» de los meses del año**, coherente con lo que muestra cada mes al visitarlo.
 2. **Given** un mes con un listado largo de movimientos, **When** me desplazo por el listado, **Then** las 5 métricas permanecen visibles en todo momento (visibilidad continua de 022).
 3. **Given** el selector ‹ mes/año › posicionado en un mes de otro año (p. ej. 2025), **When** consulto la cuenta, **Then** el KPI de ahorro acumulado refleja el año 2025 completo, coherente con los saldos mensuales de ese año.
-4. **Given** dos meses distintos del mismo año, **When** navego entre ellos con el selector, **Then** el ahorro acumulado permanece estable (depende del año consultado, no del mes).
+4. **Given** dos meses distintos del mismo año ya consistentes (sin materializaciones pendientes), **When** navego entre ellos con el selector, **Then** el ahorro acumulado permanece estable (depende del año consultado, no del mes). Si la visita a un mes no visitado dispara una materialización perezosa (018/019/021/033) que cambia el saldo de ese mes, el acumulado se actualiza de forma coherente ya en el render de esa visita (la materialización ocurre antes de la lectura).
 5. **Given** un año sin movimientos en la cuenta, **When** consulto cualquier mes de ese año, **Then** el KPI de ahorro acumulado muestra 0,00 €, presente y sin errores.
 6. **Given** altas, ediciones o eliminaciones de movimientos de cualquier mes del año, **When** vuelvo a consultar la página, **Then** el KPI se actualiza en el mismo ciclo de actualización que el resto de la página.
 7. **Given** la cuenta común, **When** consulto su página, **Then** no aparece el bloque de KPIs: la página de la cuenta común no cambia.
@@ -40,7 +47,7 @@ Como miembro con cuenta personal, al consultar la página de mi cuenta quiero ve
 - **Saldos mensuales negativos**: acumulan con signo; un mes negativo reduce el total y el acumulado puede ser negativo (formato existente para importes negativos).
 - **Mes en curso**: computa como esté (parcial), exactamente igual que su «Saldo del mes» visible.
 - **Meses futuros del año**: la suma cubre el año natural completo; los meses sin movimientos computan 0 de facto. Un movimiento fechado a futuro dentro del año computa en su mes (regla general de la aplicación).
-- **Meses nunca visitados**: el acumulado computa con los movimientos registrados, sin forzar materializaciones (paridad con los agregados anuales existentes); la materialización perezosa de 018/019/021/033 sigue disparándose solo al visitar cada mes con el selector.
+- **Meses nunca visitados**: el acumulado computa con los movimientos registrados, sin forzar materializaciones (paridad con los agregados anuales existentes); la materialización perezosa de 018/019/021/033 sigue disparándose solo al visitar cada mes con el selector. Si esa visita materializa movimientos que cambian el saldo del mes visitado, el acumulado se recalcula con los datos vigentes en ese mismo render (no se congela; aclarado 2026-11-21).
 - **Ahorro deducido legacy (fila congelada sin movimiento, pre-033)**: cada mes descuenta su ahorro según la composición condicional del «Saldo del mes» (033); el acumulado usa exactamente la misma fórmula aplicada mes a mes, sin recálculos propios.
 - **Doble semántica de «ahorro»**: «Ahorro del mes» (deducción porcentual de 023/033) y «Ahorro acumulado» (suma de saldos) son conceptos distintos con literales distintos; la UI no los mezcla ni deriva uno del otro.
 - **Importes con céntimos**: la suma es exacta al céntimo, en EUR con 2 decimales, coherente con el formato existente.
@@ -51,12 +58,12 @@ Como miembro con cuenta personal, al consultar la página de mi cuenta quiero ve
 
 - **FR-001 (quinta métrica del bloque «KPIs del mes»)**: El bloque «KPIs del mes» de las cuentas personales MUST incorporar el KPI «Ahorro acumulado» junto a la aportación común, el gasto personal, el ahorro del mes y el saldo del mes (**5 métricas**; amend del contrato congelado de 022/023/024), manteniendo el comportamiento de visibilidad continua (sticky de 022) y sin incluir el selector ‹ mes/año › en el bloque. El año de referencia MUST ser evidente para el usuario. Literales, orden y layout de las 5 métricas se congelan en el ui-contract del plan.
 - **FR-002 (composición e importe del KPI)**: El KPI MUST mostrar la **suma con signo de los «Saldo del mes» de todos los meses del año natural de referencia** de la cuenta personal, aplicando mes a mes exactamente la misma definición que el KPI «Saldo del mes» visible (incluida la composición condicional del ahorro de 033). Suma exacta al céntimo; cada mes computa como máximo una vez.
-- **FR-003 (año de referencia)**: El año de referencia MUST ser el año del mes seleccionado en el selector ‹ mes/año ›, cubriendo el año natural completo (los meses sin datos computan 0). El valor MUST ser estable al navegar entre meses del mismo año y MUST cambiar al navegar a un mes de otro año en la misma visita.
+- **FR-003 (año de referencia)**: El año de referencia MUST ser el año del mes seleccionado en el selector ‹ mes/año ›, cubriendo el año natural completo (los meses sin datos computan 0). El valor MUST ser estable al navegar entre meses del mismo año (a igualdad de datos; una visita que materializa movimientos actualiza el acumulado, ver Clarificaciones) y MUST cambiar al navegar a un mes de otro año en la misma visita.
 - **FR-004 (coherencia por construcción)**: El importe MUST obtenerse de las mismas reglas y lecturas que alimentan los KPIs del mes existentes, sin recálculos paralelos ni duplicación de lógica de negocio en la UI.
 - **FR-005 (lectura pura)**: La feature MUST NOT introducir configuración, disparadores de materialización ni reglas nuevas; MUST NOT alterar la semántica de 018–034 (los meses no visitados computan con los movimientos registrados, en paridad con los agregados anuales existentes).
 - **FR-006 (sin cambios fuera de alcance)**: La página de la cuenta común, el resumen global mensual, la cuenta de resultados anual, el informe anual de gastos, los formularios y el catálogo de etiquetas MUST permanecer sin cambios.
 - **FR-007 (actualización de la página)**: Las altas, ediciones y eliminaciones de movimientos de cualquier mes del año MUST reflejarse en el KPI al reconsultar la página, en el mismo ciclo de actualización que el resto de la página.
-- **FR-008 (cobertura de tests)**: La feature MUST estar cubierta por tests del bloque de KPIs (casos: año con saldos mixtos, año vacío, navegación entre años, estabilidad dentro del mismo año, coherencia de la suma con la composición condicional de 033) y un flujo e2e con su propia combinación cuenta/mes (convención de aislamiento e2e; constitución III) que verifique la visibilidad continua y el importe exacto.
+- **FR-008 (cobertura de tests)**: La feature MUST estar cubierta por tests del bloque de KPIs (casos: año con saldos mixtos, año vacío, navegación entre años, estabilidad dentro del mismo año a igualdad de datos —una visita que materializa un mes actualiza el acumulado—, coherencia de la suma con la composición condicional de 033) y un flujo e2e con su propia combinación cuenta/mes (convención de aislamiento e2e; constitución III) que verifique la visibilidad continua y el importe exacto.
 - **FR-009 (actualización de documentación)**: Al completar la feature, el roadmap maestro MUST registrar la fila 035 como Completada y la convención del bloque KPIs de AGENTS.md MUST amendarse (4 → 5 métricas), junto con la documentación de arquitectura afectada.
 
 ### Key Entities
@@ -81,7 +88,7 @@ No se introducen entidades nuevas: el KPI es una agregación de lectura derivada
 - **Alcance de cuentas**: solo cuentas personales (el bloque «KPIs del mes» existe solo en ellas, 022).
 - **Lectura pura**: la feature depende del bloque existente (022–024, 033) y no fuerza la materialización de meses no visitados (paridad con la decisión del propietario 2026-10-12 sobre agregados).
 - **Formato de importes**: EUR con 2 decimales y el formato numérico existente de la aplicación.
-- **Los e2e de la feature** operarán en su propia combinación cuenta/mes y en fichero propio, conforme a la convención de aislamiento del proyecto.
+- **Los e2e de la feature** operarán en su propia combinación cuenta/mes y en fichero propio, conforme a la convención de aislamiento del proyecto; el flujo se fija en un **año pasado** (p. ej. 2025) para que el acumulado esperado sea determinista (ningún otro spec escribe en ese año/cuenta).
 
 ## Out of Scope
 
