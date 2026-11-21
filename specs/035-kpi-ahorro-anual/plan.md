@@ -1,140 +1,192 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: KPI de ahorro acumulado del año en la página de cuenta personal
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Branch**: `feature/035-kpi-ahorro-anual` | **Date**: 2026-11-22 | **Spec**: [specs/035-kpi-ahorro-anual/spec.md](./spec.md)
 
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command; its definition describes the execution workflow.
+**Input**: Feature specification from `/specs/035-kpi-ahorro-anual/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+El bloque «KPIs del mes» de las cuentas personales pasa de 4 a 5 métricas (amend del contrato congelado de 022/023/024/033): nueva celda **«Ahorro acumulado»** con la **suma con signo de los «Saldo del mes» de los 12 meses del año natural del mes consultado**, con el año de referencia visible («Año {year}») y la visibilidad continua sticky de 022 intacta. Es una **agregación de lectura pura**: sin configuración, sin materialización (FR-005) y sin entidades nuevas.
+
+Enfoque técnico (research R1–R9): nuevo caso de uso `GetAnnualAccumulatedSavings` que reutiliza el servicio de dominio `MonthlyClosure.fromMovements` mes a mes (coherencia por construcción, FR-004) y la fórmula de composición condicional de 033 extraída a **una única función pura compartida** (`netMonthBalanceCents` en aplicación) que pasa a usar también la página para el mes en curso; dos métodos de lectura nuevos en puertos existentes (`MovementRepository.listByYearAndAccount` y `SavingsAllocationRepository.findDeductedMonthsOfYear`) para leer el año en 2 queries; 5.ª celda presentacional en `AccountMonthKpis`; e2e propio en cuenta 2 × **2025** (año pasado que ningún otro spec escribe) con limpieza total final. Dominio, esquema, migraciones, materializadores, agregados y cuenta común: **intactos**.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+**Language/Version**: TypeScript 5 (estricto) sobre Node.js LTS — Next.js App Router (monolito)
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: Next.js (App Router, Server Components), Drizzle ORM + SQLite (dev) / Turso libSQL (prod), Zod (fronteras), Tailwind CSS + shadcn/ui, Vitest + Testing Library, Playwright
 
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: SQLite/Turso vía Drizzle. **Sin migraciones ni cambios de esquema** (lectura pura sobre tablas existentes)
 
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: Vitest (`test.projects`: `node` dominio/aplicación/infra, `ui` jsdom componentes) co-localizado con el SUT; repositorios contra libsql `:memory:` con migraciones reales; Playwright e2e contra `build + start` con BD determinista (`e2e.sqlite`, `workers: 1`)
 
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
+**Target Platform**: Web (navegador), despliegue local y Vercel + Turso
 
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: Web app monolítica (hexagonal + DDD táctico)
 
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]
+**Performance Goals**: N/A (uso individual; 2 queries de lectura por render de cuenta personal)
 
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: La UI no calcula lógica de negocio (composición vía helper único compartido, precedente restas de composición 022–024/033); los agregados de lectura nunca materializan (ADR 0016/0017); la fórmula del «Saldo del mes» no se duplica (FR-004)
 
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
-
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Scale/Scope**: 1 usuario, 3 cuentas, histórico mensual; alcance acotado al bloque KPIs de la página de cuenta personal
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principio | Estado | Notas |
+|---|---|---|
+| I. Simplicidad Primero | ✅ | Cero proyectos/paquetes/capas nuevas; extiende módulos existentes en su lugar. Sin ADR nuevo (extensión de patrones 022–024, como 024). Sin `GetAccountMonthKpis` agregado (YAGNI, research R3) |
+| II. Spec-Driven Development | ✅ | Spec 035 aprobada (clarify completo, 2 decisiones registradas); este plan es el paso `/speckit.plan`; una única US con valor propio |
+| III. Calidad Verificada | ✅ | FR-008 fija el mapa de tests: helper y caso de uso (node), repositorios (libsql `:memory:`), componente KPIs (jsdom) y e2e propio con aislamiento cuenta/año (convención e2e); gates lint+typecheck+test |
+| IV. TypeScript Estricto + Zod | ✅ | Sin fronteras de datos nuevas (el `month`/`year` ya llega validado por Zod en la página); sin `any` |
+| V. SQLite con Drizzle | ✅ | Cero migraciones: solo lectura vía Drizzle (2 selects con rango de fechas y LEFT JOIN existentes) |
+| VI. Producto en español, código en inglés | ✅ | Literales nuevos en español («Ahorro acumulado», «Año {year}»); identificadores en inglés (`GetAnnualAccumulatedSavings`, `netMonthBalanceCents`, `listByYearAndAccount`); glosario en data-model |
+| VII. Hexagonal + DDD | ✅ | Dominio **intacto** (reutiliza `MonthlyClosure`/`Money`); caso de uso + puertos de lectura en aplicación; UI presentacional pura (la página consume el DTO; la fórmula condicional vive en UN helper de aplicación usado por página y caso de uso — fin de la duplicación, FR-004); sin eventos/CQRS nuevos |
+
+**Re-evaluación post-Phase 1**: sin cambios — el diseño (data-model, contracts) no añade dependencias hacia el dominio desde fuera ni lógica de negocio en la UI. Sin violaciones que justificar: **Complexity Tracking vacío**.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
+specs/035-kpi-ahorro-anual/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output (/speckit.plan command)
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
 ├── quickstart.md        # Phase 1 output (/speckit.plan command)
 ├── contracts/           # Phase 1 output (/speckit.plan command)
+│   ├── interfaces.md
+│   └── ui-contract.md
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
 src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+├── domain/                                  # INTACTO (reutiliza MonthlyClosure, Money)
+├── application/                             # casos de uso y puertos
+│   ├── movement/
+│   │   ├── GetAnnualAccumulatedSavings.ts        # [nuevo] Σ netMonthBalance(m) del año
+│   │   ├── GetAnnualAccumulatedSavings.test.ts   # [nuevo]
+│   │   ├── net-month-balance.ts                  # [nuevo] fórmula condicional 033 compartida
+│   │   ├── net-month-balance.test.ts             # [nuevo]
+│   │   ├── dto.ts                                 # [ampliado] + AnnualAccumulatedSavingsDTO
+│   │   └── MovementRepository.ts                  # [ampliado] + listByYearAndAccount
+│   └── savings/
+│       └── SavingsAllocationRepository.ts         # [ampliado] + findDeductedMonthsOfYear
+├── app/
+│   └── accounts/[accountId]/page.tsx              # [ampliado] year + Promise.all + helper compartido
+└── infrastructure/
+    ├── db/
+    │   ├── DrizzleMovementRepository.ts(+test)    # [ampliado] listByYearAndAccount
+    │   └── DrizzleSavingsAllocationRepository.ts(+test)  # [ampliado] findDeductedMonthsOfYear
+    └── primary/
+        └── ui/
+            ├── account-month-kpis.tsx(+test)      # [ampliado] 5.ª métrica «Ahorro acumulado»
+            └── format.ts                          # INTACTO (formatSignedCents existente)
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+e2e/
+└── kpi-ahorro-anual.spec.ts                       # [nuevo] cuenta 2 × 2025 (+2024), limpieza total
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+specs/001-family-wallet/spec.md                    # [ampliado, en la implementación] fila 035 → Completada
+AGENTS.md                                          # [ampliado, en la implementación] bloque KPIs 4 → 5 métricas
+docs/architecture/{overview.md,diagrams/pagina-cuenta-sequence.md}  # [ampliado, en la implementación]
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: estructura hexagonal existente del monolito (constitución VII); la feature amplía módulos en su lugar (uso de lectura en `application/movement`, que ya es la casa de `GetMonthlyClosure`), sin crear directorios nuevos más allá de los ficheros enumerados.
 
 ## Diagramas de diseño
 
-<!--
-  ACTION REQUIRED: Render the frozen design of this feature as mermaid diagrams
-  (same conventions as docs/architecture/diagrams/). Content in Spanish (constitution VI).
-
-  1. Class diagram of the model → NOT here: it lives in data-model.md
-     (section "Diagrama de clases (diseño)").
-  2. Participating components → below: layered mermaid flowchart (adaptadores
-     inbound, aplicación/puertos, dominio, adaptadores outbound) with dependencies
-     pointing to the domain.
-  3. Sequence diagram → below: happy path of the main use case, from the actor
-     to the rendered response through use case, ports and domain VOs.
-
-  Anti-drift rule: these diagrams are the design SNAPSHOT of the feature;
-  docs/architecture/diagrams/ remains the living documentation, extended during
-  implementation reusing these diagrams as the base.
--->
-
 ### Componentes que intervienen
 
-[mermaid flowchart: participantes por capa, dependencias hacia el dominio]
+```mermaid
+flowchart BT
+    subgraph Dominio["Dominio (puro, INTACTO)"]
+        MonthlyClosure["MonthlyClosure.fromMovements\n(reutilizado mes a mes)"]
+        Money["Money"]
+    end
+
+    subgraph Aplicacion["Aplicación (puertos + casos de uso)"]
+        GetAnnual["GetAnnualAccumulatedSavings [nuevo]"]
+        Helper["netMonthBalanceCents [nuevo]\nfórmula condicional 033 compartida"]
+        MovementPort["«puerto» MovementRepository\n[ampliado] listByYearAndAccount"]
+        SavingsPort["«puerto» SavingsAllocationRepository\n[ampliado] findDeductedMonthsOfYear"]
+    end
+
+    subgraph AdaptadoresIn["Adaptadores inbound"]
+        AccountPage["accounts/[accountId]/page.tsx\n[ampliado] year + 6.ª lectura"]
+        Kpis["AccountMonthKpis (server, sticky)\n[ampliado] 5.ª celda «Ahorro acumulado»"]
+    end
+
+    subgraph AdaptadoresOut["Adaptadores outbound"]
+        DrizzleMovementRepo["DrizzleMovementRepository\n[ampliado] 1 query año+cuenta"]
+        DrizzleSavingsRepo["DrizzleSavingsAllocationRepository\n[ampliado] 1 query año + LEFT JOIN"]
+        Drizzle["Drizzle + SQLite/Turso\n(sin migraciones)"]
+    end
+
+    GetAnnual --> MovementPort
+    GetAnnual --> SavingsPort
+    GetAnnual --> MonthlyClosure
+    GetAnnual --> Helper
+    Helper --> Money
+
+    AccountPage --> GetAnnual
+    AccountPage --> Helper
+    AccountPage --> Kpis
+
+    MovementPort -. implementado por .-> DrizzleMovementRepo
+    SavingsPort -. implementado por .-> DrizzleSavingsRepo
+    DrizzleMovementRepo --> Drizzle
+    DrizzleSavingsRepo --> Drizzle
+
+    style Dominio fill:#e8f5e9
+    style Aplicacion fill:#e3f2fd
+    style AdaptadoresIn fill:#fff8e1
+    style AdaptadoresOut fill:#fce4ec
+```
 
 ### Secuencia — happy path
 
-[mermaid sequenceDiagram: actor → adaptador inbound → caso de uso → puertos → dominio → respuesta]
+Consulta de la página de cuenta personal en un mes del año (US-1, escenario 1 de la spec):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Usuario
+    participant Page as accounts/[accountId]/page.tsx
+    participant Mat as Materializadores 018/019/033
+    participant UC as GetAnnualAccumulatedSavings
+    participant MRepo as DrizzleMovementRepository
+    participant SRepo as DrizzleSavingsAllocationRepository
+    participant Dom as MonthlyClosure (dominio)
+    participant Kpis as AccountMonthKpis (sticky)
+
+    User->>Page: GET /accounts/{id}?month=2025-07
+    Page->>Page: year = month.slice(0, 4) → "2025"
+    Page->>Mat: 3 awaits secuenciales (solo del mes visitado; INTACTOS)
+    Note over Mat: guardas activatedAtMonth ≤ month ≤ currentMonth:<br/>un mes de un año pasado con configs activadas<br/>después JAMÁS materializa (determinismo)
+    Page->>UC: execute(account.id, "2025")
+    par lecturas del año (2 queries)
+        UC->>MRepo: listByYearAndAccount(accountId, "2025")
+        MRepo-->>UC: MovementDTO[] del año (solo esa cuenta)
+        UC->>SRepo: findByAccountId → config
+        UC->>SRepo: findDeductedMonthsOfYear(config.id, "2025")
+        SRepo-->>UC: {month, amountCents, backedByMovement}[]<br/>(LEFT JOIN → existencia del movimiento)
+    end
+    loop m = 2025-01 … 2025-12
+        UC->>Dom: MonthlyClosure.fromMovements(movimientos de m)
+        UC->>UC: netMonthBalanceCents(cierre.monthBalanceCents, ahorro(m) ?? cero)<br/>= monthBalance − (backedByMovement ? 0 : amountCents)
+    end
+    UC-->>Page: { accumulatedCents } — Σ con signo, céntimo exacto
+    Page->>Kpis: props (5 métricas; acumulado ya calculado)
+    Kpis-->>User: «Ahorro acumulado» + «Año 2025» — visible al cargar y durante todo el scroll (sticky)
+```
 
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+Sin violaciones: la feature es una lectura agregada que reutiliza el dominio tal cual, amplía dos puertos con métodos de lectura simétricos de los existentes y añade una celda presentacional. Sin proyectos, capas, librerías ni patrones nuevos.
