@@ -1,8 +1,10 @@
 import { ListAccounts } from "@/application/account/ListAccounts";
 import { GetCommonContribution } from "@/application/common-contribution/GetCommonContribution";
 import { GetMonthNetContribution } from "@/application/common-contribution/GetMonthNetContribution";
+import { GetAnnualAccumulatedSavings } from "@/application/movement/GetAnnualAccumulatedSavings";
 import { GetMonthlyClosure } from "@/application/movement/GetMonthlyClosure";
 import { ListMovements } from "@/application/movement/ListMovements";
+import { netMonthBalanceCents } from "@/application/movement/net-month-balance";
 import { MaterializeCommonContributions } from "@/application/common-contribution/MaterializeCommonContributions";
 import { MaterializeRegularIncomes } from "@/application/regular-income/MaterializeRegularIncomes";
 import { MaterializeSavingsAllocations } from "@/application/savings/MaterializeSavingsAllocations";
@@ -66,6 +68,7 @@ export default async function AccountPage({
 
   const parsedMonth = monthParamSchema.safeParse(firstParam(query.month));
   const month = parsedMonth.success ? parsedMonth.data : currentMonth();
+  const year = month.slice(0, 4);
 
   await new MaterializeRegularIncomes(regularIncomeRepository).ensureForAccountAndMonth(
     AccountId(account.id),
@@ -88,7 +91,7 @@ export default async function AccountPage({
     tagRepository,
   ).ensureForAccountAndMonth(AccountId(account.id), month, currentMonth());
 
-  const [movements, tagGroups, closure, netContribution, savings, commonContribution] =
+  const [movements, tagGroups, closure, netContribution, savings, commonContribution, annualAccumulated] =
     await Promise.all([
       new ListMovements(movementRepository).execute(account.id, month),
       new ListGroupedActiveTags(tagRepository, new DrizzleTagCategoryRepository(db)).execute(),
@@ -106,6 +109,12 @@ export default async function AccountPage({
         : Promise.resolve(null),
       account.type === "personal"
         ? new GetCommonContribution(commonContributionRepository).execute(AccountId(account.id))
+        : Promise.resolve(null),
+      account.type === "personal"
+        ? new GetAnnualAccumulatedSavings(movementRepository, savingsAllocationRepository).execute(
+            account.id,
+            year,
+          )
         : Promise.resolve(null),
     ]);
 
@@ -126,17 +135,17 @@ export default async function AccountPage({
       {account.type === "personal" &&
       netContribution !== null &&
       savings !== null &&
-      closure !== null ? (
+      closure !== null &&
+      annualAccumulated !== null ? (
         <AccountMonthKpis
           netContribution={netContribution}
           personalExpenseCents={
             closure.personalExpenseCents - netContribution.amountCents - savings.amountCents
           }
           savings={savings}
-          netMonthBalanceCents={
-            closure.monthBalanceCents - (savings.backedByMovement ? 0 : savings.amountCents)
-          }
+          netMonthBalanceCents={netMonthBalanceCents(closure.monthBalanceCents, savings)}
           month={month}
+          accumulatedSavingsCents={annualAccumulated.accumulatedCents}
         />
       ) : null}
 

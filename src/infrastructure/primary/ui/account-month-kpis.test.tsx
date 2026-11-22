@@ -13,6 +13,7 @@ interface RenderKpisInput {
   savings: { configured: boolean; amountCents: number; backedByMovement?: boolean };
   netMonthBalanceCents: number;
   month?: string;
+  accumulatedSavingsCents?: number;
 }
 
 function renderKpis({
@@ -21,6 +22,7 @@ function renderKpis({
   savings,
   netMonthBalanceCents,
   month = "2026-10",
+  accumulatedSavingsCents = 0,
 }: RenderKpisInput) {
   render(
     <AccountMonthKpis
@@ -29,6 +31,7 @@ function renderKpis({
       savings={{ backedByMovement: false, ...savings }}
       netMonthBalanceCents={netMonthBalanceCents}
       month={month}
+      accumulatedSavingsCents={accumulatedSavingsCents}
     />,
   );
   return screen.getByRole("region", { name: "KPIs del mes" });
@@ -46,12 +49,13 @@ function kpiOrder(region: HTMLElement) {
 }
 
 describe("AccountMonthKpis", () => {
-  it("muestra las 4 métricas en el orden congelado: Aportación común · Gasto personal · Ahorro del mes · Saldo del mes", () => {
+  it("muestra las 5 métricas en el orden congelado: Aportación común · Gasto personal · Ahorro del mes · Saldo del mes · Ahorro acumulado", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
       personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -42055,
+      accumulatedSavingsCents: -15050,
     });
 
     expect(kpiOrder(region)).toEqual([
@@ -59,6 +63,7 @@ describe("AccountMonthKpis", () => {
       "Gasto personal",
       "Ahorro del mes",
       "Saldo del mes",
+      "Ahorro acumulado",
     ]);
   });
 
@@ -201,12 +206,13 @@ describe("AccountMonthKpis", () => {
     expect(within(region).getByText("Octubre de 2026")).toBeVisible();
   });
 
-  it("región accesible con h2 y clases sticky + grid de 2 columnas en móvil y 4 desde sm", () => {
+  it("región accesible con h2 y clases sticky + grid de 2 columnas en móvil y 5 desde sm", () => {
     const region = renderKpis({
       netContribution: { configured: true, amountCents: 37945 },
       personalExpenseCents: 20055,
       savings: { configured: true, amountCents: 30000 },
       netMonthBalanceCents: -42055,
+      accumulatedSavingsCents: 15050,
     });
 
     expect(region.tagName).toBe("SECTION");
@@ -218,6 +224,77 @@ describe("AccountMonthKpis", () => {
     const dl = within(region).getByText("Aportación común").closest("dl");
     expect(dl).not.toBeNull();
     expect(dl?.className).toContain("grid-cols-2");
-    expect(dl?.className).toContain("sm:grid-cols-4");
+    expect(dl?.className).toContain("sm:grid-cols-5");
+  });
+
+  it("5.ª celda «Ahorro acumulado» con col-span-2 sm:col-span-1 (fila propia en móvil)", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: false, amountCents: 0 },
+      netMonthBalanceCents: 0,
+      accumulatedSavingsCents: 15050,
+    });
+
+    const cell = within(region).getByText("Ahorro acumulado").closest("div");
+    expect(cell?.className).toContain("col-span-2");
+    expect(cell?.className).toContain("sm:col-span-1");
+  });
+
+  it("acumulado con subtext permanente «Año {year}» derivado del mes consultado", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: true, amountCents: 0 },
+      netMonthBalanceCents: 0,
+      month: "2025-07",
+      accumulatedSavingsCents: 164950,
+    });
+
+    const cell = kpiCell(region, "Ahorro acumulado");
+    expect(cell.getByText("Año 2025")).toBeVisible();
+  });
+
+  it("año vacío: acumulado 0,00 € sin estados (el subtexto «Año» es permanente)", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: true, amountCents: 0 },
+      netMonthBalanceCents: 0,
+      accumulatedSavingsCents: 0,
+    });
+
+    const cell = kpiCell(region, "Ahorro acumulado");
+    expect(cell.getByText(new RegExp(`^0,00${EUR}`))).toBeInTheDocument();
+    expect(cell.getByText("Año 2026")).toBeVisible();
+    expect(cell.queryByText(/Sin .*/)).not.toBeInTheDocument();
+  });
+
+  it("acumulado negativo: signo U+2212 y text-red-600 (espejo de «Saldo del mes»)", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: true, amountCents: 0 },
+      netMonthBalanceCents: 0,
+      accumulatedSavingsCents: -15050,
+    });
+
+    const value = within(region).getByText(new RegExp(`^\u2212150,50${EUR}`));
+    expect(value).toBeVisible();
+    expect(value.className).toContain("text-red-600");
+  });
+
+  it("acumulado positivo: signo + sin color de alerta", () => {
+    const region = renderKpis({
+      netContribution: { configured: true, amountCents: 0 },
+      personalExpenseCents: 0,
+      savings: { configured: true, amountCents: 0 },
+      netMonthBalanceCents: 0,
+      accumulatedSavingsCents: 164950,
+    });
+
+    const value = within(region).getByText(new RegExp(`^\\+1649,50${EUR}`));
+    expect(value).toBeVisible();
+    expect(value.className).not.toContain("text-red-600");
   });
 });

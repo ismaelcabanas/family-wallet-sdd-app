@@ -9,12 +9,14 @@ export function AccountMonthKpis({
   savings,
   netMonthBalanceCents,
   month,
+  accumulatedSavingsCents,
 }: {
   netContribution: MonthNetContributionDTO;
   personalExpenseCents: number;
   savings: MonthSavingsDTO;
   netMonthBalanceCents: number;
   month: string;
+  accumulatedSavingsCents: number;
 }) {
   return (
     <section
@@ -29,7 +31,7 @@ export function AccountMonthKpis({
           <p className="text-xs text-muted-foreground">{monthLabel(month)}</p>
         </div>
 
-        <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div>
             <dt className="text-xs text-muted-foreground">Aportación común</dt>
             <dd className="text-xl font-semibold tabular-nums">
@@ -61,6 +63,15 @@ export function AccountMonthKpis({
             >
               {formatSignedCents(netMonthBalanceCents)}
             </dd>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <dt className="text-xs text-muted-foreground">Ahorro acumulado</dt>
+            <dd
+              className={`text-xl font-semibold tabular-nums ${accumulatedSavingsCents < 0 ? "text-red-600" : "text-foreground"}`}
+            >
+              {formatSignedCents(accumulatedSavingsCents)}
+            </dd>
+            <p className="text-xs text-muted-foreground">Año {month.slice(0, 4)}</p>
           </div>
         </dl>
       </div>
