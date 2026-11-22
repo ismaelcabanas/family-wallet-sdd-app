@@ -249,6 +249,7 @@ test.describe("informe anual de gastos por categorías", () => {
 
     await openAccount(page, "Cuenta de Miembro B", `${YEAR}-03`);
     await deleteMovement(page, "Aportación manual excluida");
+    await deleteMovement(page, "Gasolina B marzo");
     await deactivateIncomeAndContribution(page);
   });
 

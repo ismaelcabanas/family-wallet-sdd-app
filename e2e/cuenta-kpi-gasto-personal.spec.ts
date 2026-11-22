@@ -200,7 +200,7 @@ async function configureIncomeAndContribution(page: Page): Promise<void> {
 test.describe("KPI de gasto personal del mes en la cuenta personal (flujo crítico)", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("G1: barrido defensivo + ingreso 2.000,00 y aportación 25 % → bloque con 4 métricas y gasto 0,00", async ({
+  test("G1: barrido defensivo + ingreso 2.000,00 y aportación 25 % → bloque con 5 métricas y gasto 0,00", async ({
     page,
   }) => {
     await sweepEntryLeftovers(page);
@@ -213,7 +213,7 @@ test.describe("KPI de gasto personal del mes en la cuenta personal (flujo críti
     await registerMovement(page, { note: BASE_INCOME_NOTE, amount: "2000,00", type: "income" });
 
     await expect(kpisRegion(page)).toBeVisible();
-    await expect(kpisRegion(page).getByRole("definition")).toHaveCount(4);
+    await expect(kpisRegion(page).getByRole("definition")).toHaveCount(5);
     await expect(kpisRegion(page).getByText("Gasto personal")).toBeVisible();
     await expect(expenseCell(page).getByText(new RegExp(`^0,00${EUR}`))).toBeVisible();
     await expect(expenseCell(page).getByText(/Sin .* configurad/)).toHaveCount(0);
