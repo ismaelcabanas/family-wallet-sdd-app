@@ -61,6 +61,9 @@ class InMemoryMovementRepository implements MovementRepository {
   async listByYear(): Promise<MovementDTO[]> {
     throw new Error("No usado en este test");
   }
+  async listByYearAndAccount(): Promise<MovementDTO[]> {
+    throw new Error("No usado en este test");
+  }
   async findById(): Promise<Movement | null> {
     throw new Error("No usado en este test");
   }

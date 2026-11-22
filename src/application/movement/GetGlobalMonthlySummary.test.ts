@@ -58,6 +58,7 @@ function movementRepositoryWith(rows: MovementDTO[]) {
     listByMonthAndAccount: vi.fn(),
     listByMonth: vi.fn().mockResolvedValue(rows),
     listByYear: vi.fn(),
+    listByYearAndAccount: vi.fn(),
     findById: vi.fn().mockResolvedValue(null),
     update: vi.fn(),
     delete: vi.fn(),

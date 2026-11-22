@@ -9,7 +9,7 @@ import { SavingsPercentage } from "@/domain/savings/SavingsPercentage";
 import { SavingsAllocationId } from "@/domain/savings/SavingsAllocationId";
 
 import { GetMonthSavings } from "./GetMonthSavings";
-import type { SavingsAllocationRepository } from "./SavingsAllocationRepository";
+import type { DeductedMonthEntry, SavingsAllocationRepository } from "./SavingsAllocationRepository";
 
 class InMemorySavingsAllocationRepository implements SavingsAllocationRepository {
   constructor(
@@ -54,6 +54,10 @@ class InMemorySavingsAllocationRepository implements SavingsAllocationRepository
     month: string,
   ): Promise<Movement | null> {
     return this.deductedMovements.get(`${allocationId}:${month}`) ?? null;
+  }
+
+  async findDeductedMonthsOfYear(): Promise<readonly DeductedMonthEntry[]> {
+    return [];
   }
 
   async findDeductedMonthByMovement(): Promise<string | null> {

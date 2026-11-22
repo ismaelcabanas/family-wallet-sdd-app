@@ -20,7 +20,7 @@
 
 **Purpose**: Partir de una base verde y reproducible (proyecto existente; sin inicialización ni dependencias nuevas)
 
-- [ ] T001 Confirmar baseline en verde y prerrequisitos de BD según `specs/035-kpi-ahorro-anual/quickstart.md`: `npm run db:migrate && npm run db:seed` (idempotentes; 0009 es la última migración) y `npm run lint && npm run typecheck && npm run test` sin cambios de código
+- [x] T001 Confirmar baseline en verde y prerrequisitos de BD según `specs/035-kpi-ahorro-anual/quickstart.md`: `npm run db:migrate && npm run db:seed` (idempotentes; 0009 es la última migración) y `npm run lint && npm run typecheck && npm run test` sin cambios de código
 
 **Checkpoint**: Rama `feature/035-kpi-ahorro-anual` en verde antes de tocar código
 
@@ -32,13 +32,13 @@
 
 **⚠️ CRITICAL**: El caso de uso y la página de US1 no pueden empezar hasta que esta fase esté completa
 
-- [ ] T002 [P] Crear el helper puro `netMonthBalanceCents` (+ `NetMonthBalanceSavings`) en `src/application/movement/net-month-balance.ts`: `monthBalanceCents − (backedByMovement ? 0 : amountCents)` — única copia de la fórmula condicional 033 (data-model §1.2)
-- [ ] T003 [P] Test unitario del helper en `src/application/movement/net-month-balance.test.ts`: respaldado por movimiento → sin descuento; fila congelada legacy → descuenta `amountCents`; `MonthSavingsDTO` satisface estructuralmente `NetMonthBalanceSavings`
-- [ ] T004 [P] Añadir `AnnualAccumulatedSavingsDTO` (`{ accumulatedCents: number }`) en `src/application/movement/dto.ts` (data-model §1.1)
-- [ ] T005 Ampliar el puerto `MovementRepository.listByYearAndAccount(accountId, year)` en `src/application/movement/MovementRepository.ts` e implementarlo en `src/infrastructure/db/DrizzleMovementRepository.ts`: espejo de `listByYear` + `eq(movements.accountId)`, rango `date ∈ [${year}-01-01, ${Number(year)+1}-01-01)`, mismo `selectMonthRows` con join a tags y orden `date DESC, id DESC` (contracts §puertos) — port y adaptador en el mismo paso para mantener typecheck verde
-- [ ] T006 Test de repositorio para `listByYearAndAccount` en `src/infrastructure/db/DrizzleMovementRepository.test.ts` (libsql `:memory:` + migraciones de `drizzle/`): solo filas de la cuenta pedida, fronteras exactas del año (01-01 inclusivo, 01-01 del año siguiente exclusivo), DTO completo con tag unido y orden
-- [ ] T007 Ampliar el puerto `SavingsAllocationRepository.findDeductedMonthsOfYear(allocationId, year)` (+ `DeductedMonthEntry` `{ month, amountCents, backedByMovement }`) en `src/application/savings/SavingsAllocationRepository.ts` e implementarlo en `src/infrastructure/db/DrizzleSavingsAllocationRepository.ts`: `LEFT JOIN movements ON movement_id = movements.id`, `backedByMovement` = existencia del movimiento (fila huérfana computa como congelada, paridad `findDeductedMovement`), `month ∈ [${year}-01, ${year}-12]`, solo meses con fila (contracts §puertos)
-- [ ] T008 Test de repositorio para `findDeductedMonthsOfYear` en `src/infrastructure/db/DrizzleSavingsAllocationRepository.test.ts` (libsql `:memory:`): fila respaldada por movimiento existente (`backedByMovement: true`), fila huérfana (`movement_id` a movimiento borrado → `false`), filas de otros años/configs excluidas, config sin filas → array vacío
+- [x] T002 [P] Crear el helper puro `netMonthBalanceCents` (+ `NetMonthBalanceSavings`) en `src/application/movement/net-month-balance.ts`: `monthBalanceCents − (backedByMovement ? 0 : amountCents)` — única copia de la fórmula condicional 033 (data-model §1.2)
+- [x] T003 [P] Test unitario del helper en `src/application/movement/net-month-balance.test.ts`: respaldado por movimiento → sin descuento; fila congelada legacy → descuenta `amountCents`; `MonthSavingsDTO` satisface estructuralmente `NetMonthBalanceSavings`
+- [x] T004 [P] Añadir `AnnualAccumulatedSavingsDTO` (`{ accumulatedCents: number }`) en `src/application/movement/dto.ts` (data-model §1.1)
+- [x] T005 Ampliar el puerto `MovementRepository.listByYearAndAccount(accountId, year)` en `src/application/movement/MovementRepository.ts` e implementarlo en `src/infrastructure/db/DrizzleMovementRepository.ts`: espejo de `listByYear` + `eq(movements.accountId)`, rango `date ∈ [${year}-01-01, ${Number(year)+1}-01-01)`, mismo `selectMonthRows` con join a tags y orden `date DESC, id DESC` (contracts §puertos) — port y adaptador en el mismo paso para mantener typecheck verde
+- [x] T006 Test de repositorio para `listByYearAndAccount` en `src/infrastructure/db/DrizzleMovementRepository.test.ts` (libsql `:memory:` + migraciones de `drizzle/`): solo filas de la cuenta pedida, fronteras exactas del año (01-01 inclusivo, 01-01 del año siguiente exclusivo), DTO completo con tag unido y orden
+- [x] T007 Ampliar el puerto `SavingsAllocationRepository.findDeductedMonthsOfYear(allocationId, year)` (+ `DeductedMonthEntry` `{ month, amountCents, backedByMovement }`) en `src/application/savings/SavingsAllocationRepository.ts` e implementarlo en `src/infrastructure/db/DrizzleSavingsAllocationRepository.ts`: `LEFT JOIN movements ON movement_id = movements.id`, `backedByMovement` = existencia del movimiento (fila huérfana computa como congelada, paridad `findDeductedMovement`), `month ∈ [${year}-01, ${year}-12]`, solo meses con fila (contracts §puertos)
+- [x] T008 Test de repositorio para `findDeductedMonthsOfYear` en `src/infrastructure/db/DrizzleSavingsAllocationRepository.test.ts` (libsql `:memory:`): fila respaldada por movimiento existente (`backedByMovement: true`), fila huérfana (`movement_id` a movimiento borrado → `false`), filas de otros años/configs excluidas, config sin filas → array vacío
 
 **Checkpoint**: Fundacionales listos — helper + DTO + 2 métodos de puerto con sus adaptadores Drizzle y tests en verde; el caso de uso de US1 ya puede consumirlos
 

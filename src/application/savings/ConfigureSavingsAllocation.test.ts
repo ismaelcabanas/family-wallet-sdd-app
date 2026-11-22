@@ -19,7 +19,7 @@ import {
 } from "@/domain/savings/SavingsAllocationErrors";
 
 import { ConfigureSavingsAllocation } from "./ConfigureSavingsAllocation";
-import type { SavingsAllocationRepository } from "./SavingsAllocationRepository";
+import type { DeductedMonthEntry, SavingsAllocationRepository } from "./SavingsAllocationRepository";
 
 class InMemorySavingsAllocationRepository implements SavingsAllocationRepository {
   private readonly configsByAccountId = new Map<number, SavingsAllocation>();
@@ -58,6 +58,10 @@ class InMemorySavingsAllocationRepository implements SavingsAllocationRepository
 
   async findDeductedMovement(): Promise<null> {
     return null;
+  }
+
+  async findDeductedMonthsOfYear(): Promise<readonly DeductedMonthEntry[]> {
+    return [];
   }
 
   async findDeductedMonthByMovement(): Promise<string | null> {

@@ -237,4 +237,83 @@ describe("DrizzleSavingsAllocationRepository", () => {
     expect(await testDb.db.select().from(savingsAllocationMonths)).toHaveLength(0);
     expect(await repository.withdrawDeductionForMovement(movementId!)).toBe(false);
   });
+
+  describe("findDeductedMonthsOfYear", () => {
+    it("fila respaldada por movimiento existente → backedByMovement true; huérfana → false", async () => {
+      const repository = new DrizzleSavingsAllocationRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await repository.registerManualSavings(saved, "2026-03", buildMovement({ amount: Money.fromCents(30_000) }));
+      await testDb.db.insert(savingsAllocationMonths).values({
+        savingsAllocationId: saved.id as number,
+        month: "2026-08",
+        amountCents: 12_345,
+        movementId: 999_999,
+        createdAt: new Date().toISOString(),
+      });
+
+      const entries = await repository.findDeductedMonthsOfYear(saved.id!, "2026");
+
+      expect(entries).toHaveLength(2);
+      expect(entries).toContainEqual({
+        month: "2026-03",
+        amountCents: 30_000,
+        backedByMovement: true,
+      });
+      expect(entries).toContainEqual({
+        month: "2026-08",
+        amountCents: 12_345,
+        backedByMovement: false,
+      });
+    });
+
+    it("excluye filas de otros años y de otras configs", async () => {
+      const repository = new DrizzleSavingsAllocationRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+      await testDb.db.insert(accounts).values([
+        { id: 3, name: "Cuenta común", type: "shared", memberId: null },
+      ]);
+      const otherConfig = await repository.save(
+        buildConfig({ accountId: AccountId(3) }),
+      );
+      await testDb.db.insert(savingsAllocationMonths).values([
+        {
+          savingsAllocationId: saved.id as number,
+          month: "2026-05",
+          amountCents: 25_000,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          savingsAllocationId: saved.id as number,
+          month: "2025-12",
+          amountCents: 11_111,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          savingsAllocationId: saved.id as number,
+          month: "2027-01",
+          amountCents: 22_222,
+          createdAt: new Date().toISOString(),
+        },
+        {
+          savingsAllocationId: otherConfig.id as number,
+          month: "2026-06",
+          amountCents: 33_333,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+
+      const entries = await repository.findDeductedMonthsOfYear(saved.id!, "2026");
+
+      expect(entries).toEqual([
+        { month: "2026-05", amountCents: 25_000, backedByMovement: false },
+      ]);
+    });
+
+    it("config sin filas en el año → array vacío", async () => {
+      const repository = new DrizzleSavingsAllocationRepository(testDb.db);
+      const saved = await repository.save(buildConfig());
+
+      expect(await repository.findDeductedMonthsOfYear(saved.id!, "2026")).toEqual([]);
+    });
+  });
 });

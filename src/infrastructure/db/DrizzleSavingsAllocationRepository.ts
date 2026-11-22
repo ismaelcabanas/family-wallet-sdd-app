@@ -1,10 +1,13 @@
-import type { SavingsAllocationRepository } from "@/application/savings/SavingsAllocationRepository";
+import type {
+  DeductedMonthEntry,
+  SavingsAllocationRepository,
+} from "@/application/savings/SavingsAllocationRepository";
 import { AccountId } from "@/domain/account/AccountId";
 import type { Movement } from "@/domain/movement/Movement";
 import { MovementId } from "@/domain/movement/MovementId";
 import type { SavingsAllocation } from "@/domain/savings/SavingsAllocation";
 import type { SavingsAllocationId } from "@/domain/savings/SavingsAllocationId";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 
 import { mapMovementToRow, mapRowToMovement } from "./mappers/movement.mapper";
@@ -181,6 +184,33 @@ export class DrizzleSavingsAllocationRepository implements SavingsAllocationRepo
       .from(movements)
       .where(eq(movements.id, monthRow.movementId));
     return movementRow === undefined ? null : mapRowToMovement(movementRow);
+  }
+
+  async findDeductedMonthsOfYear(
+    allocationId: SavingsAllocationId,
+    year: string,
+  ): Promise<readonly DeductedMonthEntry[]> {
+    const rows = await this.db
+      .select({
+        month: savingsAllocationMonths.month,
+        amountCents: savingsAllocationMonths.amountCents,
+        movementId: movements.id,
+      })
+      .from(savingsAllocationMonths)
+      .leftJoin(movements, eq(movements.id, savingsAllocationMonths.movementId))
+      .where(
+        and(
+          eq(savingsAllocationMonths.savingsAllocationId, allocationId as number),
+          gte(savingsAllocationMonths.month, `${year}-01`),
+          lte(savingsAllocationMonths.month, `${year}-12`),
+        ),
+      );
+
+    return rows.map((row) => ({
+      month: row.month,
+      amountCents: row.amountCents,
+      backedByMovement: row.movementId !== null,
+    }));
   }
 
   async findDeductedMonthByMovement(movementId: MovementId): Promise<string | null> {

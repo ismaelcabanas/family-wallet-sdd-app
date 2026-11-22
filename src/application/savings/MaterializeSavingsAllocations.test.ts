@@ -15,7 +15,7 @@ import { TagCategoryId } from "@/domain/tag-category/TagCategoryId";
 import { TagId } from "@/domain/tag/TagId";
 
 import { MaterializeSavingsAllocations } from "./MaterializeSavingsAllocations";
-import type { SavingsAllocationRepository } from "./SavingsAllocationRepository";
+import type { DeductedMonthEntry, SavingsAllocationRepository } from "./SavingsAllocationRepository";
 
 const SAVINGS_TAG = Tag.rehydrate(101, "Ahorro", "ahorro", "active", TagCategoryId(1));
 
@@ -84,6 +84,10 @@ class InMemorySavingsAllocationRepository implements SavingsAllocationRepository
 
   async findDeductedMovement(): Promise<Movement | null> {
     return null;
+  }
+
+  async findDeductedMonthsOfYear(): Promise<readonly DeductedMonthEntry[]> {
+    return [];
   }
 
   async findDeductedMonthByMovement(): Promise<string | null> {

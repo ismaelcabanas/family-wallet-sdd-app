@@ -323,6 +323,58 @@ describe("DrizzleMovementRepository", () => {
     });
   });
 
+  describe("listByYearAndAccount", () => {
+    it("devuelve solo las filas de la cuenta pedida con el DTO completo (tag unido) y orden del año", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-03-15", note: "Común marzo" }));
+      await repository.create(
+        buildMovement({
+          accountId: AccountId(1),
+          date: "2026-07-10",
+          note: "Personal julio",
+          nature: "personal",
+          tagId: TagId(3),
+        }),
+      );
+
+      const result = await repository.listByYearAndAccount(AccountId(3), "2026");
+
+      expect(result.map((movement) => movement.note)).toEqual(["Común marzo"]);
+      const [movement] = result;
+      expect(movement.accountId).toBe(3);
+      expect(movement.type).toBe("expense");
+      expect(movement.date).toBe("2026-03-15");
+      expect(movement.amountCents).toBe(85_000);
+      expect(movement.nature).toBe("shared");
+      expect(movement.tag).toEqual({
+        id: 2,
+        name: "Vivienda",
+        slug: "vivienda",
+        status: "active",
+      });
+    });
+
+    it("respeta el rango exacto del año: 01-01 inclusivo, 01-01 del año siguiente exclusivo", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-01-01", note: "Primero" }));
+      await repository.create(buildMovement({ date: "2026-12-31", note: "Último" }));
+      await repository.create(buildMovement({ date: "2027-01-01", note: "Año siguiente" }));
+      await repository.create(buildMovement({ date: "2025-12-31", note: "Año anterior" }));
+
+      const result = await repository.listByYearAndAccount(AccountId(3), "2026");
+
+      expect(result.map((movement) => movement.note)).toEqual(["Último", "Primero"]);
+    });
+
+    it("devuelve [] para un año sin movimientos en la cuenta", async () => {
+      const repository = new DrizzleMovementRepository(testDb.db);
+      await repository.create(buildMovement({ date: "2026-09-15" }));
+
+      expect(await repository.listByYearAndAccount(AccountId(3), "2027")).toEqual([]);
+      expect(await repository.listByYearAndAccount(AccountId(1), "2026")).toEqual([]);
+    });
+  });
+
   describe("tag status en las lecturas (034)", () => {
     beforeEach(async () => {
       await testDb.db.insert(tags).values([
