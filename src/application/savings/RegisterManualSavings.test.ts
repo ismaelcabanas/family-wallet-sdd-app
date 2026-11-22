@@ -71,6 +71,10 @@ class StubSavingsAllocationRepository {
     return this.existingByMonth.get(month) ?? null;
   }
 
+  async findDeductedMonthsOfYear(): Promise<readonly []> {
+    return [];
+  }
+
   async findDeductedMonthByMovement(): Promise<string | null> {
     return null;
   }

@@ -4,6 +4,12 @@ import type { MovementId } from "@/domain/movement/MovementId";
 import type { SavingsAllocation } from "@/domain/savings/SavingsAllocation";
 import type { SavingsAllocationId } from "@/domain/savings/SavingsAllocationId";
 
+export interface DeductedMonthEntry {
+  month: string;
+  amountCents: number;
+  backedByMovement: boolean;
+}
+
 export interface SavingsAllocationRepository {
   findByAccountId(accountId: AccountId): Promise<SavingsAllocation | null>;
   save(config: SavingsAllocation): Promise<SavingsAllocation>;
@@ -23,6 +29,10 @@ export interface SavingsAllocationRepository {
     allocationId: SavingsAllocationId,
     month: string,
   ): Promise<Movement | null>;
+  findDeductedMonthsOfYear(
+    allocationId: SavingsAllocationId,
+    year: string,
+  ): Promise<readonly DeductedMonthEntry[]>;
   findDeductedMonthByMovement(movementId: MovementId): Promise<string | null>;
   withdrawDeductionForMovement(movementId: MovementId): Promise<boolean>;
 }

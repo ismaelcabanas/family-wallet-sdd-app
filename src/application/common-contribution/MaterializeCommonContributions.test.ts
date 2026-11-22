@@ -147,6 +147,10 @@ class InMemoryMovementRepository implements MovementRepository {
     return [];
   }
 
+  async listByYearAndAccount(): Promise<MovementDTO[]> {
+    return [];
+  }
+
   async findById(): Promise<Movement | null> {
     return null;
   }

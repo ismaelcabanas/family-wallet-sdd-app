@@ -155,3 +155,7 @@ export interface BulkRetagResultDTO {
   updatedCount: number;
   skippedCount: number;
 }
+
+export interface AnnualAccumulatedSavingsDTO {
+  accumulatedCents: number;
+}

@@ -66,6 +66,19 @@ export class DrizzleMovementRepository implements MovementRepository {
     return rows.map(mapJoinedRowToMovementDTO);
   }
 
+  async listByYearAndAccount(accountId: AccountId, year: string): Promise<MovementDTO[]> {
+    const nextYear = Number(year) + 1;
+    const rows = await this.selectMonthRows().where(
+      and(
+        eq(movements.accountId, accountId as number),
+        gte(movements.date, `${year}-01-01`),
+        lt(movements.date, `${nextYear}-01-01`),
+      ),
+    );
+
+    return rows.map(mapJoinedRowToMovementDTO);
+  }
+
   private selectMonthRows() {
     return this.db
       .select({

@@ -39,6 +39,10 @@ class InMemoryMovementRepository implements MovementRepository {
     return [];
   }
 
+  async listByYearAndAccount(): Promise<MovementDTO[]> {
+    return [];
+  }
+
   async findById(id: number) {
     return this.stored?.id === id ? this.stored : null;
   }
@@ -132,6 +136,10 @@ class StubSavingsAllocationRepository {
 
   async findDeductedMovement(): Promise<null> {
     return null;
+  }
+
+  async findDeductedMonthsOfYear(): Promise<readonly []> {
+    return [];
   }
 
   async findDeductedMonthByMovement(): Promise<string | null> {

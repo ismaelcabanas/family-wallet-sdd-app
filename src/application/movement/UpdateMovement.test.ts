@@ -51,6 +51,10 @@ class InMemoryMovementRepository implements MovementRepository {
     return [];
   }
 
+  async listByYearAndAccount(): Promise<MovementDTO[]> {
+    return [];
+  }
+
   async findById(id: number) {
     return this.stored?.id === id ? this.stored : null;
   }
@@ -132,6 +136,7 @@ describe("UpdateMovement", () => {
       },
       findDeductedAmount: async () => null,
       findDeductedMovement: async () => null,
+      findDeductedMonthsOfYear: async () => [],
       findDeductedMonthByMovement: async () => linkedMonth,
       withdrawDeductionForMovement: async () => false,
     };

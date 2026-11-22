@@ -10,6 +10,7 @@ export interface MovementRepository {
   listByMonthAndAccount(accountId: AccountId, month: string): Promise<MovementDTO[]>;
   listByMonth(month: string): Promise<MovementDTO[]>;
   listByYear(year: string): Promise<MovementDTO[]>;
+  listByYearAndAccount(accountId: AccountId, year: string): Promise<MovementDTO[]>;
   findById(id: MovementId): Promise<Movement | null>;
   update(movement: Movement): Promise<void>;
   delete(id: MovementId): Promise<void>;
