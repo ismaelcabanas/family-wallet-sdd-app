@@ -72,7 +72,7 @@
 
 **Purpose**: Documentación (FR-009, research R9) y verificación final end-to-end
 
-- [ ] T015 [P] Actualizar documentación (FR-009): amend del bloque «Bloque KPIs sticky» de `AGENTS.md` (4 → 5 métricas, helper compartido `netMonthBalanceCents`, 6.ª lectura `GetAnnualAccumulatedSavings`), fila `035-kpi-ahorro-anual` → «Completada» en `specs/001-family-wallet/spec.md`, y `docs/architecture/overview.md` + `docs/architecture/diagrams/pagina-cuenta-sequence.md` (5.ª celda, nuevo caso de uso y métodos de puerto). Sin ADR nuevo (research R9)
+- [x] T015 [P] Actualizar documentación (FR-009): amend del bloque «Bloque KPIs sticky» de `AGENTS.md` (4 → 5 métricas, helper compartido `netMonthBalanceCents`, 6.ª lectura `GetAnnualAccumulatedSavings`), fila `035-kpi-ahorro-anual` → «Completada» en `specs/001-family-wallet/spec.md`, y `docs/architecture/overview.md` + `docs/architecture/diagrams/pagina-cuenta-sequence.md` (5.ª celda, nuevo caso de uso y métodos de puerto). Sin ADR nuevo (research R9)
 - [ ] T016 Ejecutar la validación manual Q1–Q8 de `specs/035-kpi-ahorro-anual/quickstart.md` (año vacío, suma con signo, coherencia por mes, cambio de año, visibilidad continua, ciclo de actualización, lectura pura, fuera de alcance + limpieza) y los gates completos: `npm run lint && npm run typecheck && npm run test && npm run test:e2e` (SC-005)
 
 ---
